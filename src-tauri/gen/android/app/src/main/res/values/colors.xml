@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Keep in sync with --bg / --accent in src/styles/theme.css -->
+    <!-- Keep in sync with the bg and accent tokens in src/styles/theme.css -->
     <color name="app_background">#FFFFFFFF</color>
     <color name="app_accent">#FF1F883D</color>
     <color name="black">#FF000000</color>
