@@ -95,8 +95,11 @@ Checks (all run in CI):
 ```sh
 npm run typecheck   # TypeScript
 npm test            # unit tests + every GraphQL query validated against GitHub's schema
+npm run e2e         # Playwright: navigation, back button, review and merge flows on fixtures
 cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
+
+`npm run e2e` downloads Chromium on first use (`npx playwright install chromium`). To use a Chromium you already have, set `PW_CHROMIUM=/path/to/chrome`.
 
 ### Project layout
 
@@ -108,6 +111,7 @@ src/                  React app
   lib/diff.ts         patch parsing and word-level diffs
   screens/            one file per screen; pull/ holds the PR review screens
   dev/mock.ts         fixtures for VITE_MOCK=1
+e2e/                  Playwright tests against the fixtures
 src-tauri/            Rust side
   src/auth.rs         OAuth device flow
   src/github.rs       authenticated REST/GraphQL proxy, locked to api.github.com

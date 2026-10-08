@@ -50,3 +50,24 @@ jobs:
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test
+
+  e2e:
+    name: End-to-end (fixture backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/

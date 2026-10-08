@@ -45,6 +45,7 @@ export function LoginScreen() {
   const pollTimer = useRef<number | null>(null);
   const polling = useRef(false);
   const interval = useRef(5);
+  const lastPoll = useRef(0);
 
   const stopPolling = () => {
     if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
@@ -61,6 +62,7 @@ export function LoginScreen() {
       return;
     }
     polling.current = true;
+    lastPoll.current = Date.now();
     try {
       const result = await backend.authDevicePoll(code.deviceCode);
       switch (result.status) {
@@ -104,11 +106,14 @@ export function LoginScreen() {
     pollTimer.current = window.setTimeout(() => void poll(code, expiresAt), interval.current * 1000);
   };
 
-  // Poll right away when the user switches back from the browser.
+  // Poll right away when the user switches back from the browser, unless
+  // that would be sooner than GitHub's polling interval allows.
   useEffect(() => {
     if (device.step !== "waiting") return;
     const onVisible = () => {
-      if (document.visibilityState === "visible") void poll(device.code, device.expiresAt);
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastPoll.current < interval.current * 1000) return;
+      void poll(device.code, device.expiresAt);
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);

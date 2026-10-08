@@ -60,7 +60,26 @@ export async function restAll<T>(path: string, options: RestOptions = {}, limit 
 
 export async function graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const envelope = await guard(backend.graphql<T>(query, variables));
-  return envelope.data;
+  return dropNullNodes(envelope.data) as T;
+}
+
+/**
+ * GitHub puts `null` into connection `nodes` for items the viewer can't see
+ * (e.g. from SAML-protected organizations) and reports them as partial
+ * errors. Drop those entries so lists can assume every node is real.
+ */
+export function dropNullNodes(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    value.forEach(dropNullNodes);
+  } else if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      const child = record[key];
+      if (key === "nodes" && Array.isArray(child)) record[key] = child.filter((node) => node !== null && node !== undefined);
+      dropNullNodes(record[key]);
+    }
+  }
+  return value;
 }
 
 /** Parses an RFC 8288 `Link` header into `{ next, prev, last, first }`. */

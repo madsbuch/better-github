@@ -117,6 +117,12 @@ class Navigator {
   /** Swaps the current screen's path without adding history (e.g. tab changes). */
   replace = (path: string, remount = false) => {
     this.whenSettled(() => {
+      // An open sheet owns the current history entry; rewriting it would be
+      // undone when the sheet's entry is popped. Close sheets first.
+      if (this.dropOverlays()) {
+        this.queue.push(() => this.replace(path, remount));
+        return;
+      }
       const top = this.top;
       const key = remount ? this.nextKey++ : top.key;
       history.replaceState(this.entryState(this.stack.length - 1, key, path, this.overlays.length), "", `#${path}`);
@@ -164,8 +170,10 @@ class Navigator {
   closeOverlay = (id: number) => {
     const index = this.overlays.findIndex((o) => o.id === id);
     if (index === -1) return;
+    const above = this.overlays.slice(index + 1);
     const removed = this.overlays.length - index;
     this.overlays = this.overlays.slice(0, index);
+    above.forEach((o) => o.close());
     this.expectedPops++;
     history.go(-removed);
   };
