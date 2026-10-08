@@ -1,0 +1,235 @@
+import {
+  FileDirectoryFillIcon,
+  FileIcon,
+  FileSubmoduleIcon,
+  FileSymlinkFileIcon,
+  GitBranchIcon,
+  SearchIcon,
+  TriangleDownIcon,
+} from "@primer/octicons-react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { encodePath, rest, restAll, restPage } from "../lib/api";
+import { backend } from "../lib/backend";
+import { nav, Link } from "../lib/router";
+import { paths } from "../lib/routes";
+import type { RestBranch, RestCommitListItem, RestContentItem } from "../lib/types";
+import { Sheet } from "./Sheet";
+import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Spinner, Time } from "./ui";
+
+export function repoKey(owner: string, repo: string) {
+  return ["r", `${owner}/${repo}`.toLowerCase()];
+}
+
+// ---------------------------------------------------------------- branches
+
+export function BranchBar({ owner, repo, gitRef, onChange }: { owner: string; repo: string; gitRef: string; onChange: (ref: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-muted)" }}>
+      <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ maxWidth: "100%" }}>
+        <GitBranchIcon size={14} />
+        <span className="ellipsis mono">{gitRef}</span>
+        <TriangleDownIcon size={14} />
+      </button>
+      <BranchSheet open={open} onClose={() => setOpen(false)} owner={owner} repo={repo} current={gitRef} onSelect={onChange} />
+    </div>
+  );
+}
+
+function BranchSheet({
+  open,
+  onClose,
+  owner,
+  repo,
+  current,
+  onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  owner: string;
+  repo: string;
+  current: string;
+  onSelect: (ref: string) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const branches = useQuery({
+    queryKey: [...repoKey(owner, repo), "branches"],
+    queryFn: () => restAll<RestBranch>(`/repos/${owner}/${repo}/branches`, { query: { per_page: 100 } }, 500),
+    enabled: open,
+  });
+  const needle = filter.trim().toLowerCase();
+  const visible = (branches.data ?? []).filter((b) => b.name.toLowerCase().includes(needle));
+  return (
+    <Sheet open={open} onClose={onClose} title="Switch branch" full>
+      <div className="search-bar" style={{ margin: "0 0 8px" }}>
+        <SearchIcon size={16} />
+        <input
+          type="search"
+          placeholder="Find a branch"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          autoCapitalize="off"
+          autoCorrect="off"
+        />
+      </div>
+      {branches.isPending ? (
+        <div className="center">
+          <Spinner />
+        </div>
+      ) : branches.isError ? (
+        <ErrorView error={branches.error} onRetry={() => void branches.refetch()} />
+      ) : (
+        visible.map((branch) => (
+          <button
+            key={branch.name}
+            className="menu-item"
+            style={{ paddingLeft: 4 }}
+            onClick={() => {
+              onClose();
+              onSelect(branch.name);
+            }}
+          >
+            <GitBranchIcon size={16} />
+            <span className={`grow ellipsis mono${branch.name === current ? " bold" : ""}`}>{branch.name}</span>
+            {branch.name === current && <span className="pill pill-accent">current</span>}
+          </button>
+        ))
+      )}
+    </Sheet>
+  );
+}
+
+// -------------------------------------------------------------------- tree
+
+function iconFor(type: string) {
+  switch (type) {
+    case "dir":
+      return <FileDirectoryFillIcon size={16} className="c-accent" />;
+    case "submodule":
+      return <FileSubmoduleIcon size={16} className="c-muted" />;
+    case "symlink":
+      return <FileSymlinkFileIcon size={16} className="c-muted" />;
+    default:
+      return <FileIcon size={16} className="c-muted" />;
+  }
+}
+
+export function TreeView({ owner, repo, gitRef, path }: { owner: string; repo: string; gitRef: string; path: string }) {
+  const contents = useQuery({
+    queryKey: [...repoKey(owner, repo), "contents", gitRef, path],
+    queryFn: () =>
+      rest<RestContentItem[] | RestContentItem>(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
+        query: { ref: gitRef },
+      }),
+  });
+
+  if (contents.isPending) return <SkeletonList rows={10} />;
+  if (contents.isError) return <ErrorView error={contents.error} onRetry={() => void contents.refetch()} />;
+  if (!Array.isArray(contents.data)) {
+    return (
+      <div className="center">
+        <Link to={paths.blob(owner, repo, gitRef, path)} className="btn">
+          Open file
+        </Link>
+      </div>
+    );
+  }
+  if (contents.data.length === 0) return <EmptyState title="Empty directory" />;
+
+  const items = [...contents.data].sort((a, b) => {
+    const rank = (t: string) => (t === "dir" ? 0 : t === "submodule" ? 1 : 2);
+    return rank(a.type) - rank(b.type) || a.name.localeCompare(b.name);
+  });
+
+  return (
+    <div>
+      {items.map((item) => (
+        <button
+          key={item.path}
+          className="row"
+          style={{ alignItems: "center", paddingTop: 11, paddingBottom: 11 }}
+          onClick={() => {
+            if (item.type === "dir") nav.navigate(paths.tree(owner, repo, gitRef, item.path));
+            else if (item.type === "submodule") {
+              if (item.html_url) void backend.openUrl(item.html_url);
+            } else nav.navigate(paths.blob(owner, repo, gitRef, item.path));
+          }}
+        >
+          {iconFor(item.type)}
+          <span className="grow ellipsis">{item.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Breadcrumbs({ owner, repo, gitRef, path }: { owner: string; repo: string; gitRef: string; path: string }) {
+  const parts = path.split("/").filter(Boolean);
+  return (
+    <nav className="breadcrumbs" aria-label="Path">
+      <Link to={paths.tree(owner, repo, gitRef)}>{repo}</Link>
+      {parts.map((part, i) => {
+        const sub = parts.slice(0, i + 1).join("/");
+        const last = i === parts.length - 1;
+        return (
+          <span key={sub} className="row-flex" style={{ gap: 4 }}>
+            <span className="sep">/</span>
+            {last ? (
+              <span className="bold">{part}</span>
+            ) : (
+              <Link to={paths.tree(owner, repo, gitRef, sub)}>{part}</Link>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ----------------------------------------------------------------- commits
+
+export function CommitList({ owner, repo, gitRef }: { owner: string; repo: string; gitRef: string }) {
+  const list = useInfiniteQuery({
+    queryKey: [...repoKey(owner, repo), "commits", gitRef],
+    queryFn: ({ pageParam }) =>
+      pageParam
+        ? restPage<RestCommitListItem>(pageParam)
+        : restPage<RestCommitListItem>(`/repos/${owner}/${repo}/commits`, { query: { sha: gitRef, per_page: 30 } }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next ?? undefined,
+  });
+
+  if (list.isPending) return <SkeletonList />;
+  if (list.isError) return <ErrorView error={list.error} onRetry={() => void list.refetch()} />;
+  const commits = list.data.pages.flatMap((p) => p.items);
+  if (commits.length === 0) return <EmptyState title="No commits" />;
+
+  return (
+    <>
+      {commits.map((c) => {
+        const [headline] = c.commit.message.split("\n");
+        return (
+          <Link key={c.sha} to={paths.commit(owner, repo, c.sha)} className="row">
+            <span className="row-icon" style={{ paddingTop: 0 }}>
+              <Avatar src={c.author?.avatar_url} size={28} />
+            </span>
+            <span className="row-body">
+              <span className="row-title" style={{ display: "block", fontWeight: 500 }}>
+                {headline}
+              </span>
+              <span className="row-meta">
+                <span className="ellipsis">{c.author?.login ?? c.commit.author?.name}</span>
+                <span>·</span>
+                <Time iso={c.commit.author?.date ?? c.commit.committer?.date} />
+                <span className="grow" />
+                <span className="mono">{c.sha.slice(0, 7)}</span>
+              </span>
+            </span>
+          </Link>
+        );
+      })}
+      <LoadMore hasMore={list.hasNextPage} loading={list.isFetchingNextPage} onLoadMore={() => void list.fetchNextPage()} />
+    </>
+  );
+}

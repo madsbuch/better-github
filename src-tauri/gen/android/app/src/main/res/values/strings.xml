@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">"GitHub Commander"</string>
+    <string name="main_activity_title">"GitHub Commander"</string>
+</resources>

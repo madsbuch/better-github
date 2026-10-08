@@ -1,0 +1,317 @@
+/* Rendered GitHub markdown (bodyHTML / README HTML). */
+
+.markdown {
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0 !important;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.markdown p,
+.markdown blockquote,
+.markdown ul,
+.markdown ol,
+.markdown dl,
+.markdown table,
+.markdown pre,
+.markdown details {
+  margin: 0 0 12px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 20px 0 10px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown h1 {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 1.6em;
+}
+
+.markdown h2 {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 1.35em;
+}
+
+.markdown h3 {
+  font-size: 1.15em;
+}
+
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-size: 1em;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.6em;
+}
+
+.markdown li + li {
+  margin-top: 3px;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+  margin-bottom: 0;
+}
+
+.markdown ul.contains-task-list {
+  padding-left: 0.6em;
+}
+
+.markdown .task-list-item {
+  list-style: none;
+}
+
+.markdown .task-list-item input {
+  margin: 0 6px 0 -1.2em;
+  vertical-align: middle;
+}
+
+.markdown blockquote {
+  padding: 0 12px;
+  border-left: 3px solid var(--border);
+  color: var(--fg-muted);
+}
+
+.markdown code,
+.markdown tt {
+  padding: 0.15em 0.35em;
+  border-radius: 6px;
+  background: var(--bg-inset);
+  font-family: var(--mono);
+  font-size: 85%;
+}
+
+.markdown pre {
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: transparent;
+  font-size: inherit;
+  white-space: pre;
+}
+
+.markdown .highlight {
+  margin-bottom: 12px;
+}
+
+.markdown .highlight pre {
+  margin: 0;
+}
+
+.markdown table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  border-collapse: collapse;
+  overflow: auto;
+  font-size: 14px;
+}
+
+.markdown th,
+.markdown td {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+}
+
+.markdown th {
+  font-weight: 600;
+  background: var(--bg-subtle);
+}
+
+.markdown img,
+.markdown video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.markdown a img {
+  vertical-align: middle;
+}
+
+.markdown hr {
+  height: 2px;
+  margin: 20px 0;
+  border: 0;
+  background: var(--border-muted);
+}
+
+.markdown details > summary {
+  cursor: pointer;
+}
+
+.markdown .user-mention,
+.markdown .team-mention {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.markdown .email-hidden-toggle,
+.markdown .anchor,
+.markdown .octicon-link {
+  display: none;
+}
+
+.markdown kbd {
+  display: inline-block;
+  padding: 2px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.markdown .markdown-alert {
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.markdown .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.markdown .markdown-alert-warning {
+  border-left-color: var(--attention);
+}
+
+.markdown .markdown-alert-caution {
+  border-left-color: var(--danger);
+}
+
+.markdown .markdown-alert-tip {
+  border-left-color: var(--success);
+}
+
+.markdown .markdown-alert-important {
+  border-left-color: var(--done);
+}
+
+/* Suggested changes inside review comments. */
+.markdown .blob-code-deletion,
+.markdown .blob-num-deletion {
+  background: var(--diff-del-bg);
+}
+
+.markdown .blob-code-addition,
+.markdown .blob-num-addition {
+  background: var(--diff-add-bg);
+}
+
+.markdown .blob-code-inner {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.markdown .js-suggested-changes-blob table {
+  width: 100%;
+  font-size: 12.5px;
+}
+
+.markdown .js-suggested-changes-blob td {
+  border: 0;
+  padding: 0 8px;
+}
+
+/* GitHub "prettylights" syntax classes used in rendered code blocks. */
+.markdown .pl-c {
+  color: var(--fg-muted);
+}
+.markdown .pl-c1,
+.markdown .pl-s .pl-v {
+  color: #0550ae;
+}
+.markdown .pl-e,
+.markdown .pl-en {
+  color: #6639ba;
+}
+.markdown .pl-smi,
+.markdown .pl-s .pl-s1 {
+  color: var(--fg);
+}
+.markdown .pl-ent {
+  color: #0550ae;
+}
+.markdown .pl-k {
+  color: #cf222e;
+}
+.markdown .pl-s,
+.markdown .pl-pds,
+.markdown .pl-sr {
+  color: #0a3069;
+}
+.markdown .pl-v,
+.markdown .pl-smw {
+  color: #953800;
+}
+.markdown .pl-mi1 {
+  color: #116329;
+}
+.markdown .pl-md {
+  color: #82071e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .markdown .pl-c1,
+  .markdown .pl-s .pl-v,
+  .markdown .pl-ent {
+    color: #79c0ff;
+  }
+  .markdown .pl-e,
+  .markdown .pl-en {
+    color: #d2a8ff;
+  }
+  .markdown .pl-k {
+    color: #ff7b72;
+  }
+  .markdown .pl-s,
+  .markdown .pl-pds,
+  .markdown .pl-sr {
+    color: #a5d6ff;
+  }
+  .markdown .pl-v,
+  .markdown .pl-smw {
+    color: #ffa657;
+  }
+  .markdown .pl-mi1 {
+    color: #7ee787;
+  }
+  .markdown .pl-md {
+    color: #ffa198;
+  }
+}

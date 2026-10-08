@@ -1,0 +1,36 @@
+[package]
+name = "gh-commander"
+version = "0.1.0"
+description = "GitHub Commander - a fast, review-focused GitHub client"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the binary on Windows.
+name = "gh_commander_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# rustls + bundled webpki roots: no OpenSSL to cross-compile and no reliance
+# on the platform trust store, which rustls cannot read on Android.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2", "charset"] }
+thiserror = "2"
+url = "2"
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

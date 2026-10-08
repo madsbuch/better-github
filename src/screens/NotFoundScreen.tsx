@@ -1,0 +1,16 @@
+import { Screen } from "../components/Screen";
+import { EmptyState } from "../components/ui";
+import { nav } from "../lib/router";
+
+export function NotFoundScreen() {
+  return (
+    <Screen title="Not found">
+      <EmptyState title="Nothing here">This link isn't something the app can open.</EmptyState>
+      <div className="center" style={{ paddingTop: 0 }}>
+        <button className="btn" onClick={nav.back}>
+          Go back
+        </button>
+      </div>
+    </Screen>
+  );
+}
