@@ -14,7 +14,7 @@ use tauri::{Manager, Runtime, State};
 
 use crate::auth::DeviceCode;
 use crate::error::{Error, Result};
-use crate::github::{RestRequest, RestResponse};
+use crate::github::{JobLog, RestRequest, RestResponse};
 use crate::store::{AuthMethod, Config, SessionInfo, Store, StoredSession};
 
 struct AppState {
@@ -204,6 +204,17 @@ async fn gh_graphql(
     github::graphql(&state.http, &token, &query, variables).await
 }
 
+#[tauri::command]
+async fn gh_job_logs(
+    state: State<'_, AppState>,
+    owner: String,
+    repo: String,
+    job_id: u64,
+) -> Result<JobLog> {
+    let token = state.token()?;
+    github::job_logs(&state.http, &token, &owner, &repo, job_id).await
+}
+
 /// Registers the app's commands; shared with the IPC tests.
 fn with_commands<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
@@ -216,6 +227,7 @@ fn with_commands<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         auth_logout,
         gh_rest,
         gh_graphql,
+        gh_job_logs,
     ])
 }
 

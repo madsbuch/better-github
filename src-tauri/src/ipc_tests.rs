@@ -144,6 +144,23 @@ fn api_calls_cannot_leave_api_github_com() {
 }
 
 #[test]
+fn job_logs_take_the_frontends_arguments_and_check_names() {
+    let h = harness("job-logs");
+    let args = json!({ "owner": "octo", "repo": "app", "jobId": 113780620967_u64 });
+    let err = h.invoke("gh_job_logs", args).unwrap_err();
+    assert_eq!(err["kind"], "not_authenticated");
+
+    h.sign_in_offline();
+    let err = h
+        .invoke(
+            "gh_job_logs",
+            json!({ "owner": "..", "repo": "app", "jobId": 1 }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "invalid");
+}
+
+#[test]
 fn token_sign_in_validates_input_before_any_request() {
     let h = harness("token-input");
     let err = h

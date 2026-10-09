@@ -250,6 +250,106 @@ pub async fn graphql(
     Ok(envelope)
 }
 
+/// Hosts GitHub redirects job log downloads to (short-lived signed URLs).
+const LOG_HOST_SUFFIXES: &[&str] = &[".actions.githubusercontent.com", ".blob.core.windows.net"];
+/// Longer logs keep their end, which is where failures are.
+const MAX_LOG_BYTES: usize = 8 * 1024 * 1024;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JobLog {
+    pub text: String,
+    /// The start was cut off to stay under `MAX_LOG_BYTES`.
+    pub truncated: bool,
+}
+
+/// An owner or repository name, safe to use as a single path segment.
+fn name_segment(value: &str) -> Result<&str> {
+    let valid = !value.is_empty()
+        && value != "."
+        && value != ".."
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if valid {
+        Ok(value)
+    } else {
+        Err(Error::Invalid(format!("Invalid name: {value}")))
+    }
+}
+
+fn is_log_location(url: &Url) -> bool {
+    url.scheme() == "https"
+        && url.port().is_none()
+        && url.host_str().is_some_and(|host| {
+            host == API_HOST
+                || LOG_HOST_SUFFIXES
+                    .iter()
+                    .any(|suffix| host.ends_with(suffix))
+        })
+}
+
+/// Keeps the last `max` bytes, starting at a full line when it has to cut.
+fn tail_text(mut bytes: Vec<u8>, max: usize, mut truncated: bool) -> JobLog {
+    if bytes.len() > max {
+        bytes.drain(..bytes.len() - max);
+        truncated = true;
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    let text = if truncated {
+        text.split_once('\n').map_or("", |(_, rest)| rest)
+    } else {
+        &text
+    };
+    JobLog {
+        text: text.to_owned(),
+        truncated,
+    }
+}
+
+/// Downloads a workflow job's log. GitHub answers with a redirect to log
+/// storage; reqwest follows it and drops the token for the other host. Logs
+/// exist only once the job has finished (GitHub returns 404 before that).
+pub async fn job_logs(
+    client: &Client,
+    token: &str,
+    owner: &str,
+    repo: &str,
+    job_id: u64,
+) -> Result<JobLog> {
+    let path = format!(
+        "/repos/{}/{}/actions/jobs/{job_id}/logs",
+        name_segment(owner)?,
+        name_segment(repo)?
+    );
+    let mut response = client
+        .get(resolve_url(&path, None)?)
+        .header(AUTHORIZATION, format!("Bearer {token}"))
+        .header(ACCEPT, DEFAULT_ACCEPT)
+        .send()
+        .await?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(api_error(status, response).await);
+    }
+    if !is_log_location(response.url()) {
+        return Err(Error::Invalid(
+            "GitHub sent the log to an unexpected host".into(),
+        ));
+    }
+    let mut bytes = Vec::new();
+    let mut truncated = false;
+    while let Some(chunk) = response.chunk().await? {
+        bytes.extend_from_slice(&chunk);
+        // Trim as we go so a huge log never sits in memory whole.
+        if bytes.len() > 2 * MAX_LOG_BYTES {
+            bytes.drain(..bytes.len() - MAX_LOG_BYTES);
+            truncated = true;
+        }
+    }
+    Ok(tail_text(bytes, MAX_LOG_BYTES, truncated))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct User {
     pub login: String,
@@ -333,6 +433,47 @@ mod tests {
         // "@" inside a path is just a path character, host must stay api.github.com.
         let url = resolve_url("/@evil.example.com/user", None).unwrap();
         assert_eq!(url.host_str(), Some("api.github.com"));
+    }
+
+    #[test]
+    fn name_segments_stay_single_segments() {
+        for good in ["octo-org", "my_repo.js", "a", ".github"] {
+            assert_eq!(name_segment(good).unwrap(), good);
+        }
+        for bad in ["", ".", "..", "a/b", "a?b", "a#b", "a%2Fb", "a b", "../x"] {
+            assert!(name_segment(bad).is_err(), "{bad:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn logs_only_come_from_github_storage() {
+        for good in [
+            "https://api.github.com/repos/o/r/actions/jobs/1/logs",
+            "https://productionresultssa0.blob.core.windows.net/actions-results/x?sig=1",
+            "https://pipelines.actions.githubusercontent.com/serviceHosts/x/logs/1",
+        ] {
+            assert!(is_log_location(&Url::parse(good).unwrap()), "{good}");
+        }
+        for bad in [
+            "https://evil.example.com/log",
+            "https://blob.core.windows.net.evil.example.com/log",
+            "http://productionresultssa0.blob.core.windows.net/log",
+            "https://productionresultssa0.blob.core.windows.net:8443/log",
+            "https://actions.githubusercontent.com.evil.example.com/log",
+        ] {
+            assert!(!is_log_location(&Url::parse(bad).unwrap()), "{bad}");
+        }
+    }
+
+    #[test]
+    fn long_logs_keep_their_end_from_a_full_line() {
+        let log = tail_text(b"first\nsecond\nthird\n".to_vec(), 9, false);
+        assert!(log.truncated);
+        assert_eq!(log.text, "third\n");
+
+        let whole = tail_text(b"first\nsecond\n".to_vec(), 100, false);
+        assert!(!whole.truncated);
+        assert_eq!(whole.text, "first\nsecond\n");
     }
 
     #[test]
