@@ -118,4 +118,5 @@ src-tauri/            Rust side
   src/store.rs        session/config persistence
   gen/android/        generated Android project (edge-to-edge insets, signing config)
 app-icon/             icon sources; regenerate with `npx tauri icon app-icon/app-icon.json`
+.claude/skills/       procedures: release, android-signing, verify-changes
 ```
