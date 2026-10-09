@@ -33,5 +33,7 @@ class MainActivity : TauriActivity() {
     // Let the themed window background show until the page paints, avoiding a
     // white flash on startup in dark mode.
     webView.setBackgroundColor(Color.TRANSPARENT)
+    // Runs before the first page load, so the page always sees the interface.
+    webView.addJavascriptInterface(BrowserTabs(this), "GhCommanderAndroid")
   }
 }

@@ -129,6 +129,10 @@ const tauriBackend: Backend = {
   rest: (request) => call("gh_rest", { request }),
   graphql: (query, variables) => call("gh_graphql", { query, variables: variables ?? {} }),
   async openUrl(url) {
+    // Android: a browser tab pinned to a browser. The plugin's tab below can be
+    // handed to another app that claims the link, e.g. GitHub's own app for
+    // github.com, which would take sign-in out of this app.
+    if (url.startsWith("https://") && window.GhCommanderAndroid?.openBrowserTab(url)) return;
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     // On Android this opens a Custom Tab, so users stay in the app's context.
     // Desktop builds ignore the hint and use the default browser.

@@ -73,3 +73,9 @@ go down: Android refuses to install a lower `versionCode` over a higher one.
   install the release.
 - **The download link 404s for a few seconds**: `gh release upload --clobber`
   replaces the asset in place. Retry after the run finishes.
+- **The link opens GitHub's own app instead of downloading** (its tabs are Home,
+  Inbox, Explore, Copilot; ours are Pull requests, Inbox, Repos, You): Android
+  sends github.com links to GitHub's app when it's installed. Paste the link into
+  the browser's address bar instead. Inside our app, `BrowserTabs.kt` (in
+  `src-tauri/gen/android/app/src/main/java/...`) pins browser tabs to a browser
+  for the same reason, so sign-in stays in the app.
