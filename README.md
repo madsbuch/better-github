@@ -51,22 +51,38 @@ Then do one of the following:
 
 ## Installing on a phone
 
-Every push builds an APK in GitHub Actions. Open the **Android** workflow run, download the `gh-commander-apk` artifact, and install the APK on your phone (you need to allow installs from unknown sources).
+Open this link on your phone and install the APK (Android asks you to allow installs from your browser the first time):
 
-Pushing a tag like `v0.1.0` also attaches the APK to a GitHub release.
+**<https://github.com/madsbuch/gh-commander/releases/download/latest/gh-commander.apk>**
 
-Without signing secrets, CI signs the APK with a throwaway debug key, so each build has a different signature: uninstall the old build before installing a new one. For stable, updatable builds, add these repository secrets:
+Every push to `main` rebuilds the APK and replaces it in the [`latest` release](https://github.com/madsbuch/gh-commander/releases/tag/latest), so the link always serves the newest build. Each build gets a higher Android `versionCode`, so a newer APK installs as an update and keeps your sign-in. Builds of other branches and pull requests are attached to their **Android** workflow run as the `gh-commander-apk` artifact.
+
+### Signing
+
+CI signs release builds with the keystore in these repository secrets (the same setup as [tally-tauri](https://github.com/madsbuch/tally-tauri)):
 
 | Secret | Value |
 | --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 release.jks` |
-| `ANDROID_KEYSTORE_PASSWORD` | the store and key password |
+| `ANDROID_KEYSTORE` | the keystore file, base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password, also used as the key password |
 | `ANDROID_KEY_ALIAS` | the key alias |
 
-Create a keystore with:
+With the GitHub CLI:
 
 ```sh
-keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias gh-commander
+base64 < upload.jks | gh secret set ANDROID_KEYSTORE -R madsbuch/gh-commander
+gh secret set ANDROID_KEYSTORE_PASSWORD -R madsbuch/gh-commander   # prompts for the value
+gh secret set ANDROID_KEY_ALIAS -R madsbuch/gh-commander --body upload
+```
+
+Keep the keystore: Android only accepts updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
+
+Create a keystore with `keytool -genkey -v -keystore upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`. For local release builds, put the same values in `src-tauri/gen/android/keystore.properties` (git-ignored):
+
+```properties
+keyAlias=upload
+password=<keystore password>
+storeFile=/absolute/path/to/upload.jks
 ```
 
 ## Development

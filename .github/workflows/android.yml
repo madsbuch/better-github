@@ -1,9 +1,12 @@
 name: Android
 
+# Every push builds an APK (downloadable as a workflow artifact). Pushes to
+# main also publish it to a single, continuously updated "latest" release:
+# https://github.com/madsbuch/gh-commander/releases/download/latest/gh-commander.apk
+
 on:
   push:
     branches: ["**"]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -16,7 +19,7 @@ jobs:
     name: Build APK
     runs-on: ubuntu-latest
     permissions:
-      contents: write # attach the APK to releases on tags
+      contents: write # move the `latest` tag and update its release
     steps:
       - uses: actions/checkout@v5
 
@@ -44,46 +47,67 @@ jobs:
 
       - run: npm ci
 
-      - name: Configure release signing
+      - name: Write signing config
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::notice::No signing secrets configured; the APK is signed with a throwaway debug key."
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::ANDROID_KEYSTORE is not set. The APK is signed with a throwaway debug key and can't update a previously installed build."
             exit 0
           fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           {
-            echo "storeFile=$RUNNER_TEMP/release.jks"
-            echo "password=$KEYSTORE_PASSWORD"
             echo "keyAlias=$KEY_ALIAS"
+            echo "password=$KEYSTORE_PASSWORD"
+            echo "storeFile=$RUNNER_TEMP/upload.jks"
           } > src-tauri/gen/android/keystore.properties
 
       - name: Build APK
         env:
           # Public OAuth app client id for "Sign in with GitHub" (a repository variable, not a secret).
           GH_COMMANDER_CLIENT_ID: ${{ vars.GH_COMMANDER_CLIENT_ID }}
-        run: npm run tauri android build -- --apk --target aarch64 --target armv7
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          # Give every build a higher versionCode than the one before, so each new
+          # APK installs as an update: the semver-derived code plus the run number.
+          code=$(node -p "const [a, b, c] = require('./src-tauri/tauri.conf.json').version.split('.').map(Number); a * 1e6 + b * 1e3 + c + Number(process.env.RUN_NUMBER)")
+          echo "VERSION_CODE=$code" >> "$GITHUB_ENV"
+          npm run tauri android build -- --apk --target aarch64 --target armv7 \
+            --config "{\"bundle\":{\"android\":{\"versionCode\":$code}}}"
 
       - name: Collect APK
         run: |
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -n 1)
+          if [ -z "$apk" ]; then echo "::error::No APK was produced"; exit 1; fi
           mkdir -p out
-          find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -exec cp {} out/ \;
+          cp "$apk" out/gh-commander.apk
           ls -la out
-          version=$(node -p "require('./package.json').version")
-          for f in out/*.apk; do mv "$f" "out/gh-commander-${version}-$(basename "$f" | sed 's/^app-//')"; done
-          ls -la out
+          grep -h versionCode src-tauri/gen/android/app/tauri.properties || true
 
       - uses: actions/upload-artifact@v5
         with:
           name: gh-commander-apk
-          path: out/*.apk
+          path: out/gh-commander.apk
           if-no-files-found: error
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: out/*.apk
+      - name: Publish APK to the "latest" release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f latest
+          git push -f origin latest
+          notes="Automated build of \`main\`, updated on every push.
+
+          Commit: $(git rev-parse --short HEAD) $(git log -1 --format=%s)
+          Build: #${GITHUB_RUN_NUMBER} (versionCode ${VERSION_CODE})
+
+          On your phone, download **gh-commander.apk** below and open it to install or update."
+          if gh release view latest >/dev/null 2>&1; then
+            gh release edit latest --notes "$notes"
+          else
+            gh release create latest --prerelease --title "Latest build" --notes "$notes"
+          fi
+          gh release upload latest out/gh-commander.apk --clobber
