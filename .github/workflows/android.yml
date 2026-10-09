@@ -105,9 +105,11 @@ jobs:
           Build: #${GITHUB_RUN_NUMBER} (versionCode ${VERSION_CODE})
 
           On your phone, download **gh-commander.apk** below and open it to install or update."
+          # A full release marked Latest, so it shows in the repository sidebar and
+          # at /releases/latest (GitHub leaves pre-releases out of both).
           if gh release view latest >/dev/null 2>&1; then
-            gh release edit latest --notes "$notes"
+            gh release edit latest --prerelease=false --latest --title "Latest build" --notes "$notes"
           else
-            gh release create latest --prerelease --title "Latest build" --notes "$notes"
+            gh release create latest --latest --title "Latest build" --notes "$notes"
           fi
           gh release upload latest out/gh-commander.apk --clobber

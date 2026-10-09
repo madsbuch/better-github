@@ -22,8 +22,10 @@ directly on `main` (no feature branches needed).
    installs over the previous one as an update.
 4. Uploads the APK as the run's `gh-commander-apk` artifact.
 5. Only on `main`: force-moves the `latest` tag to the commit and replaces
-   `gh-commander.apk` on the single `latest` prerelease (created on first use),
-   refreshing its notes with the commit and build number.
+   `gh-commander.apk` on the single `latest` release (created on first use),
+   refreshing its notes with the commit and build number. The release is a full
+   release marked **Latest**, so it shows in the repository sidebar and at
+   <https://github.com/madsbuch/gh-commander/releases/latest>.
 
 Phone download link, always the newest `main` build:
 <https://github.com/madsbuch/gh-commander/releases/download/latest/gh-commander.apk>
@@ -59,6 +61,10 @@ go down: Android refuses to install a lower `versionCode` over a higher one.
   update an installed copy. Set them up with the `android-signing` skill. In a
   correctly configured run the step's env shows `KEYSTORE_B64: ***`.
 - **Publish step skipped**: the run wasn't on `main`.
+- **Release missing from the sidebar, or `/releases/latest` 404s**: the release is
+  marked pre-release, which GitHub leaves out of both. The publish step clears that
+  flag (`--prerelease=false --latest`) on every run, so the next push to `main`
+  fixes it.
 - **Gradle `packageUniversalReleaseResources` fails**: usually an invalid resource
   XML under `src-tauri/gen/android/app/src/main/res`. For example, XML comments must
   not contain `--`.
