@@ -61,7 +61,10 @@ export const keys = {
     all: repoBase,
     detail: (owner: string, repo: string) => [...repoBase(owner, repo), "detail"] as const,
     readme: (owner: string, repo: string) => [...repoBase(owner, repo), "readme"] as const,
+    /** The branch list and branch searches. */
     branches: (owner: string, repo: string) => [...repoBase(owner, repo), "branches"] as const,
+    branchList: (owner: string, repo: string) => [...repoBase(owner, repo), "branches", "list"] as const,
+    branchSearch: (owner: string, repo: string, query: string) => [...repoBase(owner, repo), "branches", "search", query] as const,
     contents: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "contents", ref, path] as const,
     blob: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob", ref, path] as const,
     blobHtml: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob-html", ref, path] as const,
@@ -146,7 +149,7 @@ export const affects = {
     ];
   },
   star: (owner: string, repo: string): QueryKey[] => [keys.repo.detail(owner, repo), keys.viewer.repos("starred"), keys.viewer.profile()],
-  branches: (owner: string, repo: string): QueryKey[] => [keys.repo.branches(owner, repo)],
+  branches: (owner: string, repo: string): QueryKey[] => [keys.repo.branches(owner, repo), keys.repo.recentBranches(owner, repo)],
   notifications: (): QueryKey[] => [keys.notifications.all()],
   /** Re-running or cancelling changes the runs and every check that shows them. */
   actions: (owner: string, repo: string): QueryKey[] => [keys.repo.all(owner, repo)],

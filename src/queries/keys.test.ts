@@ -49,6 +49,17 @@ describe("affects", () => {
     expect(result).toEqual([true, true, false]);
   });
 
+  it("branch changes refresh the branch lists and searches only", async () => {
+    const result = await invalidatedBy(affects.branches("o", "r"), [
+      keys.repo.branchList("o", "r"),
+      keys.repo.branchSearch("o", "r", "staging"),
+      keys.repo.recentBranches("o", "r"),
+      keys.repo.detail("o", "r"),
+      keys.repo.branchList("o", "other"),
+    ]);
+    expect(result).toEqual([true, true, true, false, false]);
+  });
+
   it("re-running workflows refreshes runs and every PR's checks in the repository", async () => {
     const result = await invalidatedBy(affects.actions("o", "r"), [
       keys.actions.runs("o", "r", {}),

@@ -21,8 +21,8 @@ export async function open(page: Page, path: string) {
 }
 
 /**
- * Records whether a spinner or skeleton ever appears inside the screen from
- * now on (a MutationObserver, so even a single frame counts).
+ * Records whether a spinner or skeleton ever appears inside a screen or a
+ * sheet from now on (a MutationObserver, so even a single frame counts).
  */
 export async function watchForLoading(page: Page): Promise<() => Promise<string[]>> {
   await page.evaluate(() => {
@@ -31,7 +31,7 @@ export async function watchForLoading(page: Page): Promise<() => Promise<string[
     const check = (node: Node) => {
       if (!(node instanceof Element)) return;
       const hit = node.matches(".spinner, .skeleton") ? node : node.querySelector(".spinner, .skeleton");
-      if (hit && hit.closest("section.screen")) seen.push(hit.className);
+      if (hit && hit.closest("section.screen, .sheet")) seen.push(hit.className);
     };
     new MutationObserver((records) => records.forEach((r) => r.addedNodes.forEach(check))).observe(document.body, {
       childList: true,

@@ -822,6 +822,42 @@ export const REPO_RECENT_BRANCHES = /* GraphQL */ `
   ${BRANCH_TIP}
 `;
 
+const BRANCH_NAME = /* GraphQL */ `
+  fragment BranchName on Ref {
+    name
+    target {
+      ... on Commit { committedDate }
+    }
+  }
+`;
+
+/** Every branch for the branch picker, a page at a time, most recently committed first. */
+export const REPO_BRANCHES = /* GraphQL */ `
+  query RepoBranches($owner: String!, $name: String!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      defaultBranchRef { name }
+      refs(refPrefix: "refs/heads/", first: 100, after: $after, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+        totalCount
+        pageInfo { hasNextPage endCursor }
+        nodes { ...BranchName }
+      }
+    }
+  }
+  ${BRANCH_NAME}
+`;
+
+/** GitHub's own branch search, for repositories with more branches than the picker loads. */
+export const SEARCH_BRANCHES = /* GraphQL */ `
+  query SearchBranches($owner: String!, $name: String!, $query: String!) {
+    repository(owner: $owner, name: $name) {
+      refs(refPrefix: "refs/heads/", first: 50, query: $query, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+        nodes { ...BranchName }
+      }
+    }
+  }
+  ${BRANCH_NAME}
+`;
+
 /** What the "open a pull request" screen needs to know about the base repository. */
 export const NEW_PULL = /* GraphQL */ `
   query NewPull($owner: String!, $name: String!) {
@@ -882,6 +918,8 @@ export const ALL_DOCUMENTS: Record<string, string> = {
   REOPEN_ISSUE,
   RECENT_BRANCHES,
   REPO_RECENT_BRANCHES,
+  REPO_BRANCHES,
+  SEARCH_BRANCHES,
   NEW_PULL,
   ASSIGNABLE_USERS,
 };

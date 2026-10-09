@@ -34,7 +34,9 @@ production builds.
 
 The fixtures dispatch GraphQL by **operation name** (`query PullThreads …`) and REST
 by path (Actions: `actionsBody`; releases: `releasesBody`; new pull requests:
-`newPullRest`; job logs: `JOB_LOG`). Android-only bridges (`window.GhCommanderDownloads`)
+`newPullRest`; job logs: `JOB_LOG`). The branch picker reads `ALL_BRANCHES`: 240
+branches over three pages, with an old `staging` last, to exercise paging and
+ranking. Android-only bridges (`window.GhCommanderDownloads`)
 are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or
 endpoint, add a fixture there too, or the screen renders empty in dev and in the
 e2e smoke tests.
@@ -102,7 +104,11 @@ e2e smoke tests.
   scroll into view; every link also preloads on touch (`defaultPreload: "intent"`).
 - Screens with tabs prefetch the other tabs' data on mount.
 - `e2e/navigation.spec.ts` fails if a spinner or skeleton appears while opening a
-  pull request from the inbox (`watchForLoading` in `e2e/helpers.ts`). Keep it
-  passing; add similar checks for new hot paths.
+  pull request from the inbox, and `e2e/branches.spec.ts` if the branch picker
+  opens empty (`watchForLoading` in `e2e/helpers.ts`, which watches screens and
+  sheets). Keep them passing; add similar checks for new hot paths.
+- Branch pickers (`BranchSheet`) share one list per repository
+  (`branchQueries.list`, every branch, newest first). Screens that show a picker
+  load it in advance; the compare screen loads every page while it's open.
 - Scroll positions: the scrolling element is `.content[data-scroll-restoration-id="screen"]`;
   the router restores it on back and resets it for new screens.

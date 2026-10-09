@@ -18,10 +18,12 @@ import { usePrefs } from "../lib/prefs";
 import { useViewer } from "../lib/session";
 import { toast } from "../lib/toast";
 import type { AssignableUser, RestComparison } from "../lib/types";
+import { useBranches } from "../queries/branches";
 import { newPullQueries, useCreatePull, type Comparison } from "../queries/newPull";
 import { DiffFile } from "../components/DiffView";
 import { Markdown } from "../components/Markdown";
-import { BranchSheet, CommitRow } from "../components/RepoParts";
+import { BranchSheet } from "../components/BranchSheet";
+import { CommitRow } from "../components/RepoParts";
 import { ReviewerSheet } from "../components/ReviewerSheet";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
@@ -51,6 +53,9 @@ export function NewPullScreen() {
   });
   const headBranches = useQuery(newPullQueries.repoBranches(headOwner, headName));
   const [sheet, setSheet] = useState<null | "base" | "head" | "repos">(null);
+  // Every branch loads while you're here, so both pickers open ready to search.
+  useBranches(owner, repo, { loadAll: true });
+  useBranches(headOwner, headName, { loadAll: true });
 
   const update = (next: CompareSearch) =>
     nav.replace(to.compare(owner, repo, { base: search.base, head: search.head, from: search.from, tab: search.tab, ...next }));

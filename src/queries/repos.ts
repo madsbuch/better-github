@@ -1,7 +1,7 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
-import { ApiError, encodePath, graphql, rest, restAll, restPage } from "../lib/api";
+import { ApiError, encodePath, graphql, rest, restPage } from "../lib/api";
 import { REPO } from "../lib/queries";
-import type { RepoResult, RestBranch, RestCommit, RestCommitListItem, RestContentFile, RestContentItem } from "../lib/types";
+import type { RepoResult, RestCommit, RestCommitListItem, RestContentFile, RestContentItem } from "../lib/types";
 import { affects, keys } from "./keys";
 import { patchQueries, useAppMutation } from "./mutation";
 
@@ -43,11 +43,6 @@ export const repoQueries = {
         }
       },
       staleTime: 10 * 60_000,
-    }),
-  branches: (owner: string, repo: string) =>
-    queryOptions({
-      queryKey: keys.repo.branches(owner, repo),
-      queryFn: () => restAll<RestBranch>(`/repos/${owner}/${repo}/branches`, { query: { per_page: 100 } }, 500),
     }),
   contents: (owner: string, repo: string, ref: string, path: string) =>
     queryOptions({

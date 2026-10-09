@@ -1141,6 +1141,44 @@ button.kv:active {
   color: var(--danger);
 }
 
+/* A search at the top of a sheet stays in view above a long list. */
+.sheet-search {
+  position: sticky;
+  top: -16px;
+  z-index: 1;
+  margin: -16px -16px 0;
+  padding: 16px 16px 8px;
+  background: var(--bg-overlay);
+}
+
+.sheet-search .search-bar {
+  margin: 0;
+}
+
+/* Branch picker rows: the whole name wraps, and what matched the search is marked. */
+.menu-item.branch-item {
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.branch-item svg,
+.branch-item .pill {
+  flex: none;
+  margin-top: 2px;
+}
+
+.branch-name {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.branch-name mark {
+  border-radius: 3px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
 @keyframes sheet-in {
   from {
     transform: translateY(100%);

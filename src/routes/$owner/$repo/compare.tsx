@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { CompareSearch } from "../../../lib/nav";
 import { oneOf, optionalString } from "../../../lib/search-params";
+import { branchQueries } from "../../../queries/branches";
 import { newPullQueries } from "../../../queries/newPull";
 import { warm } from "../../../queries/warm";
 import { NewPullScreen } from "../../../screens/NewPullScreen";
@@ -28,7 +29,10 @@ export const Route = createFileRoute("/$owner/$repo/compare")({
         newPullQueries.context(owner, repo),
         ...(deps.base && deps.head ? [newPullQueries.compare(owner, repo, deps.base, { repo: headRepo, branch: deps.head })] : []),
       ],
-      { secondary: [newPullQueries.repoBranches(headOwner, headName)], preload },
+      {
+        secondary: [newPullQueries.repoBranches(headOwner, headName), branchQueries.list(owner, repo), branchQueries.list(headOwner, headName)],
+        preload,
+      },
     );
   },
   component: NewPullScreen,

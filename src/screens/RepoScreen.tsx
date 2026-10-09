@@ -28,6 +28,7 @@ import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
 import type { RepoDetail } from "../lib/types";
 import { actionsQueries } from "../queries/actions";
+import { branchQueries } from "../queries/branches";
 import { keys } from "../queries/keys";
 import { newPullQueries } from "../queries/newPull";
 import { releaseQueries } from "../queries/releases";
@@ -68,6 +69,7 @@ export function RepoScreen() {
     void queryClient.prefetchInfiniteQuery(actionsQueries.runs(owner, repo));
     void queryClient.prefetchQuery(newPullQueries.repoBranches(owner, repo));
     void queryClient.prefetchInfiniteQuery(releaseQueries.list(owner, repo));
+    void queryClient.prefetchInfiniteQuery(branchQueries.list(owner, repo));
   }, [queryClient, owner, repo]);
   useEffect(() => {
     if (!gitRef) return;

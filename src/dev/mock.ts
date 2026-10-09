@@ -520,6 +520,49 @@ const ROCKET_BRANCHES = {
   },
 };
 
+// The branch picker's list, newest first: more than one page, with an old
+// "staging" branch at the very end and many names that merely contain it.
+const ALL_BRANCHES = (() => {
+  const named: [string, number][] = [
+    ["octocat/faster-uploads", 25],
+    ["alice/upload-retries", 90],
+    ["main", 240],
+    ["dave/authenticom-staging-follow-up", 300],
+    ["dave/bump-staging-version", 600],
+    ["dave/eng-629-vehicle-inventory-staging", 900],
+    ["dave/fix-staging-deployment", 1200],
+    ["dave/fix-staging-form-fields", 1500],
+    ["release/2.0", 3000],
+    ["staging", 60 * 24 * 60],
+  ];
+  const people = ["alice", "bob", "carol", "dave", "erin"];
+  const topics = ["retry", "cache", "upload", "auth", "docs", "metrics", "ui", "deps", "ci", "logging", "search", "perf"];
+  const more = Array.from({ length: 230 }, (_, i): [string, number] => [`${people[i % 5]}/${topics[i % 12]}-${100 + i}`, 3100 + i * 97]);
+  return [...named, ...more].sort((a, b) => a[1] - b[1]).map(([name, minutes]) => ({ name, target: { committedDate: iso(minutes) } }));
+})();
+
+function branchesData(op: string, variables: Record<string, unknown>): unknown {
+  switch (op) {
+    case "RepoBranches": {
+      const start = Number(variables.after ?? 0);
+      const nodes = ALL_BRANCHES.slice(start, start + 100);
+      const end = start + nodes.length;
+      return {
+        repository: {
+          defaultBranchRef: { name: "main" },
+          refs: { totalCount: ALL_BRANCHES.length, pageInfo: { hasNextPage: end < ALL_BRANCHES.length, endCursor: String(end) }, nodes },
+        },
+      };
+    }
+    case "SearchBranches": {
+      const query = String(variables.query).toLowerCase();
+      return { repository: { refs: { nodes: ALL_BRANCHES.filter((b) => b.name.includes(query)).slice(0, 50) } } };
+    }
+    default:
+      return null;
+  }
+}
+
 const PEOPLE = [
   { login: "alice", name: "Alice Liddell", avatarUrl: alice.avatarUrl },
   { login: "bob-builds", name: "Bob", avatarUrl: bob.avatarUrl },
@@ -646,7 +689,7 @@ function releasesBody(path: string): unknown {
 
 function graphqlData(query: string, variables: Record<string, unknown>): unknown {
   const op = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? "";
-  const newPull = newPullData(op, variables);
+  const newPull = newPullData(op, variables) ?? branchesData(op, variables);
   if (newPull !== null) return newPull;
   switch (op) {
     case "SearchCounts":
@@ -831,7 +874,6 @@ function restBody(request: RestRequest): unknown {
   if (/\/readme$/.test(path)) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';
   }
-  if (/\/branches$/.test(path)) return ["main", "alice/upload-retries", "release/2.0"].map((name) => ({ name, commit: { sha: "abc", url: "" }, protected: name === "main" }));
   const commit = /\/commits\/([0-9a-f]+)$/.exec(path);
   if (commit) {
     return {

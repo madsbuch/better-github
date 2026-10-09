@@ -493,7 +493,6 @@ export type RestPullFile = components["schemas"]["diff-entry"];
 export type RestCommit = components["schemas"]["commit"];
 export type RestContentItem = components["schemas"]["content-directory"][number];
 export type RestContentFile = components["schemas"]["content-file"];
-export type RestBranch = components["schemas"]["short-branch"];
 export type RestNotification = components["schemas"]["thread"];
 export type RestUser = components["schemas"]["public-user"];
 export type RestCommitListItem = components["schemas"]["commit"];
@@ -614,6 +613,23 @@ export interface RecentBranchesResult {
 
 export interface RepoRecentBranchesResult {
   repository: BranchesRepo | null;
+}
+
+/** A branch for the branch picker (fragment BranchName). */
+export interface BranchNameNode {
+  name: string;
+  target: { committedDate?: string } | null;
+}
+
+export interface RepoBranchesResult {
+  repository: {
+    defaultBranchRef: { name: string } | null;
+    refs: (Connection<BranchNameNode> & { totalCount: number }) | null;
+  } | null;
+}
+
+export interface SearchBranchesResult {
+  repository: { refs: { nodes: BranchNameNode[] } | null } | null;
 }
 
 export interface NewPullResult {

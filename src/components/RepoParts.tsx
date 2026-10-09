@@ -4,7 +4,6 @@ import {
   FileSubmoduleIcon,
   FileSymlinkFileIcon,
   GitBranchIcon,
-  SearchIcon,
   TriangleDownIcon,
 } from "@primer/octicons-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -14,8 +13,8 @@ import { backend } from "../lib/backend";
 import { to } from "../lib/nav";
 import type { RestCommitListItem } from "../lib/types";
 import { repoQueries } from "../queries/repos";
-import { Sheet } from "./Sheet";
-import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Spinner, Time } from "./ui";
+import { BranchSheet } from "./BranchSheet";
+import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Time } from "./ui";
 
 // ---------------------------------------------------------------- branches
 
@@ -30,67 +29,6 @@ export function BranchBar({ owner, repo, gitRef, onChange }: { owner: string; re
       </button>
       <BranchSheet open={open} onClose={() => setOpen(false)} owner={owner} repo={repo} current={gitRef} onSelect={onChange} />
     </div>
-  );
-}
-
-export function BranchSheet({
-  open,
-  onClose,
-  owner,
-  repo,
-  current,
-  onSelect,
-  title = "Switch branch",
-}: {
-  open: boolean;
-  onClose: () => void;
-  owner: string;
-  repo: string;
-  current: string | undefined;
-  onSelect: (ref: string) => void;
-  title?: string;
-}) {
-  const [filter, setFilter] = useState("");
-  const branches = useQuery({ ...repoQueries.branches(owner, repo), enabled: open });
-  const needle = filter.trim().toLowerCase();
-  const visible = (branches.data ?? []).filter((b) => b.name.toLowerCase().includes(needle));
-  return (
-    <Sheet open={open} onClose={onClose} title={title} full>
-      <div className="search-bar" style={{ margin: "0 0 8px" }}>
-        <SearchIcon size={16} />
-        <input
-          type="search"
-          placeholder="Find a branch"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          autoCapitalize="off"
-          autoCorrect="off"
-        />
-      </div>
-      {branches.isPending ? (
-        <div className="center">
-          <Spinner />
-        </div>
-      ) : branches.isError ? (
-        <ErrorView error={branches.error} onRetry={() => void branches.refetch()} />
-      ) : (
-        visible.map((branch) => (
-          <button
-            key={branch.name}
-            className="menu-item"
-            style={{ paddingLeft: 4 }}
-            onClick={() => {
-              onClose();
-              onSelect(branch.name);
-            }}
-          >
-            <GitBranchIcon size={16} />
-            <span className={`grow ellipsis mono${branch.name === current ? " bold" : ""}`}>{branch.name}</span>
-            {branch.name === current && <span className="pill pill-accent">current</span>}
-          </button>
-        ))
-      )}
-    </Sheet>
   );
 }
 
