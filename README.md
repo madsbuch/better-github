@@ -59,13 +59,15 @@ Every push to `main` rebuilds the APK and replaces it in the [`latest` release](
 
 ### Signing
 
-CI signs release builds with this app's own upload key, kept in the `ANDROID_KEYSTORE` (base64 keystore), `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` repository secrets. To create the key and set the secrets, run this once on your machine (needs the JDK's `keytool` and a signed-in GitHub CLI):
+CI signs release builds with this app's own upload key, from these repository secrets:
 
-```sh
-./scripts/setup-android-signing.sh
-```
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE` | the keystore file, base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password, also used as the key password |
+| `ANDROID_KEY_ALIAS` | the key alias |
 
-It creates `~/.tauri/keystores/gh-commander-upload.jks`, uploads it to the repository secrets, and writes the git-ignored `src-tauri/gen/android/keystore.properties` for local release builds. It refuses to overwrite an existing keystore. Back up the keystore and its password: Android only installs updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
+For local release builds, put the same values in the git-ignored `src-tauri/gen/android/keystore.properties` (`keyAlias`, `password`, `storeFile`). Keep the keystore: Android only installs updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
 
 ## Development
 
