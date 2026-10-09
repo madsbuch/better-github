@@ -87,6 +87,9 @@ e2e smoke tests.
   them first.
 - The history is hash-based and reads only the hash (`src/router.tsx`); the page's
   own query string (`?signedOut`, the e2e `?load=N`) never reaches routes.
+- When building a target from the current search, list the keys you keep
+  (`{ base: search.base, ...next }`) rather than spreading it: the current search
+  carries the open sheet's `o`. `useNav` drops `o` as a safety net.
 
 ## Preloading (no spinners)
 

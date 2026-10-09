@@ -51,6 +51,8 @@ export function appLinkForUrl(href: string): LinkTarget | null {
 
   switch (kind) {
     case "pull": {
+      // `git push` prints github.com/<o>/<r>/pull/new/<branch> for new branches.
+      if (id === "new") return rest.length ? to.compare(owner, name, { head: rest.join("/") }) : to.compare(owner, name);
       const number = int(id);
       if (number === null) return null;
       const tab = rest[0] === "files" ? "files" : rest[0] === "commits" ? "commits" : rest[0] === "checks" ? "checks" : undefined;
@@ -73,6 +75,8 @@ export function appLinkForUrl(href: string): LinkTarget | null {
       return id && rest.length ? to.blob(owner, name, id, rest.join("/")) : null;
     case "actions":
       return actionsLink(owner, name, segments.slice(3));
+    case "compare":
+      return compareLink(owner, name, segments.slice(3).join("/"));
     default:
       return null;
   }
@@ -88,6 +92,16 @@ function actionsLink(owner: string, repo: string, rest: string[]): LinkTarget | 
   if (tail.length === 0) return to.run(owner, repo, runId);
   const jobId = tail[0] === "job" ? int(tail[1]) : null;
   return jobId !== null ? to.job(owner, repo, runId, jobId) : null;
+}
+
+/** github.com/<o>/<r>/compare/<base>...<head>, where head may be "<fork owner>:<branch>". */
+function compareLink(owner: string, repo: string, spec: string): LinkTarget {
+  if (!spec) return to.compare(owner, repo);
+  const [first, second] = spec.split("...");
+  const [base, head] = second === undefined ? [undefined, first] : [first, second];
+  const fork = /^([\w.-]+):(.+)$/.exec(head);
+  const from = fork && fork[1].toLowerCase() !== owner.toLowerCase() ? `${fork[1]}/${repo}` : undefined;
+  return to.compare(owner, repo, { base: base?.replace(/^[\w.-]+:/, ""), head: fork ? fork[2] : head, from });
 }
 
 function appLinkForApiUrl(url: URL): LinkTarget | null {

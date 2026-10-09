@@ -5,6 +5,8 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 ## Features
 
 **Pull requests**
+- **Open pull requests**: pick the base and the branch (or a branch of your fork, into its parent), check the commits and the diff, and describe it. Like on github.com, the title comes from the commit or the branch name and the description from the repository's pull request template. There's a Markdown preview, reviewers and a draft option. What you type is kept until the pull request is open. If one is already open for the branches, the app links to it instead.
+- Branches you pushed in the last two days that have no pull request get a *Compare & pull request* prompt in the inbox and on the repository's pull requests.
 - Inbox with review requests, your PRs, assigned, mentioned and reviewed, with counts, CI status and review state on every row.
 - Conversation timeline: comments, reviews with their threads, commits, force-pushes, label and title changes.
 - Merge box showing review decision, check status and mergeability, with *Update branch*, *Ready for review* and auto-merge controls.

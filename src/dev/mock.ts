@@ -498,8 +498,101 @@ function actionsBody(path: string): unknown {
   return null;
 }
 
+// --------------------------------------------------------- new pull requests
+
+const branchTip = (name: string, login: string, minutes: number, openPulls = 0) => ({
+  name,
+  associatedPullRequests: { totalCount: openPulls },
+  target: { oid: `${name.replace(/\W/g, "")}0123456789`, committedDate: iso(minutes), messageHeadline: `Work on ${name}`, author: { user: { login } } },
+});
+
+const ROCKET_BRANCHES = {
+  nameWithOwner: "acme/rocket",
+  defaultBranchRef: { name: "main" },
+  parent: null,
+  refs: {
+    nodes: [
+      branchTip("octocat/faster-uploads", "octocat", 25),
+      branchTip("alice/upload-retries", "alice", 90, 1),
+      branchTip("main", "alice", 240),
+      branchTip("release/2.0", "bob-builds", 3000),
+    ],
+  },
+};
+
+const PEOPLE = [
+  { login: "alice", name: "Alice Liddell", avatarUrl: alice.avatarUrl },
+  { login: "bob-builds", name: "Bob", avatarUrl: bob.avatarUrl },
+  { login: "octocat", name: "The Octocat", avatarUrl: viewer.avatarUrl },
+];
+
+function newPullData(op: string, variables: Record<string, unknown>): unknown {
+  switch (op) {
+    case "RecentBranches":
+      return { viewer: { repositories: { nodes: [ROCKET_BRANCHES] } } };
+    case "RepoRecentBranches":
+      return { repository: ROCKET_BRANCHES };
+    case "NewPull":
+      return {
+        repository: {
+          id: "R_0",
+          nameWithOwner: "acme/rocket",
+          defaultBranchRef: { name: "main" },
+          parent: null,
+          pullRequestTemplates: [{ filename: ".github/pull_request_template.md", body: "## What changed\n\n## How to test\n" }],
+          forks: { nodes: [] },
+        },
+      };
+    case "AssignableUsers": {
+      const q = String(variables.query ?? "").toLowerCase();
+      return { repository: { assignableUsers: { nodes: PEOPLE.filter((p) => p.login.includes(q) || p.name.toLowerCase().includes(q)) } } };
+    }
+    default:
+      return null;
+  }
+}
+
+/** compare/<base>...<head>: nothing new against itself, else two commits. */
+function comparison(spec: string) {
+  const [base, head] = decodeURIComponent(spec).split("...");
+  if (!head || head.replace(/^[\w-]+:/, "") === base) {
+    return { status: "identical", ahead_by: 0, behind_by: 0, total_commits: 0, commits: [], files: [] };
+  }
+  const commits = [0, 1].map((i) => ({
+    sha: `c0ffee${i}`.padEnd(40, "0"),
+    commit: {
+      message: ["Stream uploads in chunks", "Reuse connections between chunks"][i],
+      author: { name: "The Octocat", date: iso(40 - i * 10) },
+      committer: { name: "The Octocat", date: iso(40 - i * 10) },
+    },
+    author: { login: "octocat", avatar_url: viewer.avatarUrl },
+  }));
+  return { status: "ahead", ahead_by: 2, behind_by: 1, total_commits: 2, commits, files: FILES };
+}
+
+const EXISTING_PULL = { number: 482, title: PR_DETAIL.title, created_at: ago(60 * 30), user: { login: "alice" } };
+
+function newPullRest(path: string, method: string, request: RestRequest): unknown {
+  if (method === "POST" && /^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
+    return { number: 483, html_url: "https://github.com/acme/rocket/pull/483" };
+  }
+  if (method === "POST" && path === "/markdown") {
+    const text = String((request.body as { text?: string })?.text ?? "");
+    return `<p>${text.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)}</p>`;
+  }
+  if (method !== "GET") return undefined;
+  const compare = /\/compare\/(.+)$/.exec(path);
+  if (compare) return comparison(compare[1]);
+  if (/^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
+    return String(request.query?.head ?? "").includes("upload-retries") ? [EXISTING_PULL] : [];
+  }
+  return undefined;
+}
+
 function graphqlData(query: string, variables: Record<string, unknown>): unknown {
   const op = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? "";
+  const newPull = newPullData(op, variables);
+  if (newPull !== null) return newPull;
   switch (op) {
     case "SearchCounts":
       return { c0: { issueCount: 3 }, c1: { issueCount: 1 }, c2: { issueCount: 2 }, c3: { issueCount: 0 }, c4: { issueCount: 5 } };
@@ -666,6 +759,8 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
 function restBody(request: RestRequest): unknown {
   const path = request.path.replace(/^https:\/\/api\.github\.com/, "").split("?")[0];
   const method = request.method ?? "GET";
+  const newPull = newPullRest(path, method, request);
+  if (newPull !== undefined) return newPull;
   if (method !== "GET") return {};
   if (path === "/notifications") {
     const all = request.query?.all === true;

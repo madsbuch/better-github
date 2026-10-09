@@ -40,6 +40,8 @@ export const keys = {
     profile: () => ["viewer", "profile"] as const,
     repos: (tab: ViewerRepoTab) => ["viewer", "repos", tab] as const,
     rateLimit: () => ["viewer", "rate-limit"] as const,
+    /** Branches the viewer pushed lately, across their most recently pushed repositories. */
+    recentBranches: () => ["viewer", "recent-branches"] as const,
   },
   owner: (login: string) => ["owner", login.toLowerCase()] as const,
   search: {
@@ -64,6 +66,14 @@ export const keys = {
     blobHtml: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob-html", ref, path] as const,
     commits: (owner: string, repo: string, ref: string) => [...repoBase(owner, repo), "commits", ref] as const,
     commit: (owner: string, repo: string, sha: string) => [...repoBase(owner, repo), "commit", sha] as const,
+    recentBranches: (owner: string, repo: string) => [...repoBase(owner, repo), "recent-branches"] as const,
+    /** What opening a pull request needs: default branch, templates, the viewer's forks. */
+    newPull: (owner: string, repo: string) => [...repoBase(owner, repo), "new-pull"] as const,
+    compareAll: (owner: string, repo: string) => [...repoBase(owner, repo), "compare"] as const,
+    /** `head` as GitHub's APIs take it: "branch" or "owner:branch". */
+    compare: (owner: string, repo: string, base: string, head: string) => [...repoBase(owner, repo), "compare", base, head] as const,
+    assignableUsers: (owner: string, repo: string, query: string) => [...repoBase(owner, repo), "assignable-users", query] as const,
+    markdown: (owner: string, repo: string, text: string) => [...repoBase(owner, repo), "markdown", text] as const,
   },
   pull: {
     all: pullBase,
@@ -116,6 +126,18 @@ export const affects = {
     keys.search.all(),
     keys.repo.detail(owner, repo),
   ],
+  /** A new pull request from `headRepo` ("owner/name") into owner/repo. */
+  newPull: (owner: string, repo: string, headRepo: string): QueryKey[] => {
+    const [headOwner, headName] = headRepo.split("/");
+    return [
+      keys.search.all(),
+      keys.repo.detail(owner, repo),
+      keys.repo.compareAll(owner, repo),
+      keys.repo.recentBranches(owner, repo),
+      keys.repo.recentBranches(headOwner, headName),
+      keys.viewer.recentBranches(),
+    ];
+  },
   star: (owner: string, repo: string): QueryKey[] => [keys.repo.detail(owner, repo), keys.viewer.repos("starred"), keys.viewer.profile()],
   branches: (owner: string, repo: string): QueryKey[] => [keys.repo.branches(owner, repo)],
   notifications: (): QueryKey[] => [keys.notifications.all()],

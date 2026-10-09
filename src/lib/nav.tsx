@@ -21,6 +21,14 @@ export type NotificationsFilter = "participating" | "all";
 /** Run filters in the Actions tab: GitHub's `status` values we offer. */
 export type RunStatusFilter = "in_progress" | "failure";
 
+/** The "open a pull request" screen: `head` from `from` ("owner/name", default: this repository) into `base`. */
+export interface CompareSearch {
+  base?: string;
+  head?: string;
+  from?: string;
+  tab?: "commits" | "files";
+}
+
 export interface RepoSearch {
   tab?: RepoTab;
   ref?: string;
@@ -51,6 +59,8 @@ export const to = {
       params: { owner, repo, number },
       search: { tab: tab === "conversation" ? undefined : tab },
     }),
+  compare: (owner: string, repo: string, search: CompareSearch = {}) =>
+    linkOptions({ to: "/$owner/$repo/compare", params: { owner, repo }, search }),
   issue: (owner: string, repo: string, number: number) => linkOptions({ to: "/$owner/$repo/issues/$number", params: { owner, repo, number } }),
   commit: (owner: string, repo: string, sha: string) => linkOptions({ to: "/$owner/$repo/commit/$sha", params: { owner, repo, sha } }),
   run: (owner: string, repo: string, runId: number) => linkOptions({ to: "/$owner/$repo/actions/runs/$runId", params: { owner, repo, runId } }),
@@ -146,7 +156,7 @@ class Controller {
   navigate(options: NavigateTarget) {
     this.whenSettled(() => {
       if (this.dropOverlays()) this.queue.push(() => this.navigate(options));
-      else void this.router.navigate(options as never);
+      else void this.router.navigate(withoutOverlay(options) as never);
     });
   }
 
@@ -198,6 +208,17 @@ class Controller {
     const steps = this.depth() - removed[0].depth + 1;
     if (steps > 0) this.pop(steps);
   }
+}
+
+/**
+ * A target built from the current search (`{ ...search, ref }`) may carry the
+ * open sheet's `o`; a new screen or tab never starts with a sheet open.
+ */
+function withoutOverlay(options: NavigateTarget): NavigateTarget {
+  const search = (options as { search?: unknown }).search;
+  if (!search || typeof search !== "object" || !("o" in search)) return options;
+  const { o: _sheet, ...rest } = search;
+  return { ...options, search: rest } as NavigateTarget;
 }
 
 const controllers = new WeakMap<RegisteredRouter, Controller>();

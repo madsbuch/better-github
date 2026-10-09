@@ -18,6 +18,7 @@ import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as OwnerIndexRouteImport } from "./routes/$owner/index";
 import { Route as OwnerRepoIndexRouteImport } from "./routes/$owner/$repo/index";
 import { Route as OwnerRepoBlobRouteImport } from "./routes/$owner/$repo/blob";
+import { Route as OwnerRepoCompareRouteImport } from "./routes/$owner/$repo/compare";
 import { Route as OwnerRepoTreeRouteImport } from "./routes/$owner/$repo/tree";
 import { Route as OwnerRepoActionsIndexRouteImport } from "./routes/$owner/$repo/actions/index";
 import { Route as OwnerRepoCommitShaRouteImport } from "./routes/$owner/$repo/commit/$sha";
@@ -71,6 +72,11 @@ const OwnerRepoBlobRoute = OwnerRepoBlobRouteImport.update({
   path: "/$owner/$repo/blob",
   getParentRoute: () => rootRouteImport,
 } as any);
+const OwnerRepoCompareRoute = OwnerRepoCompareRouteImport.update({
+  id: "/$owner/$repo/compare",
+  path: "/$owner/$repo/compare",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const OwnerRepoTreeRoute = OwnerRepoTreeRouteImport.update({
   id: "/$owner/$repo/tree",
   path: "/$owner/$repo/tree",
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   "/settings": typeof SettingsRoute;
   "/$owner/": typeof OwnerIndexRoute;
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
+  "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/tree": typeof OwnerRepoTreeRoute;
   "/$owner/$repo/": typeof OwnerRepoIndexRoute;
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   "/settings": typeof SettingsRoute;
   "/$owner": typeof OwnerIndexRoute;
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
+  "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/tree": typeof OwnerRepoTreeRoute;
   "/$owner/$repo": typeof OwnerRepoIndexRoute;
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   "/settings": typeof SettingsRoute;
   "/$owner/": typeof OwnerIndexRoute;
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
+  "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/tree": typeof OwnerRepoTreeRoute;
   "/$owner/$repo/": typeof OwnerRepoIndexRoute;
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | "/settings"
     | "/$owner/"
     | "/$owner/$repo/blob"
+    | "/$owner/$repo/compare"
     | "/$owner/$repo/tree"
     | "/$owner/$repo/"
     | "/$owner/$repo/commit/$sha"
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | "/settings"
     | "/$owner"
     | "/$owner/$repo/blob"
+    | "/$owner/$repo/compare"
     | "/$owner/$repo/tree"
     | "/$owner/$repo"
     | "/$owner/$repo/commit/$sha"
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | "/settings"
     | "/$owner/"
     | "/$owner/$repo/blob"
+    | "/$owner/$repo/compare"
     | "/$owner/$repo/tree"
     | "/$owner/$repo/"
     | "/$owner/$repo/commit/$sha"
@@ -230,6 +242,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute;
   OwnerIndexRoute: typeof OwnerIndexRoute;
   OwnerRepoBlobRoute: typeof OwnerRepoBlobRoute;
+  OwnerRepoCompareRoute: typeof OwnerRepoCompareRoute;
   OwnerRepoTreeRoute: typeof OwnerRepoTreeRoute;
   OwnerRepoIndexRoute: typeof OwnerRepoIndexRoute;
   OwnerRepoCommitShaRoute: typeof OwnerRepoCommitShaRoute;
@@ -305,6 +318,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof OwnerRepoBlobRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/$owner/$repo/compare": {
+      id: "/$owner/$repo/compare";
+      path: "/$owner/$repo/compare";
+      fullPath: "/$owner/$repo/compare";
+      preLoaderRoute: typeof OwnerRepoCompareRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/$owner/$repo/tree": {
       id: "/$owner/$repo/tree";
       path: "/$owner/$repo/tree";
@@ -366,6 +386,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   OwnerIndexRoute: OwnerIndexRoute,
   OwnerRepoBlobRoute: OwnerRepoBlobRoute,
+  OwnerRepoCompareRoute: OwnerRepoCompareRoute,
   OwnerRepoTreeRoute: OwnerRepoTreeRoute,
   OwnerRepoIndexRoute: OwnerRepoIndexRoute,
   OwnerRepoCommitShaRoute: OwnerRepoCommitShaRoute,

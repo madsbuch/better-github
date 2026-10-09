@@ -40,7 +40,7 @@ export function ActionsTab({ owner, repo, workflow, status }: { owner: string; r
       />
       {active.length > 1 && (
         <div className="chips" role="tablist" aria-label="Workflows">
-          <button role="tab" aria-selected={!workflow} className={`chip${!workflow ? " selected" : ""}`} onClick={() => filter({ workflow: undefined })}>
+          <button role="tab" aria-selected={!workflow} className={`chip${!workflow ? " active" : ""}`} onClick={() => filter({ workflow: undefined })}>
             All workflows
           </button>
           {active.map((w) => (
@@ -48,7 +48,7 @@ export function ActionsTab({ owner, repo, workflow, status }: { owner: string; r
               key={w.id}
               role="tab"
               aria-selected={workflow === w.id}
-              className={`chip${workflow === w.id ? " selected" : ""}`}
+              className={`chip${workflow === w.id ? " active" : ""}`}
               onClick={() => filter({ workflow: w.id })}
             >
               {w.name}

@@ -2,8 +2,12 @@ import { CheckCircleIcon, SearchIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { to, useNav } from "../lib/nav";
+import { recentBranches } from "../lib/newPull";
+import { useViewer } from "../lib/session";
 import type { InboxFilter } from "../queries/keys";
+import { newPullQueries } from "../queries/newPull";
 import { INBOX_FILTERS, inboxQuery, searchQueries, useIssueSearch } from "../queries/search";
+import { RecentBranchPrompts } from "../components/RecentBranches";
 import { Screen } from "../components/Screen";
 import { SearchIssueRow } from "../components/rows";
 import { EmptyState, ErrorView, LoadMore, Segmented, SkeletonList } from "../components/ui";
@@ -21,8 +25,10 @@ const EMPTY: Record<InboxFilter, string> = {
 export function InboxScreen() {
   const filter = route.useSearch({ select: (s) => s.filter ?? "review" });
   const nav = useNav();
+  const viewer = useViewer();
   const counts = useQuery(searchQueries.inboxCounts());
   const search = useIssueSearch(inboxQuery(filter));
+  const pushed = useQuery(newPullQueries.recentBranches());
 
   return (
     <Screen
@@ -39,8 +45,9 @@ export function InboxScreen() {
           options={INBOX_FILTERS.map((f) => ({ value: f.id, label: f.label, count: counts.data?.[f.id] }))}
         />
       }
-      onRefresh={() => Promise.all([search.refetch(), counts.refetch()])}
+      onRefresh={() => Promise.all([search.refetch(), counts.refetch(), pushed.refetch()])}
     >
+      <RecentBranchPrompts branches={recentBranches(pushed.data ?? [], viewer.login)} />
       {search.isPending ? (
         <SkeletonList />
       ) : search.isError ? (

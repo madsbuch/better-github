@@ -22,14 +22,18 @@ import { useEffect, useState } from "react";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
 import { splitRepo, to, useNav, type RepoTab } from "../lib/nav";
+import { recentBranches } from "../lib/newPull";
+import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
 import type { RepoDetail } from "../lib/types";
 import { actionsQueries } from "../queries/actions";
 import { keys } from "../queries/keys";
+import { newPullQueries } from "../queries/newPull";
 import { repoQueries, useStarRepo } from "../queries/repos";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
 import { ActionsTab } from "./actions/ActionsTab";
 import { Markdown, type MarkdownBase } from "../components/Markdown";
+import { RecentBranchPrompts } from "../components/RecentBranches";
 import { BranchBar, CommitList, TreeView } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
@@ -59,6 +63,7 @@ export function RepoScreen() {
     void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "pulls", "open")));
     void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "issues", "open")));
     void queryClient.prefetchInfiniteQuery(actionsQueries.runs(owner, repo));
+    void queryClient.prefetchQuery(newPullQueries.repoBranches(owner, repo));
   }, [queryClient, owner, repo]);
   useEffect(() => {
     if (!gitRef) return;
@@ -122,7 +127,7 @@ export function RepoScreen() {
           <EmptyState title="This repository is empty" />
         )
       ) : tab === "pulls" || tab === "issues" ? (
-        <RepoIssues owner={owner} repo={repo} kind={tab} />
+        <RepoIssues owner={owner} repo={repo} kind={tab} parent={data.parent?.nameWithOwner} />
       ) : tab === "actions" ? (
         <ActionsTab owner={owner} repo={repo} workflow={search.workflow} status={search.status} />
       ) : gitRef ? (
@@ -138,6 +143,11 @@ export function RepoScreen() {
         onClose={() => setMenu(false)}
         title="Repository"
         actions={[
+          {
+            label: "New pull request",
+            icon: <GitPullRequestIcon size={18} />,
+            onSelect: () => nav.navigate(newPullTarget(owner, repo, data?.parent?.nameWithOwner)),
+          },
           { label: "Open in browser", icon: <LinkExternalIcon size={18} />, onSelect: () => void backend.openUrl(`https://github.com/${fullName}`) },
           {
             label: "Copy link",
@@ -240,11 +250,12 @@ function About({ repo }: { repo: RepoDetail }) {
   );
 }
 
-function RepoIssues({ owner, repo, kind }: { owner: string; repo: string; kind: "pulls" | "issues" }) {
+function RepoIssues({ owner, repo, kind, parent }: { owner: string; repo: string; kind: "pulls" | "issues"; parent?: string }) {
   const [state, setState] = useState<"open" | "closed">("open");
   const search = useIssueSearch(repoListQuery(owner, repo, kind, state));
   return (
     <>
+      {kind === "pulls" && <NewPullBar owner={owner} repo={repo} parent={parent} />}
       <Segmented
         value={state}
         onChange={setState}
@@ -267,6 +278,26 @@ function RepoIssues({ owner, repo, kind }: { owner: string; repo: string; kind: 
           <LoadMore hasMore={search.hasNextPage} loading={search.isFetchingNextPage} onLoadMore={() => void search.fetchNextPage()} />
         </>
       )}
+    </>
+  );
+}
+
+/** A fork's pull requests go to its parent, as on github.com. */
+function newPullTarget(owner: string, repo: string, parent: string | undefined) {
+  return parent ? to.compare(...splitRepo(parent), { from: `${owner}/${repo}` }) : to.compare(owner, repo);
+}
+
+function NewPullBar({ owner, repo, parent }: { owner: string; repo: string; parent?: string }) {
+  const viewer = useViewer();
+  const branches = useQuery(newPullQueries.repoBranches(owner, repo));
+  return (
+    <>
+      <div className="row-flex" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-muted)" }}>
+        <Link {...newPullTarget(owner, repo, parent)} className="btn btn-sm">
+          <GitPullRequestIcon size={14} /> New pull request
+        </Link>
+      </div>
+      <RecentBranchPrompts branches={recentBranches(branches.data ? [branches.data] : [], viewer.login)} showRepo={!!parent} />
     </>
   );
 }

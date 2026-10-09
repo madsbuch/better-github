@@ -3,6 +3,7 @@
 
 import type { FetchInfiniteQueryOptions, FetchQueryOptions, QueryClient } from "@tanstack/react-query";
 import { INBOX_FILTERS, searchQueries } from "./search";
+import { newPullQueries } from "./newPull";
 import { notificationQueries } from "./notifications";
 import { viewerQueries } from "./viewer";
 
@@ -45,6 +46,7 @@ export function warmStartup(queryClient: QueryClient) {
     notificationQueries.hasUnread(),
     viewerQueries.repos("yours"),
     viewerQueries.profile(),
+    newPullQueries.recentBranches(),
   ];
   // prefetch* respects staleTime, so fresh restored data isn't refetched.
   for (const o of options) {

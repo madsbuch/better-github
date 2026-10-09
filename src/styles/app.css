@@ -1502,38 +1502,6 @@ details.disclosure[open] > summary {
 
 /* ---------------------------------------------------------------- actions */
 
-.chips {
-  display: flex;
-  gap: 6px;
-  padding: 8px 16px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--border-muted);
-  scrollbar-width: none;
-}
-
-.chips::-webkit-scrollbar {
-  display: none;
-}
-
-.chip {
-  flex: none;
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--fg-muted);
-  font: inherit;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.chip.selected {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-  color: var(--accent);
-  font-weight: 600;
-}
-
 .pulse {
   animation: pulse 1.4s ease-in-out infinite;
 }
@@ -1688,3 +1656,46 @@ details.disclosure[open] > summary {
 .ansi-fg-13 { color: #d2a8ff; }
 .ansi-fg-14 { color: #56d4dd; }
 .ansi-fg-15 { color: #ffffff; }
+
+/* ------------------------------------------------------- new pull requests */
+
+.compare-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.compare-bar .btn {
+  min-width: 0;
+  flex: 1 1 0;
+  justify-content: flex-start;
+}
+
+.branch-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.branch-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--attention);
+  border-radius: 8px;
+  background: var(--attention-bg);
+}
+
+.branch-prompt .btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.new-pull .btn-block {
+  margin-top: 4px;
+}

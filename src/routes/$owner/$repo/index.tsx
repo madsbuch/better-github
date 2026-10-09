@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { RepoSearch, RepoTab, RunStatusFilter } from "../../../lib/nav";
 import { oneOf, optionalInt, optionalString } from "../../../lib/search-params";
 import { actionsQueries } from "../../../queries/actions";
+import { newPullQueries } from "../../../queries/newPull";
 import { repoQueries } from "../../../queries/repos";
 import { repoListQuery, searchQueries } from "../../../queries/search";
 import { warm } from "../../../queries/warm";
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/$owner/$repo/")({
   loader: ({ context: { queryClient }, params: { owner, repo }, deps, preload }) => {
     const tabData = {
       about: [repoQueries.readme(owner, repo)],
-      pulls: [searchQueries.issues(repoListQuery(owner, repo, "pulls", "open"))],
+      pulls: [searchQueries.issues(repoListQuery(owner, repo, "pulls", "open")), newPullQueries.repoBranches(owner, repo)],
       issues: [searchQueries.issues(repoListQuery(owner, repo, "issues", "open"))],
       actions: [actionsQueries.runs(owner, repo, { workflow: deps.workflow, status: deps.status }), actionsQueries.workflows(owner, repo)],
       // Both need the default branch from the repository first.

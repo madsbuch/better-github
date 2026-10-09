@@ -583,3 +583,57 @@ export interface CheckAnnotation {
   title: string | null;
   message: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Opening pull requests
+
+/** A branch's tip commit, and whether it already has an open pull request. */
+export interface BranchTip {
+  name: string;
+  associatedPullRequests: { totalCount: number };
+  target: {
+    oid?: string;
+    committedDate?: string;
+    messageHeadline?: string;
+    author?: { user: { login: string } | null } | null;
+  } | null;
+}
+
+export interface BranchesRepo {
+  nameWithOwner: string;
+  defaultBranchRef: { name: string } | null;
+  parent: { nameWithOwner: string; defaultBranchRef: { name: string } | null } | null;
+  refs: { nodes: BranchTip[] } | null;
+}
+
+export interface RecentBranchesResult {
+  viewer: { repositories: { nodes: BranchesRepo[] } };
+}
+
+export interface RepoRecentBranchesResult {
+  repository: BranchesRepo | null;
+}
+
+export interface NewPullResult {
+  repository: {
+    id: string;
+    nameWithOwner: string;
+    defaultBranchRef: { name: string } | null;
+    parent: { nameWithOwner: string } | null;
+    pullRequestTemplates: { filename: string; body: string | null }[] | null;
+    forks: { nodes: { nameWithOwner: string }[] };
+  } | null;
+}
+
+export interface AssignableUser {
+  login: string;
+  name: string | null;
+  avatarUrl: string;
+}
+
+export interface AssignableUsersResult {
+  repository: { assignableUsers: { nodes: AssignableUser[] } } | null;
+}
+
+export type RestComparison = components["schemas"]["commit-comparison"];
+export type RestPullSimple = components["schemas"]["pull-request-simple"];

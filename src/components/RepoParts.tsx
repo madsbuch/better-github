@@ -12,6 +12,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { backend } from "../lib/backend";
 import { to } from "../lib/nav";
+import type { RestCommitListItem } from "../lib/types";
 import { repoQueries } from "../queries/repos";
 import { Sheet } from "./Sheet";
 import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Spinner, Time } from "./ui";
@@ -32,27 +33,29 @@ export function BranchBar({ owner, repo, gitRef, onChange }: { owner: string; re
   );
 }
 
-function BranchSheet({
+export function BranchSheet({
   open,
   onClose,
   owner,
   repo,
   current,
   onSelect,
+  title = "Switch branch",
 }: {
   open: boolean;
   onClose: () => void;
   owner: string;
   repo: string;
-  current: string;
+  current: string | undefined;
   onSelect: (ref: string) => void;
+  title?: string;
 }) {
   const [filter, setFilter] = useState("");
   const branches = useQuery({ ...repoQueries.branches(owner, repo), enabled: open });
   const needle = filter.trim().toLowerCase();
   const visible = (branches.data ?? []).filter((b) => b.name.toLowerCase().includes(needle));
   return (
-    <Sheet open={open} onClose={onClose} title="Switch branch" full>
+    <Sheet open={open} onClose={onClose} title={title} full>
       <div className="search-bar" style={{ margin: "0 0 8px" }}>
         <SearchIcon size={16} />
         <input
@@ -193,30 +196,35 @@ export function CommitList({ owner, repo, gitRef }: { owner: string; repo: strin
 
   return (
     <>
-      {commits.map((c) => {
-        const [headline] = c.commit.message.split("\n");
-        return (
-          // A commit's diff can be large: preload on touch, not on sight.
-          <Link key={c.sha} {...to.commit(owner, repo, c.sha)} className="row">
-            <span className="row-icon" style={{ paddingTop: 0 }}>
-              <Avatar src={c.author?.avatar_url} size={28} />
-            </span>
-            <span className="row-body">
-              <span className="row-title" style={{ display: "block", fontWeight: 500 }}>
-                {headline}
-              </span>
-              <span className="row-meta">
-                <span className="ellipsis">{c.author?.login ?? c.commit.author?.name}</span>
-                <span>·</span>
-                <Time iso={c.commit.author?.date ?? c.commit.committer?.date} />
-                <span className="grow" />
-                <span className="mono">{c.sha.slice(0, 7)}</span>
-              </span>
-            </span>
-          </Link>
-        );
-      })}
+      {commits.map((c) => (
+        <CommitRow key={c.sha} owner={owner} repo={repo} commit={c} />
+      ))}
       <LoadMore hasMore={list.hasNextPage} loading={list.isFetchingNextPage} onLoadMore={() => void list.fetchNextPage()} />
     </>
+  );
+}
+
+/** A commit from the REST API (lists, comparisons). */
+export function CommitRow({ owner, repo, commit: c }: { owner: string; repo: string; commit: RestCommitListItem }) {
+  const [headline] = c.commit.message.split("\n");
+  return (
+    // A commit's diff can be large: preload on touch, not on sight.
+    <Link {...to.commit(owner, repo, c.sha)} className="row">
+      <span className="row-icon" style={{ paddingTop: 0 }}>
+        <Avatar src={c.author?.avatar_url} size={28} />
+      </span>
+      <span className="row-body">
+        <span className="row-title" style={{ display: "block", fontWeight: 500 }}>
+          {headline}
+        </span>
+        <span className="row-meta">
+          <span className="ellipsis">{c.author?.login ?? c.commit.author?.name}</span>
+          <span>·</span>
+          <Time iso={c.commit.author?.date ?? c.commit.committer?.date} />
+          <span className="grow" />
+          <span className="mono">{c.sha.slice(0, 7)}</span>
+        </span>
+      </span>
+    </Link>
   );
 }

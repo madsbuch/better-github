@@ -762,6 +762,90 @@ export const REOPEN_ISSUE = /* GraphQL */ `
   }
 `;
 
+// ------------------------------------------------------- new pull requests
+
+/** A branch's tip, and whether it already has an open pull request. */
+const BRANCH_TIP = /* GraphQL */ `
+  fragment BranchTip on Ref {
+    name
+    associatedPullRequests(states: [OPEN], first: 1) {
+      totalCount
+    }
+    target {
+      ... on Commit {
+        oid
+        committedDate
+        messageHeadline
+        author { user { login } }
+      }
+    }
+  }
+`;
+
+/** Recently updated branches in the repositories the viewer pushed to last. */
+export const RECENT_BRANCHES = /* GraphQL */ `
+  query RecentBranches {
+    viewer {
+      repositories(
+        first: 6
+        orderBy: { field: PUSHED_AT, direction: DESC }
+        ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]
+        isArchived: false
+      ) {
+        nodes {
+          nameWithOwner
+          defaultBranchRef { name }
+          parent { nameWithOwner defaultBranchRef { name } }
+          refs(refPrefix: "refs/heads/", first: 5, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+            nodes { ...BranchTip }
+          }
+        }
+      }
+    }
+  }
+  ${BRANCH_TIP}
+`;
+
+export const REPO_RECENT_BRANCHES = /* GraphQL */ `
+  query RepoRecentBranches($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      nameWithOwner
+      defaultBranchRef { name }
+      parent { nameWithOwner defaultBranchRef { name } }
+      refs(refPrefix: "refs/heads/", first: 8, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+        nodes { ...BranchTip }
+      }
+    }
+  }
+  ${BRANCH_TIP}
+`;
+
+/** What the "open a pull request" screen needs to know about the base repository. */
+export const NEW_PULL = /* GraphQL */ `
+  query NewPull($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      id
+      nameWithOwner
+      defaultBranchRef { name }
+      parent { nameWithOwner }
+      pullRequestTemplates { filename body }
+      forks(first: 10, affiliations: [OWNER]) {
+        nodes { nameWithOwner }
+      }
+    }
+  }
+`;
+
+export const ASSIGNABLE_USERS = /* GraphQL */ `
+  query AssignableUsers($owner: String!, $name: String!, $query: String) {
+    repository(owner: $owner, name: $name) {
+      assignableUsers(first: 30, query: $query) {
+        nodes { login name avatarUrl }
+      }
+    }
+  }
+`;
+
 export const ALL_DOCUMENTS: Record<string, string> = {
   SEARCH_ISSUES,
   SEARCH_COUNTS,
@@ -794,4 +878,8 @@ export const ALL_DOCUMENTS: Record<string, string> = {
   DISABLE_AUTO_MERGE,
   CLOSE_ISSUE,
   REOPEN_ISSUE,
+  RECENT_BRANCHES,
+  REPO_RECENT_BRANCHES,
+  NEW_PULL,
+  ASSIGNABLE_USERS,
 };
