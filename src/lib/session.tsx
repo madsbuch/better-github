@@ -1,13 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { clearCache } from "../queries/client";
 import { onUnauthorized } from "./api";
 import { backend, type SessionInfo } from "./backend";
-import { useToast } from "./toast";
+import { toast } from "./toast";
 
-type SessionState =
-  | { status: "loading" }
-  | { status: "signed-out" }
-  | { status: "signed-in"; session: SessionInfo };
+type SessionState = { status: "signed-out" } | { status: "signed-in"; session: SessionInfo };
 
 interface SessionApi {
   state: SessionState;
@@ -17,26 +14,19 @@ interface SessionApi {
 
 const SessionContext = createContext<SessionApi | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<SessionState>({ status: "loading" });
-  const queryClient = useQueryClient();
-  const toast = useToast();
-
-  useEffect(() => {
-    backend
-      .sessionGet()
-      .then((session) => setState(session ? { status: "signed-in", session } : { status: "signed-out" }))
-      .catch(() => setState({ status: "signed-out" }));
-  }, []);
+/** `initial` is the stored session, read before the first render (see main.tsx). */
+export function SessionProvider({ initial, children }: { initial: SessionInfo | null; children: ReactNode }) {
+  const [state, setState] = useState<SessionState>(initial ? { status: "signed-in", session: initial } : { status: "signed-out" });
 
   const signOut = useCallback(async () => {
     try {
       await backend.authLogout();
     } finally {
-      queryClient.clear();
+      // Nothing from this account may outlive the session, on screen or on disk.
+      await clearCache().catch(() => undefined);
       setState({ status: "signed-out" });
     }
-  }, [queryClient]);
+  }, []);
 
   useEffect(
     () =>
@@ -44,7 +34,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         toast.show("GitHub rejected your token. Please sign in again.", "error");
         void signOut();
       }),
-    [signOut, toast],
+    [signOut],
   );
 
   const api = useMemo<SessionApi>(

@@ -1,20 +1,18 @@
 import { CheckIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { errorMessage, rest } from "../../lib/api";
 import { backend } from "../../lib/backend";
 import { anchorKey, suggestionBody } from "../../lib/diff";
 import type { DraftComment, useReviewDraft } from "../../lib/drafts";
+import { to, useNav } from "../../lib/nav";
 import { usePrefs } from "../../lib/prefs";
-import { nav } from "../../lib/router";
-import { paths } from "../../lib/routes";
 import { useToast } from "../../lib/toast";
 import type { PullDetail, RestPullFile, ReviewThread } from "../../lib/types";
 import { DiffFile, type LineTarget } from "../../components/DiffView";
 import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
-import { pullKey, usePatches, useToggleViewed, useViewedState } from "./data";
+import { pullQueries, useInlineComment, useToggleViewed } from "../../queries/pulls";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
 
@@ -43,10 +41,11 @@ export function FilesTab({
 }) {
   const prefs = usePrefs();
   const toast = useToast();
-  const queryClient = useQueryClient();
-  const patches = usePatches(owner, repo, number, pr.headRefOid);
-  const viewed = useViewedState(owner, repo, number);
-  const toggleViewed = useToggleViewed(owner, repo, number, pr.id);
+  const nav = useNav();
+  const patches = useQuery(pullQueries.patches(owner, repo, number, pr.headRefOid));
+  const viewed = useQuery(pullQueries.viewed(owner, repo, number));
+  const toggleViewed = useToggleViewed(owner, repo, number);
+  const inlineComment = useInlineComment(owner, repo, number);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [target, setTarget] = useState<{ line: LineTarget; draft?: DraftComment } | null>(null);
   const [fileMenu, setFileMenu] = useState<RestPullFile | null>(null);
@@ -80,19 +79,14 @@ export function FilesTab({
   }, [drafts.draft.comments]);
 
   const commentNow = async (line: LineTarget, body: string) => {
-    await rest(`/repos/${owner}/${repo}/pulls/${number}/comments`, {
-      method: "POST",
-      body: { body, commit_id: pr.headRefOid, path: line.path, line: line.number, side: line.side },
-    });
-    await queryClient.invalidateQueries({ queryKey: [...pullKey(owner, repo, number), "threads"] });
-    toast.show("Comment added", "success");
+    await inlineComment.mutateAsync({ body, commitId: pr.headRefOid, path: line.path, line: line.number, side: line.side });
   };
 
   const scrollToFile = (path: string) => {
     onJumpClose();
     setCollapsed((c) => ({ ...c, [path]: false }));
     window.setTimeout(() => {
-      const el = document.querySelector(`.screen:not(.hidden) .diff-file[data-path="${CSS.escape(path)}"]`);
+      const el = document.querySelector(`.screen .diff-file[data-path="${CSS.escape(path)}"]`);
       el?.scrollIntoView({ block: "start" });
     }, 80);
   };
@@ -127,7 +121,7 @@ export function FilesTab({
             viewed={viewed.data?.[path] === "VIEWED"}
             onToggleViewed={() => {
               const next = viewed.data?.[path] !== "VIEWED";
-              void toggleViewed(path, next);
+              toggleViewed.mutate({ pullRequestId: pr.id, path, viewed: next });
               setCollapsed((c) => ({ ...c, [path]: next }));
             }}
             onMenu={() => setFileMenu(file)}
@@ -184,7 +178,7 @@ export function FilesTab({
             label: "View file",
             icon: <FileIcon size={18} />,
             hidden: fileMenu?.status === "removed",
-            onSelect: () => fileMenu && nav.navigate(paths.blob(owner, repo, pr.headRefOid, fileMenu.filename)),
+            onSelect: () => fileMenu && nav.navigate(to.blob(owner, repo, pr.headRefOid, fileMenu.filename)),
           },
           {
             label: "Copy path",
@@ -339,7 +333,6 @@ function LineCommentSheet({
   onAddDraft: (line: LineTarget, body: string, existing?: DraftComment) => void;
   onCommentNow: (line: LineTarget, body: string) => Promise<void>;
 }) {
-  const toast = useToast();
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -356,8 +349,8 @@ function LineCommentSheet({
     try {
       await onCommentNow(line, body.trim());
       onClose();
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
+    } catch {
+      // The mutation reports the error; keep the sheet open to retry.
     } finally {
       setBusy(false);
     }

@@ -1,35 +1,34 @@
 import { SearchIcon } from "@primer/octicons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { graphql } from "../lib/api";
-import { SEARCH_REPOS, SEARCH_USERS } from "../lib/queries";
-import { Link, nav, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
-import type { RepoListItem, SearchReposResult, SearchUsersResult, UserListItem } from "../lib/types";
-import { useIssueSearch } from "../hooks/useSearch";
+import { to, useNav } from "../lib/nav";
+import type { RepoListItem, UserListItem } from "../lib/types";
+import { searchQueries, useIssueSearch } from "../queries/search";
 import { Screen } from "../components/Screen";
 import { RepoRow, SearchIssueRow } from "../components/rows";
 import { Avatar, EmptyState, ErrorView, LoadMore, Segmented, SkeletonList } from "../components/ui";
 
-type SearchType = "repos" | "pulls" | "issues" | "users";
+const route = getRouteApi("/search");
 
 export function SearchScreen() {
-  const { route, path, active } = useScreen();
-  const q = route.query.get("q") ?? "";
-  const type = (["pulls", "issues", "users"].includes(route.query.get("type") ?? "") ? route.query.get("type") : "repos") as SearchType;
+  const search = route.useSearch();
+  const q = search.q ?? "";
+  const type = search.type ?? "repos";
+  const nav = useNav();
   const [input, setInput] = useState(q);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (active && !q) inputRef.current?.focus();
-  }, [active, q]);
+    if (!q) inputRef.current?.focus();
+  }, [q]);
 
   // Debounce typing into the URL (which drives the query).
   useEffect(() => {
     if (input.trim() === q) return;
-    const timer = window.setTimeout(() => nav.replace(paths.search(input.trim() || undefined, type)), 400);
+    const timer = window.setTimeout(() => nav.replace(to.search(input.trim(), type)), 400);
     return () => window.clearTimeout(timer);
-  }, [input, q, type, path]);
+  }, [input, q, type, nav]);
 
   return (
     <Screen
@@ -45,7 +44,7 @@ export function SearchScreen() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") nav.replace(paths.search(input.trim() || undefined, type));
+                if (e.key === "Enter") nav.replace(to.search(input.trim(), type));
               }}
               autoCapitalize="off"
               autoCorrect="off"
@@ -54,7 +53,7 @@ export function SearchScreen() {
           </div>
           <Segmented
             value={type}
-            onChange={(value) => nav.replace(paths.search(q || undefined, value))}
+            onChange={(value) => nav.replace(to.search(q, value))}
             options={[
               { value: "repos", label: "Repositories" },
               { value: "pulls", label: "Pull requests" },
@@ -81,12 +80,7 @@ export function SearchScreen() {
 }
 
 function RepoResults({ q }: { q: string }) {
-  const list = useInfiniteQuery({
-    queryKey: ["search-repos", q],
-    queryFn: ({ pageParam }) => graphql<SearchReposResult>(SEARCH_REPOS, { query: q, after: pageParam }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => (last.search.pageInfo.hasNextPage ? last.search.pageInfo.endCursor : undefined),
-  });
+  const list = useInfiniteQuery(searchQueries.repos(q));
   if (list.isPending) return <SkeletonList />;
   if (list.isError) return <ErrorView error={list.error} onRetry={() => void list.refetch()} />;
   const repos = list.data.pages.flatMap((p) => p.search.nodes).filter((n): n is RepoListItem => n.__typename === "Repository");
@@ -119,12 +113,7 @@ function IssueResults({ q }: { q: string }) {
 }
 
 function UserResults({ q }: { q: string }) {
-  const list = useInfiniteQuery({
-    queryKey: ["search-users", q],
-    queryFn: ({ pageParam }) => graphql<SearchUsersResult>(SEARCH_USERS, { query: q, after: pageParam }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => (last.search.pageInfo.hasNextPage ? last.search.pageInfo.endCursor : undefined),
-  });
+  const list = useInfiniteQuery(searchQueries.users(q));
   if (list.isPending) return <SkeletonList />;
   if (list.isError) return <ErrorView error={list.error} onRetry={() => void list.refetch()} />;
   const users = list.data.pages
@@ -134,7 +123,7 @@ function UserResults({ q }: { q: string }) {
   return (
     <>
       {users.map((user) => (
-        <Link key={user.id} to={paths.user(user.login)} className="row" style={{ alignItems: "center" }}>
+        <Link key={user.id} {...to.user(user.login)} preload="viewport" className="row" style={{ alignItems: "center" }}>
           <Avatar src={user.avatarUrl} size={36} square={user.__typename === "Organization"} />
           <span className="row-body">
             <span className="bold">{user.name || user.login}</span>

@@ -9,3 +9,6 @@ interface Window {
   /** Added to the web view by the Android app (BrowserTabs.kt); absent elsewhere. */
   readonly GhCommanderAndroid?: { openBrowserTab(url: string): boolean };
 }
+
+/** Identifies the build (the commit in CI); a new build starts with a fresh query cache. */
+declare const __BUILD_ID__: string;

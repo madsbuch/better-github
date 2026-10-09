@@ -38,11 +38,15 @@ export interface Page<T> {
   next: string | null;
 }
 
-/** Fetches one page of a paginated REST list; `next` is the URL of the next page. */
-export async function restPage<T>(path: string, options: RestOptions = {}): Promise<Page<T>> {
-  const response = await guard(backend.rest<T[] | { items: T[] }>({ path, ...options }));
+/**
+ * Fetches one page of a paginated REST list; `next` is the URL of the next
+ * page. `listKey` names the array in wrapped responses: "items" for search,
+ * "workflow_runs" for Actions.
+ */
+export async function restPage<T>(path: string, options: RestOptions = {}, listKey = "items"): Promise<Page<T>> {
+  const response = await guard(backend.rest<T[] | Record<string, T[] | undefined>>({ path, ...options }));
   const body = response.body;
-  const items = Array.isArray(body) ? body : (body?.items ?? []);
+  const items = Array.isArray(body) ? body : (body?.[listKey] ?? []);
   return { items, next: parseLink(response.link).next ?? null };
 }
 

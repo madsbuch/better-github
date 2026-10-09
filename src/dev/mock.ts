@@ -333,7 +333,7 @@ const CHECKS = [
   status,
   conclusion,
   title: conclusion === "FAILURE" ? "3 errors" : null,
-  detailsUrl: "https://github.com/acme/rocket/actions/runs/1",
+  detailsUrl: `https://github.com/acme/rocket/actions/runs/${9000 + i}/job/${9100 + i}`,
   startedAt: ago(30),
   completedAt: status === "COMPLETED" ? ago(26) : null,
   isRequired: i === 0,
@@ -357,6 +357,146 @@ const NOTIFICATIONS = [
     repository: { full_name: repo, name, owner: { login: owner, avatar_url: avatar(owner === "acme" ? 9 : 1) } },
   };
 });
+
+// ------------------------------------------------------------------ actions
+
+const iso = (minutes: number) => new Date(now - minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z");
+
+const WORKFLOWS = [
+  { id: 11, name: "CI", path: ".github/workflows/ci.yml", state: "active", html_url: "" },
+  { id: 12, name: "Release", path: ".github/workflows/release.yml", state: "active", html_url: "" },
+];
+
+function workflowRun(id: number, title: string, status: string, conclusion: string | null, minutes: number, extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    name: "CI",
+    display_title: title,
+    run_number: id - 8990,
+    run_attempt: 1,
+    event: "push",
+    status,
+    conclusion,
+    workflow_id: 11,
+    path: ".github/workflows/ci.yml",
+    head_branch: "main",
+    head_sha: "1a2b3c4d5e6f7a8b9c0d1a2b3c4d5e6f7a8b9c0d",
+    html_url: `https://github.com/acme/rocket/actions/runs/${id}`,
+    created_at: iso(minutes),
+    updated_at: iso(status === "completed" ? minutes - 4 : 0),
+    run_started_at: iso(minutes),
+    actor: { login: "alice", avatar_url: alice.avatarUrl },
+    head_commit: { message: title },
+    pull_requests: [],
+    ...extra,
+  };
+}
+
+const RUNS = [
+  workflowRun(9001, "Add retry with exponential backoff", "in_progress", null, 3, { event: "pull_request", head_branch: "alice/upload-retries", pull_requests: [{ number: 482 }] }),
+  workflowRun(9002, "Fix clippy warnings", "completed", "failure", 50),
+  workflowRun(9000, "Bump tokio", "completed", "success", 240),
+  workflowRun(9003, "Release v2.0.0", "completed", "cancelled", 600, { name: "Release", workflow_id: 12, event: "release" }),
+];
+
+function step(number: number, name: string, status: string, conclusion: string | null, start: number | null, end: number | null) {
+  return { number, name, status, conclusion, started_at: start === null ? null : iso(start), completed_at: end === null ? null : iso(end) };
+}
+
+const JOBS = [
+  {
+    id: 9102,
+    run_id: 9002,
+    name: "clippy",
+    status: "completed",
+    conclusion: "failure",
+    created_at: iso(50),
+    started_at: iso(50),
+    completed_at: iso(46),
+    html_url: "https://github.com/acme/rocket/actions/runs/9002/job/9102",
+    head_sha: "1a2b3c4d",
+    head_branch: "main",
+    workflow_name: "CI",
+    runner_name: "GitHub Actions 7",
+    labels: ["ubuntu-latest"],
+    steps: [
+      step(1, "Set up job", "completed", "success", 50, 50),
+      step(2, "Run actions/checkout@v5", "completed", "success", 49, 49),
+      step(3, "Run cargo clippy -- -D warnings", "completed", "failure", 48, 47),
+      step(4, "Post Run actions/checkout@v5", "completed", "success", 46, 46),
+      step(5, "Complete job", "completed", "success", 46, 46),
+    ],
+  },
+  {
+    id: 9101,
+    run_id: 9001,
+    name: "build (windows-latest)",
+    status: "in_progress",
+    conclusion: null,
+    created_at: iso(3),
+    started_at: iso(3),
+    completed_at: null,
+    html_url: "https://github.com/acme/rocket/actions/runs/9001/job/9101",
+    head_sha: "1a2b3c4d",
+    head_branch: "alice/upload-retries",
+    workflow_name: "CI",
+    runner_name: "GitHub Actions 3",
+    labels: ["windows-latest"],
+    steps: [
+      step(1, "Set up job", "completed", "success", 3, 3),
+      step(2, "Run cargo build", "in_progress", null, 2, null),
+      step(3, "Run cargo test", "queued", null, null, null),
+    ],
+  },
+];
+
+const logStamp = (minutes: number, ms = 0) => new Date(now - minutes * 60_000 + ms).toISOString().replace("Z", "0000Z");
+
+const JOB_LOG = [
+  `${logStamp(50)} Current runner version: '2.330.0'`,
+  `${logStamp(50, 10)} ##[group]Operating System`,
+  `${logStamp(50, 20)} Ubuntu 24.04`,
+  `${logStamp(50, 30)} ##[endgroup]`,
+  `${logStamp(49, 100)} ##[group]Run actions/checkout@v5`,
+  `${logStamp(49, 110)} with:`,
+  `${logStamp(49, 120)} ##[endgroup]`,
+  `${logStamp(49, 200)} [command]/usr/bin/git version`,
+  `${logStamp(48, 100)} ##[group]Run cargo clippy -- -D warnings`,
+  `${logStamp(48, 110)} \u001b[36;1mcargo clippy -- -D warnings\u001b[0m`,
+  `${logStamp(48, 120)} ##[endgroup]`,
+  `${logStamp(48, 300)} \u001b[1m\u001b[32m    Checking\u001b[0m rocket-upload v0.4.0`,
+  `${logStamp(47, 100)} \u001b[1m\u001b[31merror\u001b[0m\u001b[1m: unused variable: \`delay\`\u001b[0m`,
+  `${logStamp(47, 110)}  --> src/client.rs:5:9`,
+  `${logStamp(47, 200)} ##[error]Process completed with exit code 101.`,
+  `${logStamp(46, 100)} Post job cleanup.`,
+  `${logStamp(46, 200)} [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader`,
+  `${logStamp(46, 900)} Cleaning up orphan processes`,
+].join("\n");
+
+const ANNOTATIONS = [
+  { path: "src/client.rs", start_line: 5, end_line: 5, annotation_level: "failure", title: "clippy", message: "unused variable: `delay`" },
+];
+
+function actionsBody(path: string): unknown {
+  if (/\/actions\/workflows$/.test(path)) return { total_count: WORKFLOWS.length, workflows: WORKFLOWS };
+  const byWorkflow = /\/actions\/workflows\/(\d+)\/runs$/.exec(path);
+  if (byWorkflow) {
+    const runs = RUNS.filter((r) => r.workflow_id === Number(byWorkflow[1]));
+    return { total_count: runs.length, workflow_runs: runs };
+  }
+  if (/\/actions\/runs$/.test(path)) return { total_count: RUNS.length, workflow_runs: RUNS };
+  const jobs = /\/actions\/runs\/(\d+)\/jobs$/.exec(path);
+  if (jobs) {
+    const list = JOBS.filter((j) => j.run_id === Number(jobs[1]));
+    return { total_count: list.length, jobs: list.length ? list : [{ ...JOBS[0], id: Number(jobs[1]) + 100, run_id: Number(jobs[1]) }] };
+  }
+  const run = /\/actions\/runs\/(\d+)$/.exec(path);
+  if (run) return RUNS.find((r) => r.id === Number(run[1])) ?? workflowRun(Number(run[1]), "Fix clippy warnings", "completed", "failure", 50);
+  const job = /\/actions\/jobs\/(\d+)$/.exec(path);
+  if (job) return JOBS.find((j) => j.id === Number(job[1])) ?? { ...JOBS[0], id: Number(job[1]) };
+  if (/\/check-runs\/\d+\/annotations$/.test(path)) return ANNOTATIONS;
+  return null;
+}
 
 function graphqlData(query: string, variables: Record<string, unknown>): unknown {
   const op = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? "";
@@ -531,6 +671,8 @@ function restBody(request: RestRequest): unknown {
     const all = request.query?.all === true;
     return all ? NOTIFICATIONS : NOTIFICATIONS.filter((n) => n.unread);
   }
+  const actions = actionsBody(path);
+  if (actions !== null) return actions;
   if (/\/pulls\/\d+\/files$/.test(path)) return FILES;
   if (/\/readme$/.test(path)) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';
@@ -599,6 +741,7 @@ export function createMockBackend(): Backend {
     rest: <T,>(request: RestRequest) => delay<RestResponse<T>>({ status: 200, body: restBody(request) as T, link: null }),
     graphql: <T,>(query: string, variables?: Record<string, unknown>) =>
       delay<GraphQLEnvelope<T>>({ data: graphqlData(query, variables ?? {}) as T }),
+    jobLogs: () => delay({ text: JOB_LOG, truncated: false }),
     openUrl: async (url) => console.info("[mock] open", url),
     copyText: async (text) => console.info("[mock] copy", text),
   };

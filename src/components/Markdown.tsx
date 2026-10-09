@@ -1,8 +1,6 @@
 import DOMPurify from "dompurify";
-import { memo, useMemo, type MouseEvent } from "react";
-import { backend } from "../lib/backend";
-import { appPathForUrl } from "../lib/links";
-import { nav } from "../lib/router";
+import { memo, useCallback, useMemo, type MouseEvent } from "react";
+import { useOpenLink } from "../lib/links";
 
 /** Where relative links in a rendered file (e.g. a README) point to. */
 export interface MarkdownBase {
@@ -64,23 +62,6 @@ export function sanitizeHtml(html: string, base: MarkdownBase | null = null): st
   }
 }
 
-/** Opens a URL in-app when we have a screen for it, otherwise externally. */
-export function openLink(url: string) {
-  const path = appPathForUrl(url);
-  if (path) nav.navigate(path);
-  else void backend.openUrl(url);
-}
-
-function onClick(event: MouseEvent<HTMLDivElement>) {
-  const target = event.target as Element;
-  if (target.closest("summary")) return;
-  const anchor = target.closest("a");
-  if (!anchor) return;
-  const href = anchor.getAttribute("href");
-  event.preventDefault();
-  if (!href || href.startsWith("#")) return;
-  openLink(href);
-}
 
 export const Markdown = memo(function Markdown({
   html,
@@ -92,6 +73,21 @@ export const Markdown = memo(function Markdown({
   empty?: string;
 }) {
   const clean = useMemo(() => (html ? sanitizeHtml(html, base) : ""), [html, base]);
+  const openLink = useOpenLink();
+  // Links open in the app when it has a screen for them, otherwise in a browser tab.
+  const onClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      const target = event.target as Element;
+      if (target.closest("summary")) return;
+      const anchor = target.closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      event.preventDefault();
+      if (!href || href.startsWith("#")) return;
+      openLink(href);
+    },
+    [openLink],
+  );
   if (!clean.trim()) {
     return empty ? <p className="muted small" style={{ margin: 0, fontStyle: "italic" }}>{empty}</p> : null;
   }

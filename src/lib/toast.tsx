@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 type ToastKind = "info" | "success" | "error";
 
@@ -12,40 +12,48 @@ interface ToastApi {
   show(message: string, kind?: ToastKind): void;
 }
 
-const ToastContext = createContext<ToastApi | null>(null);
+type Listener = (toasts: Toast[]) => void;
 
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const nextId = useRef(1);
+let toasts: Toast[] = [];
+let nextId = 1;
+const listeners = new Set<Listener>();
 
-  const show = useCallback((message: string, kind: ToastKind = "info") => {
-    const id = nextId.current++;
-    setToasts((current) => [...current.slice(-2), { id, message, kind }]);
-    window.setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), kind === "error" ? 5000 : 3000);
+function publish(next: Toast[]) {
+  toasts = next;
+  listeners.forEach((listener) => listener(toasts));
+}
+
+function dismiss(id: number) {
+  publish(toasts.filter((t) => t.id !== id));
+}
+
+/** Shows a toast from anywhere, including outside React (e.g. the mutation cache). */
+export const toast: ToastApi = {
+  show(message, kind = "info") {
+    const id = nextId++;
+    publish([...toasts.slice(-2), { id, message, kind }]);
+    window.setTimeout(() => dismiss(id), kind === "error" ? 5000 : 3000);
+  },
+};
+
+/** Renders the toasts; mount once near the root. */
+export function Toasts() {
+  const [current, setCurrent] = useState(toasts);
+  useEffect(() => {
+    listeners.add(setCurrent);
+    return () => void listeners.delete(setCurrent);
   }, []);
-
-  const api = useMemo(() => ({ show }), [show]);
-
   return (
-    <ToastContext.Provider value={api}>
-      {children}
-      <div className="toasts" role="status" aria-live="polite">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`toast toast-${toast.kind}`}
-            onClick={() => setToasts((current) => current.filter((t) => t.id !== toast.id))}
-          >
-            {toast.message}
-          </div>
-        ))}
-      </div>
-    </ToastContext.Provider>
+    <div className="toasts" role="status" aria-live="polite">
+      {current.map((t) => (
+        <div key={t.id} className={`toast toast-${t.kind}`} onClick={() => dismiss(t.id)}>
+          {t.message}
+        </div>
+      ))}
+    </div>
   );
 }
 
 export function useToast(): ToastApi {
-  const api = useContext(ToastContext);
-  if (!api) throw new Error("useToast must be used inside ToastProvider");
-  return api;
+  return toast;
 }

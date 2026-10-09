@@ -9,26 +9,27 @@ import {
   SyncIcon,
   XCircleFillIcon,
 } from "@primer/octicons-react";
-import { useState, type ReactNode } from "react";
-import { errorMessage, rest } from "../../lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { backend } from "../../lib/backend";
 import { formatDuration } from "../../lib/format";
-import { Link } from "../../lib/router";
-import { paths } from "../../lib/routes";
-import { useToast } from "../../lib/toast";
+import { appLinkForUrl } from "../../lib/links";
+import { to } from "../../lib/nav";
 import type { CheckRunNode, StatusContextNode } from "../../lib/types";
+import { useRunMutations } from "../../queries/actions";
+import { pullQueries } from "../../queries/pulls";
 import { Avatar, CenterSpinner, ChecksIcon, EmptyState, ErrorView, Spinner, Time } from "../../components/ui";
-import { useChecks, useCommits } from "./data";
 
 export function CommitsTab({ owner, repo, number }: { owner: string; repo: string; number: number }) {
-  const commits = useCommits(owner, repo, number);
+  const commits = useQuery(pullQueries.commits(owner, repo, number));
   if (commits.isPending) return <CenterSpinner />;
   if (commits.isError) return <ErrorView error={commits.error} onRetry={() => void commits.refetch()} />;
   if (commits.data.length === 0) return <EmptyState title="No commits" />;
   return (
     <>
       {commits.data.map(({ id, commit }) => (
-        <Link key={id} to={paths.commit(owner, repo, commit.oid)} className="row">
+        <Link key={id} {...to.commit(owner, repo, commit.oid)} className="row">
           <span className="row-icon" style={{ paddingTop: 0 }}>
             <Avatar src={commit.author?.avatarUrl} size={28} />
           </span>
@@ -153,9 +154,8 @@ const HEADINGS: Record<Outcome, string> = {
 };
 
 export function ChecksTab({ owner, repo, number }: { owner: string; repo: string; number: number }) {
-  const checks = useChecks(owner, repo, number);
-  const toast = useToast();
-  const [rerunning, setRerunning] = useState(false);
+  const checks = useQuery(pullQueries.checks(owner, repo, number));
+  const { rerunFailed } = useRunMutations(owner, repo);
 
   if (checks.isPending) return <CenterSpinner />;
   if (checks.isError) return <ErrorView error={checks.error} onRetry={() => void checks.refetch()} />;
@@ -171,18 +171,6 @@ export function ChecksTab({ owner, repo, number }: { owner: string; repo: string
   const failedRuns = [...new Set(views.filter((v) => v.outcome === "failure" && v.runId).map((v) => v.runId!))];
   const counts = Object.fromEntries(ORDER.map((o) => [o, views.filter((v) => v.outcome === o).length])) as Record<Outcome, number>;
 
-  const rerunFailed = async () => {
-    setRerunning(true);
-    try {
-      await Promise.all(failedRuns.map((id) => rest(`/repos/${owner}/${repo}/actions/runs/${id}/rerun-failed-jobs`, { method: "POST" })));
-      toast.show(`Re-running ${failedRuns.length} workflow${failedRuns.length === 1 ? "" : "s"}`, "success");
-      window.setTimeout(() => void checks.refetch(), 3000);
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    } finally {
-      setRerunning(false);
-    }
-  };
 
   return (
     <>
@@ -195,8 +183,8 @@ export function ChecksTab({ owner, repo, number }: { owner: string; repo: string
           </span>
         </span>
         {failedRuns.length > 0 && (
-          <button className="btn btn-sm" disabled={rerunning} onClick={() => void rerunFailed()}>
-            {rerunning ? <Spinner small /> : <SyncIcon size={14} />} Re-run failed
+          <button className="btn btn-sm" disabled={rerunFailed.isPending} onClick={() => rerunFailed.mutate(failedRuns)}>
+            {rerunFailed.isPending ? <Spinner small /> : <SyncIcon size={14} />} Re-run failed
           </button>
         )}
       </div>
@@ -207,21 +195,41 @@ export function ChecksTab({ owner, repo, number }: { owner: string; repo: string
             .filter((v) => v.outcome === outcome)
             .sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name))
             .map((v) => (
-              <button key={v.id} className="row" disabled={!v.url} onClick={() => v.url && void backend.openUrl(v.url)}>
-                <span className="row-icon">{v.icon}</span>
-                <span className="row-body">
-                  <span className="bold" style={{ display: "block", overflowWrap: "anywhere" }}>
-                    {v.name}
-                  </span>
-                  <span className="muted small" style={{ overflowWrap: "anywhere" }}>
-                    {v.detail}
-                  </span>
-                </span>
-                {v.required && <span className="pill">Required</span>}
-              </button>
+              <CheckRow key={v.id} check={v} />
             ))}
         </div>
       ))}
     </>
+  );
+}
+
+/** GitHub Actions checks open their job (steps and log) in the app; others open their page. */
+function CheckRow({ check: v }: { check: CheckView }) {
+  const body = (
+    <>
+      <span className="row-icon">{v.icon}</span>
+      <span className="row-body">
+        <span className="bold" style={{ display: "block", overflowWrap: "anywhere" }}>
+          {v.name}
+        </span>
+        <span className="muted small" style={{ overflowWrap: "anywhere" }}>
+          {v.detail}
+        </span>
+      </span>
+      {v.required && <span className="pill">Required</span>}
+    </>
+  );
+  const link = v.url ? appLinkForUrl(v.url) : null;
+  if (link) {
+    return (
+      <Link {...link} preload="viewport" className="row">
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <button className="row" disabled={!v.url} onClick={() => v.url && void backend.openUrl(v.url)}>
+      {body}
+    </button>
   );
 }

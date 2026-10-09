@@ -12,15 +12,24 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
-- **Checks**: every check run and status, grouped by outcome, with *Re-run failed jobs* for GitHub Actions.
+- **Checks**: every check run and status, grouped by outcome, with *Re-run failed jobs* for GitHub Actions. GitHub Actions checks open their job in the app.
+
+**Actions**
+- Every repository has an *Actions* tab: workflow runs with their live status, filtered by workflow, running or failed.
+- A run shows its jobs, with the first errors of failed jobs right in the list. Re-run all jobs, re-run failed jobs, or cancel.
+- A job shows its steps (updating live while it runs) and each step's output: colored, with collapsible groups, errors and warnings highlighted. Failed steps open by themselves. GitHub's API only publishes a job's log once the job has finished, so a running job links to the live log on github.com.
 
 **Everything else**
 - Notifications inbox grouped by repository: filter unread, participating or all; mark done; mark all as read. Opening a notification goes to the matching PR or issue in the app.
-- Repositories: yours and starred, with filtering. Each repo shows its README, a code browser with a branch switcher, PRs, issues and commits. You can also star repos.
+- Repositories: yours and starred, with filtering. Each repo shows its README, a code browser with a branch switcher, PRs, issues, Actions and commits. You can also star repos.
 - File viewer with syntax highlighting, markdown preview and images.
 - Issues: timeline, commenting with quote-reply, close as completed or not planned, and reopen.
 - Search across repositories, pull requests, issues and people. Links to github.com inside rendered markdown open in the app when it has a screen for them.
 - Light and dark themes follow the system. Pull-to-refresh. The Android back button closes sheets first, then goes back through screens. Screens keep their scroll position.
+
+**Fast**
+- The app opens on the data it showed last time (cached on the device) and refreshes it in the background.
+- Screens preload: list rows load their screen as they scroll into view, every link starts loading when touched, and a screen loads its other tabs in the background. Navigating rarely shows a spinner; an end-to-end test fails if opening a pull request from the inbox does.
 
 ## Signing in
 
@@ -46,7 +55,8 @@ Then do one of the following:
 ### Security
 
 - The token lives only on the Rust side, in the app's private data directory (the Android app sandbox), and is never exposed to the web view.
-- All API calls go through two Rust commands (`gh_rest`, `gh_graphql`) that refuse any host other than `https://api.github.com`.
+- All API calls go through Rust commands (`gh_rest`, `gh_graphql`, `gh_job_logs`) that refuse any host other than `https://api.github.com`. Job logs follow GitHub's redirect to its log storage only, and the token is not sent there.
+- To open instantly, the app caches GitHub's answers in its private storage (IndexedDB inside the app sandbox) for up to a day. Diffs, file contents and job logs are never written to disk. Signing out deletes the cache, and every new build starts with a fresh one.
 - Rendered markdown is sanitized with DOMPurify. The content security policy allows only the app's own scripts, no frames, and no network requests from the web view other than images.
 
 ## Installing on a phone
@@ -103,20 +113,28 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 `npm run e2e` downloads Chromium on first use (`npx playwright install chromium`). To use a Chromium you already have, set `PW_CHROMIUM=/path/to/chrome`.
 
+Routes live in `src/routes` (one file per screen, named like its URL). `npm run dev` and `vite build` regenerate `src/routeTree.gen.ts`; commit it, CI fails when it's stale. Links are built with `to.*` from `src/lib/nav.tsx` (or TanStack's `<Link to=...>`), so a link to a screen that doesn't exist fails `npm run typecheck`.
+
 ### Project layout
 
 ```
 src/                  React app
+  routes/             file-based routes (TanStack Router): URL, search params and preloading per screen
+  routeTree.gen.ts    generated from routes/ by the Vite plugin (commit it)
+  router.tsx          router setup: hash history, preloading, scroll restoration
+  queries/            TanStack Query: keys.ts (every key, and what each change invalidates),
+                      one module per area with query options and mutations, warm.ts (preloading)
+  lib/nav.tsx         typed link builders (`to.*`), sheets and the back button
   lib/backend.ts      transport: Tauri commands, or fetch in a plain browser
   lib/queries.ts      GraphQL documents (validated against GitHub's schema in tests)
-  lib/router.tsx      stack navigator on the History API (Android back button)
+  lib/logs.ts         Actions log parsing: steps, groups, ANSI colors
   lib/diff.ts         patch parsing and word-level diffs
-  screens/            one file per screen; pull/ holds the PR review screens
+  screens/            one file per screen; pull/ and actions/ hold their screens' parts
   dev/mock.ts         fixtures for VITE_MOCK=1
 e2e/                  Playwright tests against the fixtures
 src-tauri/            Rust side
   src/auth.rs         OAuth device flow
-  src/github.rs       authenticated REST/GraphQL proxy, locked to api.github.com
+  src/github.rs       authenticated REST/GraphQL proxy, locked to api.github.com; job logs
   src/store.rs        session/config persistence
   gen/android/        generated Android project (edge-to-edge insets, browser tabs, signing config)
 app-icon/             icon sources; regenerate with `npx tauri icon app-icon/app-icon.json`

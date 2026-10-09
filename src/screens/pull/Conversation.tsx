@@ -11,16 +11,14 @@ import {
   XCircleFillIcon,
 } from "@primer/octicons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { graphql } from "../../lib/api";
-import { PULL_TIMELINE } from "../../lib/queries";
-import { Link } from "../../lib/router";
-import { paths } from "../../lib/routes";
-import type { PullDetail, PullResult, PullTimelineResult, ReviewItem, ReviewState, ReviewThread } from "../../lib/types";
+import { to } from "../../lib/nav";
+import type { PullDetail, PullResult, ReviewItem, ReviewState, ReviewThread } from "../../lib/types";
+import { pullQueries } from "../../queries/pulls";
 import { Markdown } from "../../components/Markdown";
 import { CommentCard, CommitRow, EventRow, IssueCommentCard, ThreadCard, reviewVerb, type ThreadActions } from "../../components/Timeline";
 import { Avatar, Labels, LoadMore, Spinner, StateBadge, Time, pullVisualState } from "../../components/ui";
-import { pullKey } from "./data";
 
 type RepoInfo = NonNullable<PullResult["repository"]>;
 
@@ -55,15 +53,7 @@ export function Conversation({
   onUpdateBranch: () => void;
   onDisableAutoMerge: () => void;
 }) {
-  const timeline = useInfiniteQuery({
-    queryKey: [...pullKey(owner, repo, number), "timeline"],
-    queryFn: ({ pageParam }) => graphql<PullTimelineResult>(PULL_TIMELINE, { owner, name: repo, number, after: pageParam }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => {
-      const items = last.repository?.pullRequest?.timelineItems;
-      return items?.pageInfo.hasNextPage ? items.pageInfo.endCursor : undefined;
-    },
-  });
+  const timeline = useInfiniteQuery(pullQueries.timeline(owner, repo, number));
   const items = timeline.data?.pages.flatMap((p) => p.repository?.pullRequest?.timelineItems.nodes ?? []) ?? [];
 
   // Threads hang off the review that started them.
@@ -169,7 +159,7 @@ function PullHeader({ pr }: { pr: PullDetail }) {
       <div className="small muted" style={{ lineHeight: 1.7 }}>
         <Avatar src={pr.author?.avatarUrl} size={18} />{" "}
         {pr.author ? (
-          <Link to={paths.user(pr.author.login)} className="bold" style={{ color: "var(--fg)" }}>
+          <Link {...to.user(pr.author.login)} className="bold" style={{ color: "var(--fg)" }}>
             {pr.author.login}
           </Link>
         ) : (

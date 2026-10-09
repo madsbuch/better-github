@@ -8,18 +8,13 @@ import {
   TriangleDownIcon,
 } from "@primer/octicons-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { encodePath, rest, restAll, restPage } from "../lib/api";
 import { backend } from "../lib/backend";
-import { nav, Link } from "../lib/router";
-import { paths } from "../lib/routes";
-import type { RestBranch, RestCommitListItem, RestContentItem } from "../lib/types";
+import { to } from "../lib/nav";
+import { repoQueries } from "../queries/repos";
 import { Sheet } from "./Sheet";
 import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Spinner, Time } from "./ui";
-
-export function repoKey(owner: string, repo: string) {
-  return ["r", `${owner}/${repo}`.toLowerCase()];
-}
 
 // ---------------------------------------------------------------- branches
 
@@ -53,11 +48,7 @@ function BranchSheet({
   onSelect: (ref: string) => void;
 }) {
   const [filter, setFilter] = useState("");
-  const branches = useQuery({
-    queryKey: [...repoKey(owner, repo), "branches"],
-    queryFn: () => restAll<RestBranch>(`/repos/${owner}/${repo}/branches`, { query: { per_page: 100 } }, 500),
-    enabled: open,
-  });
+  const branches = useQuery({ ...repoQueries.branches(owner, repo), enabled: open });
   const needle = filter.trim().toLowerCase();
   const visible = (branches.data ?? []).filter((b) => b.name.toLowerCase().includes(needle));
   return (
@@ -116,20 +107,14 @@ function iconFor(type: string) {
 }
 
 export function TreeView({ owner, repo, gitRef, path }: { owner: string; repo: string; gitRef: string; path: string }) {
-  const contents = useQuery({
-    queryKey: [...repoKey(owner, repo), "contents", gitRef, path],
-    queryFn: () =>
-      rest<RestContentItem[] | RestContentItem>(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
-        query: { ref: gitRef },
-      }),
-  });
+  const contents = useQuery(repoQueries.contents(owner, repo, gitRef, path));
 
   if (contents.isPending) return <SkeletonList rows={10} />;
   if (contents.isError) return <ErrorView error={contents.error} onRetry={() => void contents.refetch()} />;
   if (!Array.isArray(contents.data)) {
     return (
       <div className="center">
-        <Link to={paths.blob(owner, repo, gitRef, path)} className="btn">
+        <Link {...to.blob(owner, repo, gitRef, path)} className="btn">
           Open file
         </Link>
       </div>
@@ -144,22 +129,31 @@ export function TreeView({ owner, repo, gitRef, path }: { owner: string; repo: s
 
   return (
     <div>
-      {items.map((item) => (
-        <button
-          key={item.path}
-          className="row"
-          style={{ alignItems: "center", paddingTop: 11, paddingBottom: 11 }}
-          onClick={() => {
-            if (item.type === "dir") nav.navigate(paths.tree(owner, repo, gitRef, item.path));
-            else if (item.type === "submodule") {
-              if (item.html_url) void backend.openUrl(item.html_url);
-            } else nav.navigate(paths.blob(owner, repo, gitRef, item.path));
-          }}
-        >
-          {iconFor(item.type)}
-          <span className="grow ellipsis">{item.name}</span>
-        </button>
-      ))}
+      {items.map((item) =>
+        item.type === "submodule" ? (
+          <button
+            key={item.path}
+            className="row"
+            style={{ alignItems: "center", paddingTop: 11, paddingBottom: 11 }}
+            onClick={() => item.html_url && void backend.openUrl(item.html_url)}
+          >
+            {iconFor(item.type)}
+            <span className="grow ellipsis">{item.name}</span>
+          </button>
+        ) : (
+          <Link
+            key={item.path}
+            {...(item.type === "dir" ? to.tree(owner, repo, gitRef, item.path) : to.blob(owner, repo, gitRef, item.path))}
+            // Directory listings are small; files (up to megabytes) load only when touched.
+            preload={item.type === "dir" ? "viewport" : "intent"}
+            className="row"
+            style={{ alignItems: "center", paddingTop: 11, paddingBottom: 11 }}
+          >
+            {iconFor(item.type)}
+            <span className="grow ellipsis">{item.name}</span>
+          </Link>
+        ),
+      )}
     </div>
   );
 }
@@ -168,7 +162,7 @@ export function Breadcrumbs({ owner, repo, gitRef, path }: { owner: string; repo
   const parts = path.split("/").filter(Boolean);
   return (
     <nav className="breadcrumbs" aria-label="Path">
-      <Link to={paths.tree(owner, repo, gitRef)}>{repo}</Link>
+      <Link {...to.tree(owner, repo, gitRef)}>{repo}</Link>
       {parts.map((part, i) => {
         const sub = parts.slice(0, i + 1).join("/");
         const last = i === parts.length - 1;
@@ -178,7 +172,7 @@ export function Breadcrumbs({ owner, repo, gitRef, path }: { owner: string; repo
             {last ? (
               <span className="bold">{part}</span>
             ) : (
-              <Link to={paths.tree(owner, repo, gitRef, sub)}>{part}</Link>
+              <Link {...to.tree(owner, repo, gitRef, sub)}>{part}</Link>
             )}
           </span>
         );
@@ -190,15 +184,7 @@ export function Breadcrumbs({ owner, repo, gitRef, path }: { owner: string; repo
 // ----------------------------------------------------------------- commits
 
 export function CommitList({ owner, repo, gitRef }: { owner: string; repo: string; gitRef: string }) {
-  const list = useInfiniteQuery({
-    queryKey: [...repoKey(owner, repo), "commits", gitRef],
-    queryFn: ({ pageParam }) =>
-      pageParam
-        ? restPage<RestCommitListItem>(pageParam)
-        : restPage<RestCommitListItem>(`/repos/${owner}/${repo}/commits`, { query: { sha: gitRef, per_page: 30 } }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.next ?? undefined,
-  });
+  const list = useInfiniteQuery(repoQueries.commits(owner, repo, gitRef));
 
   if (list.isPending) return <SkeletonList />;
   if (list.isError) return <ErrorView error={list.error} onRetry={() => void list.refetch()} />;
@@ -210,7 +196,8 @@ export function CommitList({ owner, repo, gitRef }: { owner: string; repo: strin
       {commits.map((c) => {
         const [headline] = c.commit.message.split("\n");
         return (
-          <Link key={c.sha} to={paths.commit(owner, repo, c.sha)} className="row">
+          // A commit's diff can be large: preload on touch, not on sight.
+          <Link key={c.sha} {...to.commit(owner, repo, c.sha)} className="row">
             <span className="row-icon" style={{ paddingTop: 0 }}>
               <Avatar src={c.author?.avatar_url} size={28} />
             </span>

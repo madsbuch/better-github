@@ -1,94 +1,38 @@
 import { CodeIcon, CopyIcon, EyeIcon, KebabHorizontalIcon, LinkExternalIcon, UnwrapIcon, WrapIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
+import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
-import { encodePath, graphql, rest } from "../lib/api";
 import { backend } from "../lib/backend";
 import { formatBytes } from "../lib/format";
 import { setPref, usePrefs } from "../lib/prefs";
-import { REPO } from "../lib/queries";
-import { useScreen } from "../lib/router";
 import { useToast } from "../lib/toast";
-import type { RepoResult, RestContentFile } from "../lib/types";
+import { repoQueries } from "../queries/repos";
 import { CodeView } from "../components/CodeView";
 import { Markdown, type MarkdownBase } from "../components/Markdown";
-import { Breadcrumbs, repoKey } from "../components/RepoParts";
+import { Breadcrumbs } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
 import { CenterSpinner, EmptyState, ErrorView } from "../components/ui";
 
-const IMAGE = /\.(png|jpe?g|gif|webp|bmp|ico|avif)$/i;
 const MARKDOWN = /\.(md|markdown|mdx|mkd)$/i;
-const MAX_TEXT_BYTES = 3 * 1024 * 1024;
 
-function decodeBase64(content: string): Uint8Array {
-  const binary = atob(content.replace(/\s/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function looksBinary(bytes: Uint8Array): boolean {
-  const n = Math.min(bytes.length, 8000);
-  for (let i = 0; i < n; i++) if (bytes[i] === 0) return true;
-  return false;
-}
-
-type Loaded =
-  | { kind: "text"; text: string; meta: RestContentFile }
-  | { kind: "image"; meta: RestContentFile }
-  | { kind: "binary"; meta: RestContentFile }
-  | { kind: "too-large"; meta: RestContentFile };
+const route = getRouteApi("/$owner/$repo/blob");
 
 export function BlobScreen() {
-  const { route } = useScreen();
-  const { owner, repo } = route.params;
-  const path = route.query.get("path") ?? "";
-  const explicitRef = route.query.get("ref");
+  const { owner, repo } = route.useParams();
+  const search = route.useSearch();
+  const path = search.path ?? "";
+  const explicitRef = search.ref;
   const prefs = usePrefs();
   const toast = useToast();
   const [menu, setMenu] = useState(false);
   const isMarkdown = MARKDOWN.test(path);
   const [preview, setPreview] = useState(isMarkdown);
 
-  const detail = useQuery({
-    queryKey: [...repoKey(owner, repo), "detail"],
-    queryFn: () => graphql<RepoResult>(REPO, { owner, name: repo }),
-    enabled: !explicitRef,
-  });
+  const detail = useQuery({ ...repoQueries.detail(owner, repo), enabled: !explicitRef });
   const gitRef = explicitRef ?? detail.data?.repository?.defaultBranchRef?.name ?? null;
-
-  const file = useQuery({
-    queryKey: [...repoKey(owner, repo), "blob", gitRef, path],
-    enabled: !!gitRef,
-    queryFn: async (): Promise<Loaded> => {
-      const meta = await rest<RestContentFile>(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, { query: { ref: gitRef } });
-      if (IMAGE.test(path)) return { kind: "image", meta };
-      if (meta.size > MAX_TEXT_BYTES) return { kind: "too-large", meta };
-      let bytes: Uint8Array;
-      if (meta.content && meta.encoding === "base64") {
-        bytes = decodeBase64(meta.content);
-      } else {
-        // Files over 1 MB come without inline content.
-        const raw = await rest<string>(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
-          query: { ref: gitRef },
-          accept: "application/vnd.github.raw+json",
-        });
-        return { kind: "text", text: typeof raw === "string" ? raw : JSON.stringify(raw, null, 2), meta };
-      }
-      if (looksBinary(bytes)) return { kind: "binary", meta };
-      return { kind: "text", text: new TextDecoder().decode(bytes), meta };
-    },
-  });
-
-  const rendered = useQuery({
-    queryKey: [...repoKey(owner, repo), "blob-html", gitRef, path],
-    enabled: !!gitRef && isMarkdown && preview,
-    queryFn: () =>
-      rest<string>(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
-        query: { ref: gitRef },
-        accept: "application/vnd.github.html+json",
-      }),
-  });
+  const file = useQuery({ ...repoQueries.blob(owner, repo, gitRef ?? "", path), enabled: !!gitRef });
+  const rendered = useQuery({ ...repoQueries.blobHtml(owner, repo, gitRef ?? "", path), enabled: !!gitRef && isMarkdown && preview });
 
   const name = path.split("/").pop() ?? path;
   const dir = path.split("/").slice(0, -1).join("/");

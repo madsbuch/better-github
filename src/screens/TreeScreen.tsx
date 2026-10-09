@@ -1,27 +1,24 @@
 import { LinkExternalIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
-import { graphql } from "../lib/api";
+import { getRouteApi } from "@tanstack/react-router";
 import { backend } from "../lib/backend";
-import { REPO } from "../lib/queries";
-import { nav, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
-import type { RepoResult } from "../lib/types";
-import { BranchBar, Breadcrumbs, TreeView, repoKey } from "../components/RepoParts";
+import { to, useNav } from "../lib/nav";
+import { repoQueries } from "../queries/repos";
+import { BranchBar, Breadcrumbs, TreeView } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { CenterSpinner, ErrorView } from "../components/ui";
 
+const route = getRouteApi("/$owner/$repo/tree");
+
 export function TreeScreen() {
-  const { route } = useScreen();
-  const { owner, repo } = route.params;
-  const path = route.query.get("path") ?? "";
-  const explicitRef = route.query.get("ref");
+  const { owner, repo } = route.useParams();
+  const search = route.useSearch();
+  const path = search.path ?? "";
+  const explicitRef = search.ref;
+  const nav = useNav();
 
   // Only needed to resolve the default branch when no ref is given.
-  const detail = useQuery({
-    queryKey: [...repoKey(owner, repo), "detail"],
-    queryFn: () => graphql<RepoResult>(REPO, { owner, name: repo }),
-    enabled: !explicitRef,
-  });
+  const detail = useQuery({ ...repoQueries.detail(owner, repo), enabled: !explicitRef });
   const gitRef = explicitRef ?? detail.data?.repository?.defaultBranchRef?.name ?? null;
   const name = path.split("/").filter(Boolean).pop() ?? repo;
 
@@ -43,7 +40,7 @@ export function TreeScreen() {
         detail.isError ? <ErrorView error={detail.error} onRetry={() => void detail.refetch()} /> : <CenterSpinner />
       ) : (
         <>
-          <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={(ref) => nav.replace(paths.tree(owner, repo, ref, path || undefined))} />
+          <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={(ref) => nav.replace(to.tree(owner, repo, ref, path))} />
           {path && <Breadcrumbs owner={owner} repo={repo} gitRef={gitRef} path={path} />}
           <TreeView owner={owner} repo={repo} gitRef={gitRef} path={path} />
         </>

@@ -1,6 +1,7 @@
 import {
   BookIcon,
   CodeIcon,
+  PlayIcon,
   CopyIcon,
   EyeIcon,
   GitCommitIcon,
@@ -16,74 +17,58 @@ import {
   StarIcon,
 } from "@primer/octicons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { ApiError, errorMessage, graphql, rest } from "../lib/api";
+import { getRouteApi, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
-import { REPO } from "../lib/queries";
-import { Link, nav, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
+import { splitRepo, to, useNav, type RepoTab } from "../lib/nav";
 import { useToast } from "../lib/toast";
-import type { RepoDetail, RepoResult } from "../lib/types";
-import { useIssueSearch } from "../hooks/useSearch";
+import type { RepoDetail } from "../lib/types";
+import { actionsQueries } from "../queries/actions";
+import { keys } from "../queries/keys";
+import { repoQueries, useStarRepo } from "../queries/repos";
+import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
+import { ActionsTab } from "./actions/ActionsTab";
 import { Markdown, type MarkdownBase } from "../components/Markdown";
-import { BranchBar, CommitList, TreeView, repoKey } from "../components/RepoParts";
+import { BranchBar, CommitList, TreeView } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
 import { SearchIssueRow } from "../components/rows";
 import { Avatar, CenterSpinner, EmptyState, ErrorView, LoadMore, ScreenTabs, Segmented, SkeletonList } from "../components/ui";
 
-type Tab = "about" | "code" | "pulls" | "issues" | "commits";
-const TABS: Tab[] = ["about", "code", "pulls", "issues", "commits"];
+const route = getRouteApi("/$owner/$repo/");
 
 export function RepoScreen() {
-  const { route } = useScreen();
-  const { owner, repo } = route.params;
-  const tab = (TABS.includes(route.query.get("tab") as Tab) ? route.query.get("tab") : "about") as Tab;
+  const { owner, repo } = route.useParams();
+  const search = route.useSearch();
+  const tab: RepoTab = search.tab ?? "about";
+  const nav = useNav();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [menu, setMenu] = useState(false);
   const fullName = `${owner}/${repo}`;
 
-  const detail = useQuery({
-    queryKey: [...repoKey(owner, repo), "detail"],
-    queryFn: () => graphql<RepoResult>(REPO, { owner, name: repo }),
-  });
+  const detail = useQuery(repoQueries.detail(owner, repo));
   const data = detail.data?.repository ?? null;
-  const gitRef = route.query.get("ref") ?? data?.defaultBranchRef?.name ?? "";
+  const gitRef = search.ref ?? data?.defaultBranchRef?.name ?? "";
+  const star = useStarRepo(owner, repo);
 
-  const withParams = (update: (params: URLSearchParams) => void) => {
-    const params = new URLSearchParams(route.query);
-    update(params);
-    const qs = params.toString();
-    nav.replace(qs ? `${paths.repo(owner, repo)}?${qs}` : paths.repo(owner, repo));
-  };
-  const setTab = (next: Tab) => withParams((p) => (next === "about" ? p.delete("tab") : p.set("tab", next)));
-  const setRef = (ref: string) => withParams((p) => p.set("ref", ref));
+  // Every tab's first page loads in the background, so switching tabs is instant.
+  useEffect(() => {
+    void queryClient.prefetchQuery(repoQueries.readme(owner, repo));
+    void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "pulls", "open")));
+    void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "issues", "open")));
+    void queryClient.prefetchInfiniteQuery(actionsQueries.runs(owner, repo));
+  }, [queryClient, owner, repo]);
+  useEffect(() => {
+    if (!gitRef) return;
+    void queryClient.prefetchQuery(repoQueries.contents(owner, repo, gitRef, ""));
+    void queryClient.prefetchInfiniteQuery(repoQueries.commits(owner, repo, gitRef));
+  }, [queryClient, owner, repo, gitRef]);
 
-  const toggleStar = async () => {
-    if (!data) return;
-    const starred = !data.viewerHasStarred;
-    queryClient.setQueryData<RepoResult>([...repoKey(owner, repo), "detail"], (old) =>
-      old?.repository
-        ? { repository: { ...old.repository, viewerHasStarred: starred, stargazerCount: old.repository.stargazerCount + (starred ? 1 : -1) } }
-        : old,
-    );
-    try {
-      await rest(`/user/starred/${owner}/${repo}`, { method: starred ? "PUT" : "DELETE" });
-      void queryClient.invalidateQueries({ queryKey: ["viewer-repos", "starred"] });
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-      void detail.refetch();
-    }
-  };
-
-  const refresh = () =>
-    queryClient.refetchQueries({
-      predicate: (q) =>
-        (q.queryKey[0] === "r" && q.queryKey[1] === fullName.toLowerCase()) ||
-        (q.queryKey[0] === "search-issues" && String(q.queryKey[1]).includes(`repo:${fullName}`)),
-    });
+  const setTab = (next: RepoTab) => nav.replace(to.repo(owner, repo, { tab: next, ref: search.ref }));
+  const setRef = (ref: string) => nav.replace(to.repo(owner, repo, { tab, ref }));
+  const refresh = () => queryClient.refetchQueries({ queryKey: keys.repo.all(owner, repo), type: "active" });
 
   return (
     <Screen
@@ -92,7 +77,7 @@ export function RepoScreen() {
       actions={
         <>
           {data && (
-            <button className="icon-btn" aria-label={data.viewerHasStarred ? "Unstar" : "Star"} onClick={() => void toggleStar()}>
+            <button className="icon-btn" aria-label={data.viewerHasStarred ? "Unstar" : "Star"} onClick={() => star.mutate(!data.viewerHasStarred)}>
               {data.viewerHasStarred ? <StarFillIcon size={20} className="c-attention" /> : <StarIcon size={20} />}
             </button>
           )}
@@ -111,7 +96,8 @@ export function RepoScreen() {
             { value: "pulls", label: "Pull requests", icon: <GitPullRequestIcon size={16} />, count: data?.pullRequests.totalCount },
             ...(data?.hasIssuesEnabled === false
               ? []
-              : [{ value: "issues" as Tab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
+              : [{ value: "issues" as RepoTab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
+            { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
             { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
           ]}
         />
@@ -136,7 +122,9 @@ export function RepoScreen() {
           <EmptyState title="This repository is empty" />
         )
       ) : tab === "pulls" || tab === "issues" ? (
-        <RepoIssues fullName={fullName} kind={tab} />
+        <RepoIssues owner={owner} repo={repo} kind={tab} />
+      ) : tab === "actions" ? (
+        <ActionsTab owner={owner} repo={repo} workflow={search.workflow} status={search.status} />
       ) : gitRef ? (
         <>
           <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={setRef} />
@@ -170,24 +158,13 @@ export function RepoScreen() {
 function About({ repo }: { repo: RepoDetail }) {
   const [owner, name] = [repo.owner.login, repo.name];
   const branch = repo.defaultBranchRef?.name;
-  const readme = useQuery({
-    queryKey: [...repoKey(owner, name), "readme"],
-    queryFn: async () => {
-      try {
-        return await rest<string>(`/repos/${owner}/${name}/readme`, { accept: "application/vnd.github.html+json" });
-      } catch (e) {
-        if (ApiError.from(e).status === 404) return null;
-        throw e;
-      }
-    },
-    enabled: !!branch,
-  });
+  const readme = useQuery({ ...repoQueries.readme(owner, name), enabled: !!branch });
   const base: MarkdownBase | null = branch ? { owner, repo: name, ref: branch, dir: "" } : null;
 
   return (
     <>
       <div className="repo-header">
-        <Link to={paths.user(owner)} className="row-flex" style={{ color: "var(--fg-muted)" }}>
+        <Link {...to.user(owner)} className="row-flex" style={{ color: "var(--fg-muted)" }}>
           <Avatar src={repo.owner.avatarUrl} size={22} square />
           <span>{owner}</span>
         </Link>
@@ -207,7 +184,7 @@ function About({ repo }: { repo: RepoDetail }) {
         {repo.parent && (
           <div className="muted small" style={{ marginBottom: 6 }}>
             <RepoForkedIcon size={13} /> forked from{" "}
-            <Link to={`/${repo.parent.nameWithOwner}`}>{repo.parent.nameWithOwner}</Link>
+            <Link {...to.repo(...splitRepo(repo.parent.nameWithOwner))}>{repo.parent.nameWithOwner}</Link>
           </div>
         )}
         {repo.description && <p style={{ margin: "4px 0 8px" }}>{repo.description}</p>}
@@ -219,7 +196,7 @@ function About({ repo }: { repo: RepoDetail }) {
         {repo.repositoryTopics.nodes.length > 0 && (
           <div className="wrap-flex" style={{ margin: "6px 0" }}>
             {repo.repositoryTopics.nodes.map((t) => (
-              <Link key={t.topic.name} to={paths.search(`topic:${t.topic.name}`, "repos")} className="pill pill-accent">
+              <Link key={t.topic.name} {...to.search(`topic:${t.topic.name}`, "repos")} className="pill pill-accent">
                 {t.topic.name}
               </Link>
             ))}
@@ -263,10 +240,9 @@ function About({ repo }: { repo: RepoDetail }) {
   );
 }
 
-function RepoIssues({ fullName, kind }: { fullName: string; kind: "pulls" | "issues" }) {
+function RepoIssues({ owner, repo, kind }: { owner: string; repo: string; kind: "pulls" | "issues" }) {
   const [state, setState] = useState<"open" | "closed">("open");
-  const query = `repo:${fullName} ${kind === "pulls" ? "is:pr" : "is:issue"} is:${state} sort:updated-desc`;
-  const search = useIssueSearch(query);
+  const search = useIssueSearch(repoListQuery(owner, repo, kind, state));
   return (
     <>
       <Segmented

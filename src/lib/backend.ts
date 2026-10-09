@@ -55,6 +55,13 @@ export interface RestResponse<T> {
   link: string | null;
 }
 
+/** A workflow job's log (see `gh_job_logs` in src-tauri/src/github.rs). */
+export interface JobLog {
+  text: string;
+  /** Only the end of a very long log was kept. */
+  truncated: boolean;
+}
+
 export interface GraphQLErrorItem {
   message: string;
   type?: string;
@@ -105,6 +112,8 @@ export interface Backend {
   authLogout(): Promise<void>;
   rest<T>(request: RestRequest): Promise<RestResponse<T>>;
   graphql<T>(query: string, variables?: Record<string, unknown>): Promise<GraphQLEnvelope<T>>;
+  /** Downloads a finished workflow job's log (GitHub returns 404 while it runs). */
+  jobLogs(owner: string, repo: string, jobId: number): Promise<JobLog>;
   openUrl(url: string): Promise<void>;
   copyText(text: string): Promise<void>;
 }
@@ -128,6 +137,7 @@ const tauriBackend: Backend = {
   authLogout: () => call("auth_logout"),
   rest: (request) => call("gh_rest", { request }),
   graphql: (query, variables) => call("gh_graphql", { query, variables: variables ?? {} }),
+  jobLogs: (owner, repo, jobId) => call("gh_job_logs", { owner, repo, jobId }),
   async openUrl(url) {
     // Android: a browser tab pinned to a browser. The plugin's tab below can be
     // handed to another app that claims the link, e.g. GitHub's own app for
@@ -276,6 +286,11 @@ const browserBackend: Backend = {
       throw new ApiError(envelope.errors?.[0]?.message ?? "GraphQL request failed", "api", 200, envelope.errors);
     }
     return envelope;
+  },
+  async jobLogs(owner, repo, jobId) {
+    // The redirect to log storage may fail CORS in a browser; the app fetches it in Rust.
+    const response = await browserFetch(`${API}/repos/${owner}/${repo}/actions/jobs/${jobId}/logs`, {});
+    return { text: await response.text(), truncated: false };
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener,noreferrer");

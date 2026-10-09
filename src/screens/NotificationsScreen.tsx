@@ -11,20 +11,24 @@ import {
   TagIcon,
   XCircleIcon,
 } from "@primer/octicons-react";
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { errorMessage, restPage, rest, type Page } from "../lib/api";
 import { backend } from "../lib/backend";
-import { appPathForUrl, htmlUrlForApiUrl } from "../lib/links";
-import { nav, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
-import { useToast } from "../lib/toast";
+import { appLinkForUrl, htmlUrlForApiUrl } from "../lib/links";
+import { to, useNav, type LinkTarget } from "../lib/nav";
 import type { RestNotification } from "../lib/types";
+import {
+  notificationQueries,
+  useMarkAllNotificationsRead,
+  useMarkNotificationDone,
+  useMarkNotificationRead,
+} from "../queries/notifications";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
 import { Avatar, EmptyState, ErrorView, LoadMore, Segmented, SkeletonList, Time } from "../components/ui";
 
-type Filter = "unread" | "participating" | "all";
+const route = getRouteApi("/notifications");
 
 const REASONS: Record<string, string> = {
   approval_requested: "Approval requested",
@@ -66,82 +70,26 @@ function subjectIcon(type: string): ReactNode {
   }
 }
 
-function targetFor(n: RestNotification): { path: string | null; url: string } {
+function targetFor(n: RestNotification): { link: LinkTarget | null; url: string } {
   const apiUrl = n.subject.url;
-  if (apiUrl) {
-    return { path: appPathForUrl(apiUrl), url: htmlUrlForApiUrl(apiUrl) };
-  }
+  if (apiUrl) return { link: appLinkForUrl(apiUrl), url: htmlUrlForApiUrl(apiUrl) };
+  const [owner, repo] = [n.repository.owner.login, n.repository.name];
   const repoUrl = `https://github.com/${n.repository.full_name}`;
-  if (n.subject.type === "CheckSuite") return { path: null, url: `${repoUrl}/actions` };
-  return { path: paths.repo(n.repository.owner.login, n.repository.name), url: repoUrl };
+  // Workflow run notifications carry no URL; their runs are in the Actions tab.
+  if (n.subject.type === "CheckSuite") return { link: to.repo(owner, repo, { tab: "actions" }), url: `${repoUrl}/actions` };
+  return { link: to.repo(owner, repo), url: repoUrl };
 }
 
 export function NotificationsScreen() {
-  const { route } = useScreen();
-  const filter = (["participating", "all"].includes(route.query.get("filter") ?? "") ? route.query.get("filter") : "unread") as Filter;
-  const queryClient = useQueryClient();
-  const toast = useToast();
+  const filter = route.useSearch({ select: (s) => s.filter ?? "unread" });
+  const nav = useNav();
   const [menuOpen, setMenuOpen] = useState(false);
-  const key = ["notifications", "list", filter];
-
-  const list = useInfiniteQuery({
-    queryKey: key,
-    queryFn: ({ pageParam }) =>
-      pageParam
-        ? restPage<RestNotification>(pageParam)
-        : restPage<RestNotification>("/notifications", {
-            query: { per_page: 50, all: filter === "all", participating: filter === "participating" },
-          }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.next ?? undefined,
-  });
+  const list = useInfiniteQuery(notificationQueries.list(filter));
+  const markRead = useMarkNotificationRead();
+  const markDone = useMarkNotificationDone();
+  const markAllRead = useMarkAllNotificationsRead();
 
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-
-  const updateItems = (fn: (items: RestNotification[]) => RestNotification[]) => {
-    queryClient.setQueryData<InfiniteData<Page<RestNotification>>>(key, (data) =>
-      data ? { ...data, pages: data.pages.map((p) => ({ ...p, items: fn(p.items) })) } : data,
-    );
-  };
-
-  const markRead = async (n: RestNotification) => {
-    if (!n.unread) return;
-    updateItems((items) => items.map((i) => (i.id === n.id ? { ...i, unread: false } : i)));
-    try {
-      await rest(`/notifications/threads/${n.id}`, { method: "PATCH" });
-      void queryClient.invalidateQueries({ queryKey: ["notifications", "has-unread"] });
-    } catch {
-      // Not critical; it'll show as unread again on refresh.
-    }
-  };
-
-  const markDone = async (n: RestNotification) => {
-    updateItems((items) => items.filter((i) => i.id !== n.id));
-    try {
-      await rest(`/notifications/threads/${n.id}`, { method: "DELETE" });
-      void queryClient.invalidateQueries({ queryKey: ["notifications", "has-unread"] });
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-      void list.refetch();
-    }
-  };
-
-  const markAllRead = async () => {
-    try {
-      await rest("/notifications", { method: "PUT", body: { read: true } });
-      toast.show("Marked everything as read", "success");
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    }
-  };
-
-  const open = (n: RestNotification) => {
-    void markRead(n);
-    const target = targetFor(n);
-    if (target.path) nav.navigate(target.path);
-    else void backend.openUrl(target.url);
-  };
 
   // Group consecutive notifications by repository.
   const groups: { repo: string; avatar: string; items: RestNotification[] }[] = [];
@@ -162,7 +110,7 @@ export function NotificationsScreen() {
       header={
         <Segmented
           value={filter}
-          onChange={(value) => nav.replace(value === "unread" ? paths.notifications() : `${paths.notifications()}?filter=${value}`)}
+          onChange={(value) => nav.replace(to.notifications(value === "unread" ? undefined : value))}
           options={[
             { value: "unread", label: "Unread" },
             { value: "participating", label: "Participating" },
@@ -189,22 +137,14 @@ export function NotificationsScreen() {
                 <span className="ellipsis">{group.repo}</span>
               </div>
               {group.items.map((n) => (
-                <div key={n.id} className="row" style={{ paddingRight: 4 }}>
-                  <span className={`row-icon ${n.unread ? "c-accent" : "c-muted"}`}>{subjectIcon(n.subject.type)}</span>
-                  <button className="row-body" style={{ border: 0, background: "none", padding: 0, textAlign: "left" }} onClick={() => open(n)}>
-                    <span className={`row-title${n.unread ? " unread" : ""}`} style={{ display: "block", fontWeight: n.unread ? 600 : 400 }}>
-                      {n.subject.title}
-                    </span>
-                    <span className="row-meta">
-                      <span>{REASONS[n.reason] ?? n.reason.replace(/_/g, " ")}</span>
-                      <span>·</span>
-                      <Time iso={n.updated_at} />
-                    </span>
-                  </button>
-                  <button className="icon-btn sm" aria-label="Mark as done" onClick={() => void markDone(n)}>
-                    <CheckIcon size={16} />
-                  </button>
-                </div>
+                <NotificationRow
+                  key={n.id}
+                  notification={n}
+                  onOpen={() => {
+                    if (n.unread) markRead.mutate(n);
+                  }}
+                  onDone={() => markDone.mutate(n)}
+                />
               ))}
             </div>
           ))}
@@ -216,7 +156,7 @@ export function NotificationsScreen() {
         onClose={() => setMenuOpen(false)}
         title="Notifications"
         actions={[
-          { label: "Mark all as read", icon: <ReadIcon size={18} />, onSelect: () => void markAllRead() },
+          { label: "Mark all as read", icon: <ReadIcon size={18} />, onSelect: () => markAllRead.mutate() },
           {
             label: "Manage on GitHub",
             icon: <BellSlashIcon size={18} />,
@@ -225,5 +165,46 @@ export function NotificationsScreen() {
         ]}
       />
     </Screen>
+  );
+}
+
+function NotificationRow({ notification: n, onOpen, onDone }: { notification: RestNotification; onOpen: () => void; onDone: () => void }) {
+  const target = targetFor(n);
+  const body = (
+    <>
+      <span className={`row-title${n.unread ? " unread" : ""}`} style={{ display: "block", fontWeight: n.unread ? 600 : 400 }}>
+        {n.subject.title}
+      </span>
+      <span className="row-meta">
+        <span>{REASONS[n.reason] ?? n.reason.replace(/_/g, " ")}</span>
+        <span>·</span>
+        <Time iso={n.updated_at} />
+      </span>
+    </>
+  );
+  return (
+    <div className="row" style={{ paddingRight: 4 }}>
+      <span className={`row-icon ${n.unread ? "c-accent" : "c-muted"}`}>{subjectIcon(n.subject.type)}</span>
+      {target.link ? (
+        // Preloads the pull request or issue as it scrolls into view.
+        <Link {...target.link} preload="viewport" className="row-body" style={{ color: "inherit" }} onClick={onOpen}>
+          {body}
+        </Link>
+      ) : (
+        <button
+          className="row-body"
+          style={{ border: 0, background: "none", padding: 0, textAlign: "left" }}
+          onClick={() => {
+            onOpen();
+            void backend.openUrl(target.url);
+          }}
+        >
+          {body}
+        </button>
+      )}
+      <button className="icon-btn sm" aria-label="Mark as done" onClick={onDone}>
+        <CheckIcon size={16} />
+      </button>
+    </div>
   );
 }

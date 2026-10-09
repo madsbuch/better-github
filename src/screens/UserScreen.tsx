@@ -1,26 +1,18 @@
 import { LinkExternalIcon, LocationIcon, OrganizationIcon, PeopleIcon } from "@primer/octicons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { graphql } from "../lib/api";
+import { getRouteApi } from "@tanstack/react-router";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
-import { OWNER } from "../lib/queries";
-import { useScreen } from "../lib/router";
-import type { OwnerResult } from "../lib/types";
+import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 import { RepoRow } from "../components/rows";
 import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
 
-export function UserScreen() {
-  const { route } = useScreen();
-  const login = route.params.owner;
+const route = getRouteApi("/$owner/");
 
-  const owner = useInfiniteQuery({
-    queryKey: ["owner", login],
-    queryFn: ({ pageParam }) => graphql<OwnerResult>(OWNER, { login, after: pageParam }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) =>
-      last.repositoryOwner?.repositories.pageInfo.hasNextPage ? last.repositoryOwner.repositories.pageInfo.endCursor : undefined,
-  });
+export function UserScreen() {
+  const login = route.useParams({ select: (p) => p.owner });
+  const owner = useInfiniteQuery(viewerQueries.owner(login));
 
   const first = owner.data?.pages[0]?.repositoryOwner;
   const repos = owner.data?.pages.flatMap((p) => p.repositoryOwner?.repositories.nodes ?? []) ?? [];

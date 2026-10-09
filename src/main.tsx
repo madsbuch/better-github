@@ -1,37 +1,24 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { ApiError } from "./lib/api";
+import { backend } from "./lib/backend";
 import { SessionProvider } from "./lib/session";
-import { ToastProvider } from "./lib/toast";
+import { Toasts } from "./lib/toast";
+import { queryClient, restoreCache } from "./queries/client";
 import "./styles/theme.css";
 import "./styles/app.css";
 import "./styles/markdown.css";
 import "./styles/code.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      gcTime: 30 * 60_000,
-      refetchOnWindowFocus: true,
-      retry: (failureCount, error) => {
-        const status = ApiError.from(error).status;
-        // Client errors (404, 403, 422...) won't fix themselves.
-        if (status !== null && status >= 400 && status < 500) return false;
-        return failureCount < 2;
-      },
-    },
-    mutations: { retry: false },
-  },
-});
+// Read the stored session and the cached data before the first frame, so the
+// app opens on its last screen with content instead of a spinner.
+const [session] = await Promise.all([backend.sessionGet().catch(() => null), restoreCache()]);
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
-    <ToastProvider>
-      <SessionProvider>
-        <App />
-      </SessionProvider>
-    </ToastProvider>
+    <SessionProvider initial={session}>
+      <App />
+    </SessionProvider>
+    <Toasts />
   </QueryClientProvider>,
 );

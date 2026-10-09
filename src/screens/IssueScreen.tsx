@@ -1,48 +1,37 @@
 import { CopyIcon, IssueClosedIcon, IssueReopenedIcon, KebabHorizontalIcon, LinkExternalIcon, SkipIcon } from "@primer/octicons-react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { errorMessage, graphql } from "../lib/api";
 import { backend } from "../lib/backend";
-import { ADD_COMMENT, CLOSE_ISSUE, ISSUE, REOPEN_ISSUE } from "../lib/queries";
-import { Link, nav, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
+import { to, useNav } from "../lib/nav";
 import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
-import type { IssueDetail, IssueResult } from "../lib/types";
+import type { IssueDetail } from "../lib/types";
+import { issueQueries, useIssueMutations } from "../queries/issues";
 import { Composer, focusComposer } from "../components/Composer";
-import { repoKey } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
 import { CommentCard, EventRow, IssueCommentCard } from "../components/Timeline";
 import { Avatar, CenterSpinner, ErrorView, Labels, LoadMore, StateBadge, Time } from "../components/ui";
 
+const route = getRouteApi("/$owner/$repo/issues/$number");
+
 export function IssueScreen() {
-  const { route } = useScreen();
-  const { owner, repo } = route.params;
-  const number = Number(route.params.number);
+  const { owner, repo, number } = route.useParams();
   const viewer = useViewer();
   const toast = useToast();
-  const queryClient = useQueryClient();
+  const nav = useNav();
   const [menu, setMenu] = useState(false);
   const [comment, setComment] = useState("");
-  const key = [...repoKey(owner, repo), "issue", number];
-
-  const query = useInfiniteQuery({
-    queryKey: key,
-    queryFn: ({ pageParam }) => graphql<IssueResult>(ISSUE, { owner, name: repo, number, after: pageParam }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => {
-      const issue = last.repository?.issueOrPullRequest;
-      return issue?.__typename === "Issue" && issue.timelineItems.pageInfo.hasNextPage ? issue.timelineItems.pageInfo.endCursor : undefined;
-    },
-  });
+  const query = useInfiniteQuery(issueQueries.detail(owner, repo, number));
+  const mutations = useIssueMutations(owner, repo, number);
 
   const first = query.data?.pages[0]?.repository?.issueOrPullRequest ?? null;
 
   // GitHub serves pull requests under /issues/N too.
   useEffect(() => {
-    if (first?.__typename === "PullRequest") nav.replace(paths.pull(owner, repo, number));
-  }, [first, owner, repo, number]);
+    if (first?.__typename === "PullRequest") nav.replace(to.pull(owner, repo, number));
+  }, [first, owner, repo, number, nav]);
 
   const issue = first?.__typename === "Issue" ? (first as IssueDetail) : null;
   const items =
@@ -51,30 +40,18 @@ export function IssueScreen() {
       return node?.__typename === "Issue" ? (node as IssueDetail).timelineItems.nodes : [];
     }) ?? [];
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: key });
-
   const submitComment = async () => {
     if (!issue) return;
     try {
-      await graphql(ADD_COMMENT, { subjectId: issue.id, body: comment.trim() });
+      await mutations.comment.mutateAsync({ subjectId: issue.id, body: comment.trim() });
       setComment("");
-      await refresh();
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
+    } catch {
+      // The mutation reports the error.
     }
   };
 
-  const setState = async (close: boolean, reason?: "COMPLETED" | "NOT_PLANNED") => {
-    if (!issue) return;
-    try {
-      if (close) await graphql(CLOSE_ISSUE, { issueId: issue.id, stateReason: reason ?? "COMPLETED" });
-      else await graphql(REOPEN_ISSUE, { issueId: issue.id });
-      toast.show(close ? "Issue closed" : "Issue reopened", "success");
-      await refresh();
-      void queryClient.invalidateQueries({ queryKey: ["search-issues"] });
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    }
+  const setState = (close: boolean, reason?: "COMPLETED" | "NOT_PLANNED") => {
+    if (issue) mutations.setState.mutate({ issueId: issue.id, close, reason });
   };
 
   const url = `https://github.com/${owner}/${repo}/issues/${number}`;
@@ -118,7 +95,7 @@ export function IssueScreen() {
             <div className="row-flex small muted">
               <Avatar src={issue.author?.avatarUrl} size={18} />
               {issue.author ? (
-                <Link to={paths.user(issue.author.login)} className="bold" style={{ color: "var(--fg)" }}>
+                <Link {...to.user(issue.author.login)} className="bold" style={{ color: "var(--fg)" }}>
                   {issue.author.login}
                 </Link>
               ) : (
@@ -186,19 +163,19 @@ export function IssueScreen() {
             label: "Close as completed",
             icon: <IssueClosedIcon size={18} />,
             hidden: !issue || issue.state !== "OPEN" || !issue.viewerCanClose,
-            onSelect: () => void setState(true, "COMPLETED"),
+            onSelect: () => setState(true, "COMPLETED"),
           },
           {
             label: "Close as not planned",
             icon: <SkipIcon size={18} />,
             hidden: !issue || issue.state !== "OPEN" || !issue.viewerCanClose,
-            onSelect: () => void setState(true, "NOT_PLANNED"),
+            onSelect: () => setState(true, "NOT_PLANNED"),
           },
           {
             label: "Reopen issue",
             icon: <IssueReopenedIcon size={18} />,
             hidden: !issue || issue.state === "OPEN" || !issue.viewerCanReopen,
-            onSelect: () => void setState(false),
+            onSelect: () => setState(false),
           },
           { label: "Open in browser", icon: <LinkExternalIcon size={18} />, onSelect: () => void backend.openUrl(url) },
           { label: "Copy link", icon: <CopyIcon size={18} />, onSelect: () => void backend.copyText(url).then(() => toast.show("Link copied")) },

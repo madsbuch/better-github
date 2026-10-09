@@ -10,21 +10,19 @@ import {
   StarIcon,
 } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
-import { graphql } from "../lib/api";
+import { Link } from "@tanstack/react-router";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
-import { VIEWER } from "../lib/queries";
-import { Link } from "../lib/router";
-import { paths } from "../lib/routes";
+import { to } from "../lib/nav";
 import { useSessionApi, useViewer } from "../lib/session";
-import type { ViewerResult } from "../lib/types";
+import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 import { Avatar, ErrorView } from "../components/ui";
 
 export function ProfileScreen() {
   const session = useViewer();
   const { signOut } = useSessionApi();
-  const viewer = useQuery({ queryKey: ["viewer"], queryFn: () => graphql<ViewerResult>(VIEWER) });
+  const viewer = useQuery(viewerQueries.profile());
   const v = viewer.data?.viewer;
 
   return (
@@ -60,19 +58,19 @@ export function ProfileScreen() {
       )}
 
       <div style={{ borderTop: "1px solid var(--border-muted)" }}>
-        <Link to={paths.repos()} className="kv">
+        <Link {...to.repos()} className="kv">
           <RepoIcon size={18} />
           <span className="grow">Repositories</span>
           <span className="muted">{v ? compactNumber(v.repositories.totalCount) : ""}</span>
           <ChevronRightIcon size={16} className="c-muted" />
         </Link>
-        <Link to={`${paths.repos()}?tab=starred`} className="kv">
+        <Link {...to.repos("starred")} className="kv">
           <StarIcon size={18} />
           <span className="grow">Stars</span>
           <span className="muted">{v ? compactNumber(v.starredRepositories.totalCount) : ""}</span>
           <ChevronRightIcon size={16} className="c-muted" />
         </Link>
-        <Link to={paths.settings()} className="kv">
+        <Link {...to.settings()} className="kv">
           <GearIcon size={18} />
           <span className="grow">Settings</span>
           <ChevronRightIcon size={16} className="c-muted" />
@@ -87,7 +85,7 @@ export function ProfileScreen() {
         <>
           <h3 className="section-title">Organizations</h3>
           {v.organizations.nodes.map((org) => (
-            <Link key={org.login} to={paths.user(org.login)} className="row" style={{ alignItems: "center" }}>
+            <Link key={org.login} {...to.user(org.login)} preload="viewport" className="row" style={{ alignItems: "center" }}>
               <Avatar src={org.avatarUrl} size={32} square />
               <span className="row-body">
                 <span className="bold">{org.name || org.login}</span>

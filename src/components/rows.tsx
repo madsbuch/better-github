@@ -1,7 +1,7 @@
 import { CommentIcon, LockIcon, RepoForkedIcon, StarIcon } from "@primer/octicons-react";
 import { compactNumber } from "../lib/format";
-import { Link } from "../lib/router";
-import { paths, splitRepo } from "../lib/routes";
+import { Link } from "@tanstack/react-router";
+import { splitRepo, to } from "../lib/nav";
 import type { IssueListItem, PullListItem, RepoListItem, SearchIssueNode } from "../lib/types";
 import {
   Avatar,
@@ -20,7 +20,8 @@ export function PullRow({ pr, showRepo = true }: { pr: PullListItem; showRepo?: 
   const checks = pr.commits.nodes[0]?.commit.statusCheckRollup?.state;
   const comments = pr.totalCommentsCount ?? 0;
   return (
-    <Link to={paths.pull(owner, repo, pr.number)} className="row">
+    // Rows preload their screen as they scroll into view, so opening one is instant.
+    <Link {...to.pull(owner, repo, pr.number)} preload="viewport" className="row">
       <span className="row-icon">
         <PullStateIcon state={pullVisualState(pr.state, pr.isDraft)} />
       </span>
@@ -61,7 +62,7 @@ export function PullRow({ pr, showRepo = true }: { pr: PullListItem; showRepo?: 
 export function IssueRow({ issue, showRepo = true }: { issue: IssueListItem; showRepo?: boolean }) {
   const [owner, repo] = splitRepo(issue.repository.nameWithOwner);
   return (
-    <Link to={paths.issue(owner, repo, issue.number)} className="row">
+    <Link {...to.issue(owner, repo, issue.number)} preload="viewport" className="row">
       <span className="row-icon">
         <IssueStateIcon state={issue.issueState} reason={issue.stateReason} />
       </span>
@@ -102,7 +103,7 @@ export function SearchIssueRow({ node, showRepo = true }: { node: SearchIssueNod
 
 export function RepoRow({ repo, showOwner = true }: { repo: RepoListItem; showOwner?: boolean }) {
   return (
-    <Link to={paths.repo(repo.owner.login, repo.name)} className="row">
+    <Link {...to.repo(repo.owner.login, repo.name)} preload="viewport" className="row">
       <span className="row-icon" style={{ paddingTop: 0 }}>
         <Avatar src={repo.owner.avatarUrl} size={32} square alt={repo.owner.login} />
       </span>

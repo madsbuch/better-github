@@ -1,8 +1,9 @@
 import { Screen } from "../components/Screen";
 import { EmptyState } from "../components/ui";
-import { nav } from "../lib/router";
+import { useNav } from "../lib/nav";
 
 export function NotFoundScreen() {
+  const nav = useNav();
   return (
     <Screen title="Not found">
       <EmptyState title="Nothing here">This link isn't something the app can open.</EmptyState>

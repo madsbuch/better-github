@@ -1,7 +1,7 @@
 import { XIcon } from "@primer/octicons-react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useOverlay } from "../lib/router";
+import { useOverlay } from "../lib/nav";
 
 interface SheetProps {
   open: boolean;

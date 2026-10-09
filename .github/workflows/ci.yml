@@ -40,6 +40,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npx vite build
+      - name: Route tree is up to date
+        run: |
+          # `vite build` regenerates src/routeTree.gen.ts from src/routes; links are
+          # type-checked against it, so a stale committed copy would hide broken links.
+          git diff --exit-code -- src/routeTree.gen.ts || {
+            echo "::error::src/routeTree.gen.ts is out of date. Run npm run dev or npx vite build and commit it."
+            exit 1
+          }
 
       - name: Rust format
         working-directory: src-tauri

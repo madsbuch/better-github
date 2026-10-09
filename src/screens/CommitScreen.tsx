@@ -1,30 +1,25 @@
 import { CopyIcon, LinkExternalIcon, UnwrapIcon, WrapIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { rest } from "../lib/api";
 import { backend } from "../lib/backend";
+import { to } from "../lib/nav";
 import { setPref, usePrefs } from "../lib/prefs";
-import { Link, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
 import { useToast } from "../lib/toast";
-import type { RestCommit } from "../lib/types";
+import { repoQueries } from "../queries/repos";
 import { DiffFile } from "../components/DiffView";
-import { repoKey } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { Avatar, CenterSpinner, DiffStat, ErrorView, Time } from "../components/ui";
 
+const route = getRouteApi("/$owner/$repo/commit/$sha");
+
 export function CommitScreen() {
-  const { route } = useScreen();
-  const { owner, repo, sha } = route.params;
+  const { owner, repo, sha } = route.useParams();
   const prefs = usePrefs();
   const toast = useToast();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const commit = useQuery({
-    queryKey: [...repoKey(owner, repo), "commit", sha],
-    queryFn: () => rest<RestCommit>(`/repos/${owner}/${repo}/commits/${sha}`),
-    staleTime: Infinity,
-  });
+  const commit = useQuery(repoQueries.commit(owner, repo, sha));
   const data = commit.data;
   const [headline, ...bodyLines] = (data?.commit.message ?? "").split("\n");
   const body = bodyLines.join("\n").trim();
@@ -57,7 +52,7 @@ export function CommitScreen() {
             <div className="row-flex small">
               <Avatar src={data!.author?.avatar_url} size={20} />
               {data!.author ? (
-                <Link to={paths.user(data!.author.login)} className="bold" style={{ color: "var(--fg)" }}>
+                <Link {...to.user(data!.author.login)} className="bold" style={{ color: "var(--fg)" }}>
                   {data!.author.login}
                 </Link>
               ) : (
@@ -76,7 +71,7 @@ export function CommitScreen() {
                 <CopyIcon size={12} /> {data!.sha.slice(0, 12)}
               </button>
               {data!.parents.map((p) => (
-                <Link key={p.sha} to={paths.commit(owner, repo, p.sha)} className="pill mono">
+                <Link key={p.sha} {...to.commit(owner, repo, p.sha)} className="pill mono">
                   parent {p.sha.slice(0, 7)}
                 </Link>
               ))}

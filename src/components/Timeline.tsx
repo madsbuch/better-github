@@ -20,9 +20,9 @@ import {
   XIcon,
 } from "@primer/octicons-react";
 import { useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { backend } from "../lib/backend";
-import { Link } from "../lib/router";
-import { paths, splitRepo } from "../lib/routes";
+import { splitRepo, to } from "../lib/nav";
 import { useToast } from "../lib/toast";
 import type { Actor, IssueCommentItem, ReviewState, ReviewThread, TimelineEvent, TimelineItem } from "../lib/types";
 import { Markdown } from "./Markdown";
@@ -41,7 +41,7 @@ const ASSOCIATION: Record<string, string> = {
 function Who({ actor }: { actor: Actor | null }) {
   if (!actor) return <strong>ghost</strong>;
   return (
-    <Link to={paths.user(actor.login)} onClick={(e) => e.stopPropagation()} style={{ color: "inherit" }}>
+    <Link {...to.user(actor.login)} onClick={(e) => e.stopPropagation()} style={{ color: "inherit" }}>
       <strong>{actor.login}</strong>
     </Link>
   );
@@ -242,14 +242,16 @@ export function EventRow({ event, owner, repo, isPull }: { event: TimelineEvent;
     case "CrossReferencedEvent": {
       const source = event.source;
       const [o, r] = splitRepo(source.repository.nameWithOwner);
-      const to = source.__typename === "PullRequest" ? paths.pull(o, r, source.number) : paths.issue(o, r, source.number);
       const sameRepo = o === owner && r === repo;
+      const label = `${sameRepo ? "" : source.repository.nameWithOwner}#${source.number} ${source.title}`;
       return (
         <EventLine icon={<CrossReferenceIcon size={14} />} at={event.createdAt}>
           <Who actor={event.actor} /> mentioned this in{" "}
-          <Link to={to}>
-            {sameRepo ? "" : source.repository.nameWithOwner}#{source.number} {source.title}
-          </Link>
+          {source.__typename === "PullRequest" ? (
+            <Link {...to.pull(o, r, source.number)}>{label}</Link>
+          ) : (
+            <Link {...to.issue(o, r, source.number)}>{label}</Link>
+          )}
         </EventLine>
       );
     }
@@ -276,7 +278,7 @@ export function reviewVerb(state: ReviewState): { text: string; icon: ReactNode;
 export function CommitRow({ item, owner, repo }: { item: Extract<TimelineItem, { __typename: "PullRequestCommit" }>; owner: string; repo: string }) {
   const c = item.commit;
   return (
-    <Link to={paths.commit(owner, repo, c.oid)} className="event" style={{ color: "var(--fg-muted)" }}>
+    <Link {...to.commit(owner, repo, c.oid)} className="event" style={{ color: "var(--fg-muted)" }}>
       <span className="event-icon">
         <GitCommitIcon size={14} />
       </span>

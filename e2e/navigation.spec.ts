@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
+import { activeScreen, open, screenTitle, trackErrors, watchForLoading } from "./helpers";
 
 const PR_TITLE = /^Add retry with exponential backoff/;
 
@@ -76,4 +76,36 @@ test("earlier screens keep their state underneath", async ({ page }) => {
   await activeScreen(page).locator("a.row").first().click();
   await page.goBack();
   await expect(activeScreen(page).getByRole("tab", { name: /Assigned/ })).toHaveAttribute("aria-selected", "true");
+});
+
+test("opening a pull request from the inbox never shows a spinner", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/");
+  await expect(activeScreen(page).locator("a.row").first()).toBeVisible();
+  const loading = await watchForLoading(page);
+  await activeScreen(page).locator("a.row").first().click();
+  await expect(screenTitle(page)).toHaveText(PR_TITLE);
+  await expect(activeScreen(page).locator(".timeline .event").first()).toBeVisible();
+  // Its tabs were loaded in the background too.
+  await activeScreen(page).getByRole("tab", { name: /Files/ }).click();
+  await expect(activeScreen(page).locator(".diff-file").first()).toBeVisible();
+  await activeScreen(page).getByRole("tab", { name: /Checks/ }).click();
+  await expect(activeScreen(page).locator(".group-header").first()).toBeVisible();
+  expect(await loading()).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("back restores the scroll position", async ({ page }) => {
+  await open(page, "/acme/rocket/pull/482");
+  const content = activeScreen(page).locator(".content");
+  await expect(activeScreen(page).locator(".timeline")).toBeVisible();
+  const scrollable = await content.evaluate((el) => el.scrollHeight - el.clientHeight);
+  test.skip(scrollable < 200, "the fixture doesn't scroll at this size");
+  await content.evaluate((el) => (el.scrollTop = 200));
+  await page.waitForTimeout(100);
+  await activeScreen(page).locator(".timeline a.event").first().click();
+  await expect(screenTitle(page)).toHaveText(/^Commit /);
+  await page.goBack();
+  await expect(screenTitle(page)).toHaveText(PR_TITLE);
+  await expect.poll(() => content.evaluate((el) => el.scrollTop)).toBe(200);
 });

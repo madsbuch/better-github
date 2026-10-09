@@ -495,3 +495,91 @@ export type RestBranch = components["schemas"]["short-branch"];
 export type RestNotification = components["schemas"]["thread"];
 export type RestUser = components["schemas"]["public-user"];
 export type RestCommitListItem = components["schemas"]["commit"];
+
+// ---------------------------------------------------------------------------
+// GitHub Actions (REST). Hand-written: Octokit types ids as `number | bigint`.
+
+export interface ActionsActor {
+  login: string;
+  avatar_url: string;
+}
+
+/** `status` is queued, in_progress, completed, waiting, requested or pending. */
+export interface WorkflowRun {
+  id: number;
+  /** The workflow's name. */
+  name: string | null;
+  display_title: string;
+  run_number: number;
+  run_attempt?: number;
+  event: string;
+  status: string | null;
+  conclusion: string | null;
+  workflow_id: number;
+  path: string;
+  head_branch: string | null;
+  head_sha: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  run_started_at?: string;
+  actor?: ActionsActor;
+  triggering_actor?: ActionsActor;
+  head_commit: { message: string } | null;
+  pull_requests: { number: number }[] | null;
+}
+
+export interface WorkflowStep {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  number: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface WorkflowJob {
+  id: number;
+  run_id: number;
+  run_attempt?: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  created_at: string;
+  started_at: string;
+  completed_at: string | null;
+  html_url: string | null;
+  head_sha: string;
+  head_branch?: string | null;
+  workflow_name?: string | null;
+  runner_name: string | null;
+  labels: string[];
+  steps?: WorkflowStep[];
+}
+
+export interface WorkflowJobsPage {
+  total_count: number;
+  jobs: WorkflowJob[];
+}
+
+export interface Workflow {
+  id: number;
+  name: string;
+  path: string;
+  state: string;
+  html_url: string;
+}
+
+export interface WorkflowsPage {
+  total_count: number;
+  workflows: Workflow[];
+}
+
+export interface CheckAnnotation {
+  path: string;
+  start_line: number;
+  end_line: number;
+  annotation_level: string | null;
+  title: string | null;
+  message: string | null;
+}

@@ -1,13 +1,13 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { errorMessage, graphql } from "../lib/api";
+import { errorMessage } from "../lib/api";
 import { backend, type AuthConfig } from "../lib/backend";
 import { fullDate } from "../lib/format";
-import { RATE_LIMIT } from "../lib/queries";
 import { setPref, usePrefs } from "../lib/prefs";
 import { useSessionApi, useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
+import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 
 export function SettingsScreen() {
@@ -19,10 +19,7 @@ export function SettingsScreen() {
   const [clientId, setClientId] = useState("");
   const [version, setVersion] = useState<string | null>(null);
 
-  const rate = useQuery({
-    queryKey: ["rate-limit"],
-    queryFn: () => graphql<{ rateLimit: { limit: number; remaining: number; resetAt: string } }>(RATE_LIMIT),
-  });
+  const rate = useQuery(viewerQueries.rateLimit());
 
   useEffect(() => {
     backend.authConfig().then((c) => {

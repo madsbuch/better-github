@@ -1,6 +1,7 @@
 import { ArrowLeftIcon, SyncIcon } from "@primer/octicons-react";
+import { useCanGoBack } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { nav, useScreen } from "../lib/router";
+import { useNav } from "../lib/nav";
 
 interface ScreenProps {
   title: ReactNode;
@@ -21,7 +22,8 @@ const THRESHOLD = 64;
 const MAX_PULL = 96;
 
 export function Screen({ title, subtitle, actions, header, footer, onRefresh, scroll = true, children, contentRef }: ScreenProps) {
-  const { depth, active } = useScreen();
+  const canGoBack = useCanGoBack();
+  const nav = useNav();
   const ownRef = useRef<HTMLDivElement>(null);
   const ref = contentRef ?? ownRef;
   const indicator = useRef<HTMLDivElement>(null);
@@ -33,28 +35,28 @@ export function Screen({ title, subtitle, actions, header, footer, onRefresh, sc
 
   // Tapping the current bottom tab again scrolls back to the top.
   useEffect(() => {
-    if (!active) return;
     const handler = () => ref.current?.scrollTo({ top: 0, behavior: "smooth" });
     window.addEventListener("ghc:scroll-top", handler);
     return () => window.removeEventListener("ghc:scroll-top", handler);
-  }, [active, ref]);
+  }, [ref]);
 
   return (
     <>
       <header className="appbar">
-        {depth > 0 && (
+        {canGoBack && (
           <button className="icon-btn" onClick={nav.back} aria-label="Back">
             <ArrowLeftIcon size={20} />
           </button>
         )}
-        <div className="appbar-title" style={depth > 0 ? undefined : { paddingLeft: 12 }}>
+        <div className="appbar-title" style={canGoBack ? undefined : { paddingLeft: 12 }}>
           <h1>{title}</h1>
           {subtitle && <div className="appbar-sub">{subtitle}</div>}
         </div>
         {actions && <div className="appbar-actions">{actions}</div>}
       </header>
       {header}
-      <div className={`content${scroll ? "" : " no-scroll"}`} ref={ref}>
+      {/* The router restores this element's scroll position on back (see router.tsx). */}
+      <div className={`content${scroll ? "" : " no-scroll"}`} ref={ref} data-scroll-restoration-id="screen">
         {onRefresh && (
           <div className="ptr" ref={indicator} style={{ opacity: 0, transform: "translateY(-48px)" }} aria-hidden>
             <SyncIcon size={18} className={refreshing ? "spin" : undefined} />

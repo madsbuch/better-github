@@ -1,35 +1,20 @@
 import { RepoIcon, SearchIcon, XIcon } from "@primer/octicons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { graphql } from "../lib/api";
-import { VIEWER_REPOS, VIEWER_STARRED } from "../lib/queries";
-import { Link, nav, useScreen } from "../lib/router";
-import { paths } from "../lib/routes";
-import type { Connection, RepoListItem } from "../lib/types";
+import { to, useNav } from "../lib/nav";
+import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 import { RepoRow } from "../components/rows";
 import { EmptyState, ErrorView, LoadMore, Segmented, SkeletonList } from "../components/ui";
 
-type Tab = "yours" | "starred";
+const route = getRouteApi("/repos");
 
 export function ReposScreen() {
-  const { route } = useScreen();
-  const tab: Tab = route.query.get("tab") === "starred" ? "starred" : "yours";
+  const tab = route.useSearch({ select: (s) => s.tab ?? "yours" });
+  const nav = useNav();
   const [filter, setFilter] = useState("");
-
-  const list = useInfiniteQuery({
-    queryKey: ["viewer-repos", tab],
-    queryFn: async ({ pageParam }) => {
-      if (tab === "starred") {
-        const data = await graphql<{ viewer: { starredRepositories: Connection<RepoListItem> } }>(VIEWER_STARRED, { after: pageParam });
-        return data.viewer.starredRepositories;
-      }
-      const data = await graphql<{ viewer: { repositories: Connection<RepoListItem> } }>(VIEWER_REPOS, { after: pageParam });
-      return data.viewer.repositories;
-    },
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => (last.pageInfo.hasNextPage ? last.pageInfo.endCursor : undefined),
-  });
+  const list = useInfiniteQuery(viewerQueries.repos(tab));
 
   const repos = list.data?.pages.flatMap((p) => p.nodes) ?? [];
   const needle = filter.trim().toLowerCase();
@@ -44,7 +29,7 @@ export function ReposScreen() {
         <>
           <Segmented
             value={tab}
-            onChange={(value) => nav.replace(value === "yours" ? paths.repos() : `${paths.repos()}?tab=starred`)}
+            onChange={(value) => nav.replace(to.repos(value === "starred" ? "starred" : undefined))}
             options={[
               { value: "yours", label: "Yours", count: list.data && tab === "yours" ? list.data.pages[0].totalCount : undefined },
               { value: "starred", label: "Starred", count: list.data && tab === "starred" ? list.data.pages[0].totalCount : undefined },
@@ -83,7 +68,7 @@ export function ReposScreen() {
             <RepoRow key={repo.id} repo={repo} />
           ))}
           {needle && (
-            <Link to={paths.search(filter.trim(), "repos")} className="row">
+            <Link {...to.search(filter.trim(), "repos")} className="row">
               <span className="row-icon c-muted">
                 <SearchIcon size={16} />
               </span>

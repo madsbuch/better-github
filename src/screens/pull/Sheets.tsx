@@ -1,38 +1,33 @@
 import { TrashIcon } from "@primer/octicons-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { encodePath, errorMessage, graphql, rest } from "../../lib/api";
+import { errorMessage } from "../../lib/api";
 import type { useReviewDraft } from "../../lib/drafts";
-import { ENABLE_AUTO_MERGE } from "../../lib/queries";
 import { useToast } from "../../lib/toast";
 import type { MergeMethod, PullDetail, PullResult } from "../../lib/types";
+import type { usePullMutations } from "../../queries/pulls";
 import { Sheet } from "../../components/Sheet";
 import { Spinner } from "../../components/ui";
-import { pullKey } from "./data";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
+type PullMutations = ReturnType<typeof usePullMutations>;
 type RepoInfo = NonNullable<PullResult["repository"]>;
 type ReviewEvent = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 
 export function ReviewSheet({
   open,
   onClose,
-  owner,
-  repo,
   pr,
   drafts,
+  mutations,
 }: {
   open: boolean;
   onClose: () => void;
-  owner: string;
-  repo: string;
   pr: PullDetail;
   drafts: Drafts;
+  mutations: PullMutations;
 }) {
-  const toast = useToast();
-  const queryClient = useQueryClient();
   const [event, setEvent] = useState<ReviewEvent>("COMMENT");
-  const [busy, setBusy] = useState(false);
+  const busy = mutations.submitReview.isPending;
   const comments = drafts.draft.comments;
   const body = drafts.draft.body;
   const ownPull = pr.viewerDidAuthor;
@@ -43,29 +38,21 @@ export function ReviewSheet({
 
   const valid = event === "APPROVE" || body.trim().length > 0 || comments.length > 0;
 
-  const submit = async () => {
-    setBusy(true);
-    try {
-      await rest(`/repos/${owner}/${repo}/pulls/${pr.number}/reviews`, {
-        method: "POST",
-        body: {
-          commit_id: pr.headRefOid,
-          body: body.trim() || undefined,
-          event,
-          comments: comments.map((c) => ({ path: c.path, line: c.line, side: c.side, body: c.body })),
+  const submit = () =>
+    mutations.submitReview.mutate(
+      {
+        commitId: pr.headRefOid,
+        event,
+        body,
+        comments: comments.map((c) => ({ path: c.path, line: c.line, side: c.side, body: c.body })),
+      },
+      {
+        onSuccess: () => {
+          drafts.clear();
+          onClose();
         },
-      });
-      drafts.clear();
-      toast.show(event === "APPROVE" ? "Approved" : event === "REQUEST_CHANGES" ? "Changes requested" : "Review submitted", "success");
-      onClose();
-      void queryClient.invalidateQueries({ queryKey: pullKey(owner, repo, pr.number) });
-      void queryClient.invalidateQueries({ queryKey: ["search-issues"] });
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
-  };
+      },
+    );
 
   const options: { value: ReviewEvent; title: string; detail: string; disabled?: boolean }[] = [
     { value: "COMMENT", title: "Comment", detail: "Submit general feedback without explicit approval." },
@@ -90,7 +77,7 @@ export function ReviewSheet({
       title="Finish your review"
       full
       footer={
-        <button className="btn btn-primary" disabled={!valid || busy} onClick={() => void submit()}>
+        <button className="btn btn-primary" disabled={!valid || busy} onClick={submit}>
           {busy && <Spinner small />} Submit review
           {comments.length > 0 ? ` (${comments.length} comment${comments.length === 1 ? "" : "s"})` : ""}
         </button>
@@ -161,20 +148,17 @@ const METHOD_LABEL: Record<MergeMethod, { title: string; detail: string; confirm
 export function MergeSheet({
   open,
   onClose,
-  owner,
-  repo,
   pr,
   repoInfo,
+  mutations,
 }: {
   open: boolean;
   onClose: () => void;
-  owner: string;
-  repo: string;
   pr: PullDetail;
   repoInfo: RepoInfo;
+  mutations: PullMutations;
 }) {
   const toast = useToast();
-  const queryClient = useQueryClient();
   const allowed: MergeMethod[] = [
     ...(repoInfo.mergeCommitAllowed ? (["MERGE"] as const) : []),
     ...(repoInfo.squashMergeAllowed ? (["SQUASH"] as const) : []),
@@ -186,7 +170,7 @@ export function MergeSheet({
   const [message, setMessage] = useState("");
   const [deleteBranch, setDeleteBranch] = useState(false);
   const [bypass, setBypass] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const busy = mutations.merge.isPending || mutations.enableAutoMerge.isPending;
 
   useEffect(() => {
     if (!open) return;
@@ -201,51 +185,24 @@ export function MergeSheet({
   const mergeDisabled = busy || conflicting || (blocked && !(canBypass && bypass)) || allowed.length === 0;
   const offerAutoMerge = !conflicting && pr.viewerCanEnableAutoMerge && repoInfo.autoMergeAllowed && !pr.autoMergeRequest;
 
-  const done = (text: string) => {
-    toast.show(text, "success");
-    onClose();
-    void queryClient.invalidateQueries({ queryKey: pullKey(owner, repo, pr.number) });
-    void queryClient.invalidateQueries({ queryKey: ["search-issues"] });
-    void queryClient.invalidateQueries({ queryKey: ["inbox-counts"] });
-  };
-
-  const merge = async () => {
-    setBusy(true);
-    try {
-      await rest(`/repos/${owner}/${repo}/pulls/${pr.number}/merge`, {
-        method: "PUT",
-        body: {
-          merge_method: method.toLowerCase(),
-          sha: pr.headRefOid,
-          ...(method === "REBASE" ? {} : { commit_title: title.trim() || undefined, commit_message: message }),
+  const merge = () =>
+    mutations.merge.mutate(
+      {
+        method,
+        headSha: pr.headRefOid,
+        title,
+        message,
+        deleteBranch: deleteBranch && canDeleteBranch ? pr.headRefName : null,
+      },
+      {
+        onSuccess: (branchError) => {
+          if (branchError) toast.show(`Merged, but the branch wasn't deleted: ${errorMessage(branchError)}`, "error");
+          onClose();
         },
-      });
-      if (deleteBranch && canDeleteBranch) {
-        try {
-          await rest(`/repos/${owner}/${repo}/git/refs/heads/${encodePath(pr.headRefName)}`, { method: "DELETE" });
-        } catch (e) {
-          toast.show(`Merged, but the branch wasn't deleted: ${errorMessage(e)}`, "error");
-        }
-      }
-      done("Pull request merged");
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
-  };
+      },
+    );
 
-  const enableAutoMerge = async () => {
-    setBusy(true);
-    try {
-      await graphql(ENABLE_AUTO_MERGE, { pullRequestId: pr.id, mergeMethod: method });
-      done("Auto-merge enabled");
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const enableAutoMerge = () => mutations.enableAutoMerge.mutate({ pullRequestId: pr.id, method }, { onSuccess: onClose });
 
   return (
     <Sheet
@@ -256,11 +213,11 @@ export function MergeSheet({
       footer={
         <div className="stack-v" style={{ gap: 8, width: "100%" }}>
           {offerAutoMerge && (blocked || pr.statusCheckRollup?.state === "PENDING") && (
-            <button className="btn btn-block" disabled={busy} onClick={() => void enableAutoMerge()}>
+            <button className="btn btn-block" disabled={busy} onClick={enableAutoMerge}>
               Enable auto-merge ({METHOD_LABEL[method].title.toLowerCase()})
             </button>
           )}
-          <button className="btn btn-primary btn-block" disabled={mergeDisabled} onClick={() => void merge()}>
+          <button className="btn btn-primary btn-block" disabled={mergeDisabled} onClick={merge}>
             {busy && <Spinner small />} {METHOD_LABEL[method].confirm}
           </button>
         </div>
