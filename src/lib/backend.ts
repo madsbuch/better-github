@@ -55,6 +55,11 @@ export interface RestResponse<T> {
   link: string | null;
 }
 
+/** Something to download: a release asset, or the source at a ref as a zip or tar.gz. */
+export type DownloadTarget =
+  | { kind: "asset"; owner: string; repo: string; assetId: number; browserUrl: string }
+  | { kind: "archive"; owner: string; repo: string; ref: string; format: "zip" | "tar" };
+
 /** A workflow job's log (see `gh_job_logs` in src-tauri/src/github.rs). */
 export interface JobLog {
   text: string;
@@ -114,6 +119,8 @@ export interface Backend {
   graphql<T>(query: string, variables?: Record<string, unknown>): Promise<GraphQLEnvelope<T>>;
   /** Downloads a finished workflow job's log (GitHub returns 404 while it runs). */
   jobLogs(owner: string, repo: string, jobId: number): Promise<JobLog>;
+  /** A short-lived link that downloads without a token (GitHub's signed redirect). */
+  downloadUrl(target: DownloadTarget): Promise<string>;
   openUrl(url: string): Promise<void>;
   copyText(text: string): Promise<void>;
 }
@@ -138,6 +145,10 @@ const tauriBackend: Backend = {
   rest: (request) => call("gh_rest", { request }),
   graphql: (query, variables) => call("gh_graphql", { query, variables: variables ?? {} }),
   jobLogs: (owner, repo, jobId) => call("gh_job_logs", { owner, repo, jobId }),
+  downloadUrl: (target) =>
+    target.kind === "asset"
+      ? call("gh_asset_url", { owner: target.owner, repo: target.repo, assetId: target.assetId })
+      : call("gh_archive_url", { owner: target.owner, repo: target.repo, gitRef: target.ref, format: target.format }),
   async openUrl(url) {
     // Android: a browser tab pinned to a browser. The plugin's tab below can be
     // handed to another app that claims the link, e.g. GitHub's own app for
@@ -291,6 +302,11 @@ const browserBackend: Backend = {
     // The redirect to log storage may fail CORS in a browser; the app fetches it in Rust.
     const response = await browserFetch(`${API}/repos/${owner}/${repo}/actions/jobs/${jobId}/logs`, {});
     return { text: await response.text(), truncated: false };
+  },
+  async downloadUrl(target) {
+    // A browser can't read GitHub's redirect (CORS); the public links work when signed in on github.com.
+    if (target.kind === "asset") return target.browserUrl;
+    return `https://github.com/${target.owner}/${target.repo}/archive/${target.ref}.${target.format === "zip" ? "zip" : "tar.gz"}`;
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener,noreferrer");

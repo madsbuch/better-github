@@ -8,7 +8,7 @@ test("actions tab lists runs and filters by workflow and status", async ({ page 
   await expect(rows).toHaveCount(4);
   await expect(rows.first()).toContainText("Add retry with exponential backoff");
 
-  await activeScreen(page).getByRole("tab", { name: "Release" }).click();
+  await activeScreen(page).getByRole("tab", { name: "Release", exact: true }).click();
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Release v2.0.0");
   expect(page.url()).toContain("workflow=12");

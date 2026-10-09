@@ -26,6 +26,11 @@ const SCREENS: [string, string | RegExp][] = [
   ["/acme/rocket/pull/482?tab=checks", /^Add retry/],
   ["/acme/rocket/issues/501", "Issue #501"],
   ["/acme/rocket/commit/1a2b3c4d5e6f", "Commit 1a2b3c4"],
+  ["/acme/rocket?tab=releases", "rocket"],
+  ["/acme/rocket/releases/latest", "Rocket 2.0"],
+  ["/acme/rocket/releases/1", "Rocket 2.0"],
+  ["/acme/rocket?tab=actions", "rocket"],
+  ["/acme/rocket/compare?head=octocat/faster-uploads", "Open a pull request"],
 ];
 
 for (const [path, title] of SCREENS) {

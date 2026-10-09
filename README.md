@@ -21,6 +21,10 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 - A run shows its jobs, with the first errors of failed jobs right in the list. Re-run all jobs, re-run failed jobs, or cancel.
 - A job shows its steps (updating live while it runs) and each step's output: colored, with collapsible groups, errors and warnings highlighted. Failed steps open by themselves. GitHub's API only publishes a job's log once the job has finished, so a running job links to the live log on github.com.
 
+**Releases**
+- Every repository has a *Releases* tab, and its About tab shows the latest release. A release shows its notes, tag and assets.
+- Tap an asset, or the source code as zip or tar.gz, to download it. Android's download manager saves it to Downloads with a progress notification, and tapping the notification opens it (an APK installs). This works for private repositories too.
+
 **Everything else**
 - Notifications inbox grouped by repository: filter unread, participating or all; mark done; mark all as read. Opening a notification goes to the matching PR or issue in the app.
 - Repositories: yours and starred, with filtering. Each repo shows its README, a code browser with a branch switcher, PRs, issues, Actions and commits. You can also star repos.
@@ -57,7 +61,7 @@ Then do one of the following:
 ### Security
 
 - The token lives only on the Rust side, in the app's private data directory (the Android app sandbox), and is never exposed to the web view.
-- All API calls go through Rust commands (`gh_rest`, `gh_graphql`, `gh_job_logs`) that refuse any host other than `https://api.github.com`. Job logs follow GitHub's redirect to its log storage only, and the token is not sent there.
+- All API calls go through Rust commands (`gh_rest`, `gh_graphql`, `gh_job_logs`) that refuse any host other than `https://api.github.com`. Job logs follow GitHub's redirect to its log storage only, and the token is not sent there. For downloads, Rust asks GitHub for the file's short-lived signed link (accepted only on `*.githubusercontent.com` and `codeload.github.com`) and hands only that link to Android's download manager.
 - To open instantly, the app caches GitHub's answers in its private storage (IndexedDB inside the app sandbox) for up to a day. Diffs, file contents and job logs are never written to disk. Signing out deletes the cache, and every new build starts with a fresh one.
 - Rendered markdown is sanitized with DOMPurify. The content security policy allows only the app's own scripts, no frames, and no network requests from the web view other than images.
 
@@ -136,9 +140,9 @@ src/                  React app
 e2e/                  Playwright tests against the fixtures
 src-tauri/            Rust side
   src/auth.rs         OAuth device flow
-  src/github.rs       authenticated REST/GraphQL proxy, locked to api.github.com; job logs
+  src/github.rs       authenticated REST/GraphQL proxy, locked to api.github.com; job logs, download links
   src/store.rs        session/config persistence
-  gen/android/        generated Android project (edge-to-edge insets, browser tabs, signing config)
+  gen/android/        generated Android project (edge-to-edge insets, browser tabs, downloads, signing config)
 app-icon/             icon sources; regenerate with `npx tauri icon app-icon/app-icon.json`
 .claude/skills/       procedures: release, android-signing, verify-changes
 ```

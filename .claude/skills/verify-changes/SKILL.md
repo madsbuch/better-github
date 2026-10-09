@@ -33,7 +33,9 @@ Add `?signedOut` to the URL to see the login screen. The mock is stripped from
 production builds.
 
 The fixtures dispatch GraphQL by **operation name** (`query PullThreads …`) and REST
-by path (Actions: `actionsBody`; job logs: `JOB_LOG`). When adding a query or
+by path (Actions: `actionsBody`; releases: `releasesBody`; new pull requests:
+`newPullRest`; job logs: `JOB_LOG`). Android-only bridges (`window.GhCommanderDownloads`)
+are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or
 endpoint, add a fixture there too, or the screen renders empty in dev and in the
 e2e smoke tests.
 

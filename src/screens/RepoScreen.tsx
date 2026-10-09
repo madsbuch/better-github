@@ -2,6 +2,7 @@ import {
   BookIcon,
   CodeIcon,
   PlayIcon,
+  TagIcon,
   CopyIcon,
   EyeIcon,
   GitCommitIcon,
@@ -29,16 +30,18 @@ import type { RepoDetail } from "../lib/types";
 import { actionsQueries } from "../queries/actions";
 import { keys } from "../queries/keys";
 import { newPullQueries } from "../queries/newPull";
+import { releaseQueries } from "../queries/releases";
 import { repoQueries, useStarRepo } from "../queries/repos";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
 import { ActionsTab } from "./actions/ActionsTab";
+import { ReleasesTab } from "./releases/ReleasesTab";
 import { Markdown, type MarkdownBase } from "../components/Markdown";
 import { RecentBranchPrompts } from "../components/RecentBranches";
 import { BranchBar, CommitList, TreeView } from "../components/RepoParts";
 import { Screen } from "../components/Screen";
 import { ActionSheet } from "../components/Sheet";
 import { SearchIssueRow } from "../components/rows";
-import { Avatar, CenterSpinner, EmptyState, ErrorView, LoadMore, ScreenTabs, Segmented, SkeletonList } from "../components/ui";
+import { Avatar, CenterSpinner, EmptyState, ErrorView, LoadMore, ScreenTabs, Segmented, SkeletonList, Time } from "../components/ui";
 
 const route = getRouteApi("/$owner/$repo/");
 
@@ -64,6 +67,7 @@ export function RepoScreen() {
     void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "issues", "open")));
     void queryClient.prefetchInfiniteQuery(actionsQueries.runs(owner, repo));
     void queryClient.prefetchQuery(newPullQueries.repoBranches(owner, repo));
+    void queryClient.prefetchInfiniteQuery(releaseQueries.list(owner, repo));
   }, [queryClient, owner, repo]);
   useEffect(() => {
     if (!gitRef) return;
@@ -103,6 +107,7 @@ export function RepoScreen() {
               ? []
               : [{ value: "issues" as RepoTab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
             { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
+            { value: "releases", label: "Releases", icon: <TagIcon size={16} />, count: data?.releases.totalCount },
             { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
           ]}
         />
@@ -130,6 +135,8 @@ export function RepoScreen() {
         <RepoIssues owner={owner} repo={repo} kind={tab} parent={data.parent?.nameWithOwner} />
       ) : tab === "actions" ? (
         <ActionsTab owner={owner} repo={repo} workflow={search.workflow} status={search.status} />
+      ) : tab === "releases" ? (
+        <ReleasesTab owner={owner} repo={repo} latestTag={data.latestRelease?.tagName} />
       ) : gitRef ? (
         <>
           <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={setRef} />
@@ -234,6 +241,26 @@ function About({ repo }: { repo: RepoDetail }) {
             </span>
           )}
         </div>
+        {repo.latestRelease && (
+          <Link {...to.release(owner, name, repo.latestRelease.tagName)} preload="viewport" className="card latest-release">
+            <TagIcon size={16} className="c-success" />
+            <span className="grow" style={{ minWidth: 0 }}>
+              <span className="bold ellipsis" style={{ display: "block" }}>
+                {repo.latestRelease.name || repo.latestRelease.tagName}
+              </span>
+              <span className="muted small">
+                {repo.latestRelease.isPrerelease ? "Pre-release" : "Latest release"}
+                {repo.latestRelease.publishedAt && (
+                  <>
+                    {" · "}
+                    <Time iso={repo.latestRelease.publishedAt} />
+                  </>
+                )}
+              </span>
+            </span>
+            {repo.releases.totalCount > 1 && <span className="muted small nowrap">+{repo.releases.totalCount - 1} more</span>}
+          </Link>
+        )}
       </div>
       <div className="pad">
         {readme.isPending && branch ? (

@@ -6,8 +6,10 @@
 
 use std::time::Duration;
 
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK};
-use reqwest::{Client, Method, StatusCode};
+use reqwest::header::{
+    HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK, LOCATION,
+};
+use reqwest::{redirect, Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use url::Url;
@@ -20,6 +22,15 @@ const API_VERSION: &str = "2022-11-28";
 const DEFAULT_ACCEPT: &str = "application/vnd.github+json";
 
 pub fn build_client() -> Client {
+    client_with(redirect::Policy::default())
+}
+
+/// For resolving download links: the redirect itself is the answer.
+pub fn build_no_redirect_client() -> Client {
+    client_with(redirect::Policy::none())
+}
+
+fn client_with(policy: redirect::Policy) -> Client {
     let mut headers = HeaderMap::new();
     headers.insert(
         "X-GitHub-Api-Version",
@@ -28,6 +39,7 @@ pub fn build_client() -> Client {
     Client::builder()
         .user_agent(concat!("gh-commander/", env!("CARGO_PKG_VERSION")))
         .default_headers(headers)
+        .redirect(policy)
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(45))
         .build()
@@ -350,6 +362,128 @@ pub async fn job_logs(
     Ok(tail_text(bytes, MAX_LOG_BYTES, truncated))
 }
 
+// ------------------------------------------------------------- downloads
+
+/// Hosts GitHub sends release asset and source archive downloads to.
+const DOWNLOAD_HOST_SUFFIXES: &[&str] = &[".githubusercontent.com"];
+const DOWNLOAD_HOSTS: &[&str] = &["codeload.github.com"];
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ArchiveFormat {
+    Zip,
+    Tar,
+}
+
+fn is_download_location(url: &Url) -> bool {
+    url.scheme() == "https"
+        && url.port().is_none()
+        && url.username().is_empty()
+        && url.host_str().is_some_and(|host| {
+            DOWNLOAD_HOSTS.contains(&host)
+                || DOWNLOAD_HOST_SUFFIXES
+                    .iter()
+                    .any(|suffix| host.ends_with(suffix))
+        })
+}
+
+/// A git ref as path segments: tags and branches may contain "/".
+fn ref_segments(git_ref: &str) -> Result<Vec<&str>> {
+    let segments: Vec<&str> = git_ref.split('/').collect();
+    let valid = !git_ref.is_empty()
+        && git_ref.len() <= 255
+        && segments
+            .iter()
+            .all(|s| !s.is_empty() && *s != "." && *s != "..")
+        && !git_ref.chars().any(|c| c.is_control() || c.is_whitespace());
+    if valid {
+        Ok(segments)
+    } else {
+        Err(Error::Invalid(format!("Invalid ref: {git_ref}")))
+    }
+}
+
+/// Asks the API for a download and returns where it redirects: a
+/// short-lived signed URL that needs no token, so the device's download
+/// manager can fetch it. The client must not follow redirects.
+async fn signed_location(client: &Client, token: &str, url: Url, accept: &str) -> Result<String> {
+    let response = client
+        .get(url)
+        .header(AUTHORIZATION, format!("Bearer {token}"))
+        .header(ACCEPT, accept)
+        .send()
+        .await?;
+    let status = response.status();
+    if status.is_redirection() {
+        let location = response
+            .headers()
+            .get(LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| Url::parse(v).ok())
+            .ok_or_else(|| Error::Invalid("GitHub sent no download link".into()))?;
+        return if is_download_location(&location) {
+            Ok(location.to_string())
+        } else {
+            Err(Error::Invalid(
+                "GitHub sent the download to an unexpected host".into(),
+            ))
+        };
+    }
+    if !status.is_success() {
+        return Err(api_error(status, response).await);
+    }
+    Err(Error::Invalid("GitHub sent no download link".into()))
+}
+
+/// A release asset's download link.
+pub async fn asset_url(
+    client: &Client,
+    token: &str,
+    owner: &str,
+    repo: &str,
+    asset_id: u64,
+) -> Result<String> {
+    let path = format!(
+        "/repos/{}/{}/releases/assets/{asset_id}",
+        name_segment(owner)?,
+        name_segment(repo)?
+    );
+    signed_location(
+        client,
+        token,
+        resolve_url(&path, None)?,
+        "application/octet-stream",
+    )
+    .await
+}
+
+/// A zip or tar.gz of the source at a ref (a release's "Source code").
+pub async fn archive_url(
+    client: &Client,
+    token: &str,
+    owner: &str,
+    repo: &str,
+    git_ref: &str,
+    format: ArchiveFormat,
+) -> Result<String> {
+    let kind = match format {
+        ArchiveFormat::Zip => "zipball",
+        ArchiveFormat::Tar => "tarball",
+    };
+    let mut url = resolve_url(
+        &format!(
+            "/repos/{}/{}/{kind}",
+            name_segment(owner)?,
+            name_segment(repo)?
+        ),
+        None,
+    )?;
+    url.path_segments_mut()
+        .map_err(|_| Error::Invalid("Invalid URL".into()))?
+        .extend(ref_segments(git_ref)?);
+    signed_location(client, token, url, DEFAULT_ACCEPT).await
+}
+
 #[derive(Debug, Deserialize)]
 pub struct User {
     pub login: String,
@@ -462,6 +596,36 @@ mod tests {
             "https://actions.githubusercontent.com.evil.example.com/log",
         ] {
             assert!(!is_log_location(&Url::parse(bad).unwrap()), "{bad}");
+        }
+    }
+
+    #[test]
+    fn downloads_only_come_from_github_storage() {
+        for good in [
+            "https://objects.githubusercontent.com/github-production-release-asset/1?X-Amz-Signature=x",
+            "https://release-assets.githubusercontent.com/github-production-release-asset/1/2?sp=r",
+            "https://codeload.github.com/acme/rocket/legacy.zip/refs/tags/v1.0?token=x",
+        ] {
+            assert!(is_download_location(&Url::parse(good).unwrap()), "{good}");
+        }
+        for bad in [
+            "http://objects.githubusercontent.com/x",
+            "https://githubusercontent.com.evil.example.com/x",
+            "https://evil.example.com/codeload.github.com",
+            "https://codeload.github.com:8443/x",
+            "https://user@objects.githubusercontent.com/x",
+            "https://api.github.com/repos/o/r/zipball/main",
+        ] {
+            assert!(!is_download_location(&Url::parse(bad).unwrap()), "{bad}");
+        }
+    }
+
+    #[test]
+    fn refs_become_path_segments() {
+        assert_eq!(ref_segments("v1.0").unwrap(), vec!["v1.0"]);
+        assert_eq!(ref_segments("app/v1.0").unwrap(), vec!["app", "v1.0"]);
+        for bad in ["", "..", "a/../b", "a//b", "/a", "a b", "a\nb"] {
+            assert!(ref_segments(bad).is_err(), "{bad:?} should be rejected");
         }
     }
 

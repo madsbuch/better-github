@@ -3,12 +3,13 @@ import type { RepoSearch, RepoTab, RunStatusFilter } from "../../../lib/nav";
 import { oneOf, optionalInt, optionalString } from "../../../lib/search-params";
 import { actionsQueries } from "../../../queries/actions";
 import { newPullQueries } from "../../../queries/newPull";
+import { releaseQueries } from "../../../queries/releases";
 import { repoQueries } from "../../../queries/repos";
 import { repoListQuery, searchQueries } from "../../../queries/search";
 import { warm } from "../../../queries/warm";
 import { RepoScreen } from "../../../screens/RepoScreen";
 
-const TABS: RepoTab[] = ["about", "code", "pulls", "issues", "commits", "actions"];
+const TABS: RepoTab[] = ["about", "code", "pulls", "issues", "commits", "actions", "releases"];
 const RUN_STATUSES: RunStatusFilter[] = ["in_progress", "failure"];
 
 export const Route = createFileRoute("/$owner/$repo/")({
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/$owner/$repo/")({
       pulls: [searchQueries.issues(repoListQuery(owner, repo, "pulls", "open")), newPullQueries.repoBranches(owner, repo)],
       issues: [searchQueries.issues(repoListQuery(owner, repo, "issues", "open"))],
       actions: [actionsQueries.runs(owner, repo, { workflow: deps.workflow, status: deps.status }), actionsQueries.workflows(owner, repo)],
+      releases: [releaseQueries.list(owner, repo)],
       // Both need the default branch from the repository first.
       code: [],
       commits: [],

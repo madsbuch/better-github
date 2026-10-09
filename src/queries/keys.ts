@@ -33,6 +33,7 @@ const issueBase = (owner: string, repo: string, number: number) => [...repoBase(
 const actionsBase = (owner: string, repo: string) => [...repoBase(owner, repo), "actions"] as const;
 const runBase = (owner: string, repo: string, runId: number) => [...actionsBase(owner, repo), "run", runId] as const;
 const jobBase = (owner: string, repo: string, jobId: number) => [...actionsBase(owner, repo), "job", jobId] as const;
+const releasesBase = (owner: string, repo: string) => [...repoBase(owner, repo), "releases"] as const;
 
 export const keys = {
   viewer: {
@@ -90,6 +91,12 @@ export const keys = {
     all: issueBase,
     /** The issue with its timeline, paginated. */
     detail: (owner: string, repo: string, number: number) => [...issueBase(owner, repo, number), "detail"] as const,
+  },
+  releases: {
+    all: releasesBase,
+    list: (owner: string, repo: string) => [...releasesBase(owner, repo), "list"] as const,
+    /** `lookup`: "tag:<tag>", "id:<id>" or "latest". */
+    one: (owner: string, repo: string, lookup: string) => [...releasesBase(owner, repo), "one", lookup] as const,
   },
   actions: {
     all: actionsBase,

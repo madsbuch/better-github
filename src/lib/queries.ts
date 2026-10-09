@@ -212,6 +212,8 @@ export const REPO = /* GraphQL */ `
       primaryLanguage { name color }
       licenseInfo { spdxId name }
       parent { nameWithOwner }
+      latestRelease { name tagName publishedAt isPrerelease }
+      releases { totalCount }
       watchers { totalCount }
       pullRequests(states: [OPEN]) { totalCount }
       issues(states: [OPEN]) { totalCount }

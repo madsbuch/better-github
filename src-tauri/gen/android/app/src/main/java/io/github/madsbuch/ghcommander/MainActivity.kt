@@ -35,5 +35,6 @@ class MainActivity : TauriActivity() {
     webView.setBackgroundColor(Color.TRANSPARENT)
     // Runs before the first page load, so the page always sees the interface.
     webView.addJavascriptInterface(BrowserTabs(this), "GhCommanderAndroid")
+    webView.addJavascriptInterface(Downloads(this), "GhCommanderDownloads")
   }
 }

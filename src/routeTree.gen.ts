@@ -24,6 +24,10 @@ import { Route as OwnerRepoActionsIndexRouteImport } from "./routes/$owner/$repo
 import { Route as OwnerRepoCommitShaRouteImport } from "./routes/$owner/$repo/commit/$sha";
 import { Route as OwnerRepoIssuesNumberRouteImport } from "./routes/$owner/$repo/issues/$number";
 import { Route as OwnerRepoPullNumberRouteImport } from "./routes/$owner/$repo/pull/$number";
+import { Route as OwnerRepoReleasesIndexRouteImport } from "./routes/$owner/$repo/releases/index";
+import { Route as OwnerRepoReleasesReleaseIdRouteImport } from "./routes/$owner/$repo/releases/$releaseId";
+import { Route as OwnerRepoReleasesLatestRouteImport } from "./routes/$owner/$repo/releases/latest";
+import { Route as OwnerRepoReleasesTagTagRouteImport } from "./routes/$owner/$repo/releases/tag/$tag";
 import { Route as OwnerRepoActionsRunsRunIdIndexRouteImport } from "./routes/$owner/$repo/actions/runs/$runId/index";
 import { Route as OwnerRepoActionsRunsRunIdJobJobIdRouteImport } from "./routes/$owner/$repo/actions/runs/$runId/job/$jobId";
 
@@ -102,6 +106,27 @@ const OwnerRepoPullNumberRoute = OwnerRepoPullNumberRouteImport.update({
   path: "/$owner/$repo/pull/$number",
   getParentRoute: () => rootRouteImport,
 } as any);
+const OwnerRepoReleasesIndexRoute = OwnerRepoReleasesIndexRouteImport.update({
+  id: "/$owner/$repo/releases/",
+  path: "/$owner/$repo/releases/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const OwnerRepoReleasesReleaseIdRoute =
+  OwnerRepoReleasesReleaseIdRouteImport.update({
+    id: "/$owner/$repo/releases/$releaseId",
+    path: "/$owner/$repo/releases/$releaseId",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const OwnerRepoReleasesLatestRoute = OwnerRepoReleasesLatestRouteImport.update({
+  id: "/$owner/$repo/releases/latest",
+  path: "/$owner/$repo/releases/latest",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const OwnerRepoReleasesTagTagRoute = OwnerRepoReleasesTagTagRouteImport.update({
+  id: "/$owner/$repo/releases/tag/$tag",
+  path: "/$owner/$repo/releases/tag/$tag",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const OwnerRepoActionsRunsRunIdIndexRoute =
   OwnerRepoActionsRunsRunIdIndexRouteImport.update({
     id: "/$owner/$repo/actions/runs/$runId/",
@@ -130,7 +155,11 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
   "/$owner/$repo/issues/$number": typeof OwnerRepoIssuesNumberRoute;
   "/$owner/$repo/pull/$number": typeof OwnerRepoPullNumberRoute;
+  "/$owner/$repo/releases/$releaseId": typeof OwnerRepoReleasesReleaseIdRoute;
+  "/$owner/$repo/releases/latest": typeof OwnerRepoReleasesLatestRoute;
   "/$owner/$repo/actions/": typeof OwnerRepoActionsIndexRoute;
+  "/$owner/$repo/releases/": typeof OwnerRepoReleasesIndexRoute;
+  "/$owner/$repo/releases/tag/$tag": typeof OwnerRepoReleasesTagTagRoute;
   "/$owner/$repo/actions/runs/$runId/": typeof OwnerRepoActionsRunsRunIdIndexRoute;
   "/$owner/$repo/actions/runs/$runId/job/$jobId": typeof OwnerRepoActionsRunsRunIdJobJobIdRoute;
 }
@@ -149,7 +178,11 @@ export interface FileRoutesByTo {
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
   "/$owner/$repo/issues/$number": typeof OwnerRepoIssuesNumberRoute;
   "/$owner/$repo/pull/$number": typeof OwnerRepoPullNumberRoute;
+  "/$owner/$repo/releases/$releaseId": typeof OwnerRepoReleasesReleaseIdRoute;
+  "/$owner/$repo/releases/latest": typeof OwnerRepoReleasesLatestRoute;
   "/$owner/$repo/actions": typeof OwnerRepoActionsIndexRoute;
+  "/$owner/$repo/releases": typeof OwnerRepoReleasesIndexRoute;
+  "/$owner/$repo/releases/tag/$tag": typeof OwnerRepoReleasesTagTagRoute;
   "/$owner/$repo/actions/runs/$runId": typeof OwnerRepoActionsRunsRunIdIndexRoute;
   "/$owner/$repo/actions/runs/$runId/job/$jobId": typeof OwnerRepoActionsRunsRunIdJobJobIdRoute;
 }
@@ -169,7 +202,11 @@ export interface FileRoutesById {
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
   "/$owner/$repo/issues/$number": typeof OwnerRepoIssuesNumberRoute;
   "/$owner/$repo/pull/$number": typeof OwnerRepoPullNumberRoute;
+  "/$owner/$repo/releases/$releaseId": typeof OwnerRepoReleasesReleaseIdRoute;
+  "/$owner/$repo/releases/latest": typeof OwnerRepoReleasesLatestRoute;
   "/$owner/$repo/actions/": typeof OwnerRepoActionsIndexRoute;
+  "/$owner/$repo/releases/": typeof OwnerRepoReleasesIndexRoute;
+  "/$owner/$repo/releases/tag/$tag": typeof OwnerRepoReleasesTagTagRoute;
   "/$owner/$repo/actions/runs/$runId/": typeof OwnerRepoActionsRunsRunIdIndexRoute;
   "/$owner/$repo/actions/runs/$runId/job/$jobId": typeof OwnerRepoActionsRunsRunIdJobJobIdRoute;
 }
@@ -190,7 +227,11 @@ export interface FileRouteTypes {
     | "/$owner/$repo/commit/$sha"
     | "/$owner/$repo/issues/$number"
     | "/$owner/$repo/pull/$number"
+    | "/$owner/$repo/releases/$releaseId"
+    | "/$owner/$repo/releases/latest"
     | "/$owner/$repo/actions/"
+    | "/$owner/$repo/releases/"
+    | "/$owner/$repo/releases/tag/$tag"
     | "/$owner/$repo/actions/runs/$runId/"
     | "/$owner/$repo/actions/runs/$runId/job/$jobId";
   fileRoutesByTo: FileRoutesByTo;
@@ -209,7 +250,11 @@ export interface FileRouteTypes {
     | "/$owner/$repo/commit/$sha"
     | "/$owner/$repo/issues/$number"
     | "/$owner/$repo/pull/$number"
+    | "/$owner/$repo/releases/$releaseId"
+    | "/$owner/$repo/releases/latest"
     | "/$owner/$repo/actions"
+    | "/$owner/$repo/releases"
+    | "/$owner/$repo/releases/tag/$tag"
     | "/$owner/$repo/actions/runs/$runId"
     | "/$owner/$repo/actions/runs/$runId/job/$jobId";
   id:
@@ -228,7 +273,11 @@ export interface FileRouteTypes {
     | "/$owner/$repo/commit/$sha"
     | "/$owner/$repo/issues/$number"
     | "/$owner/$repo/pull/$number"
+    | "/$owner/$repo/releases/$releaseId"
+    | "/$owner/$repo/releases/latest"
     | "/$owner/$repo/actions/"
+    | "/$owner/$repo/releases/"
+    | "/$owner/$repo/releases/tag/$tag"
     | "/$owner/$repo/actions/runs/$runId/"
     | "/$owner/$repo/actions/runs/$runId/job/$jobId";
   fileRoutesById: FileRoutesById;
@@ -248,7 +297,11 @@ export interface RootRouteChildren {
   OwnerRepoCommitShaRoute: typeof OwnerRepoCommitShaRoute;
   OwnerRepoIssuesNumberRoute: typeof OwnerRepoIssuesNumberRoute;
   OwnerRepoPullNumberRoute: typeof OwnerRepoPullNumberRoute;
+  OwnerRepoReleasesReleaseIdRoute: typeof OwnerRepoReleasesReleaseIdRoute;
+  OwnerRepoReleasesLatestRoute: typeof OwnerRepoReleasesLatestRoute;
   OwnerRepoActionsIndexRoute: typeof OwnerRepoActionsIndexRoute;
+  OwnerRepoReleasesIndexRoute: typeof OwnerRepoReleasesIndexRoute;
+  OwnerRepoReleasesTagTagRoute: typeof OwnerRepoReleasesTagTagRoute;
   OwnerRepoActionsRunsRunIdIndexRoute: typeof OwnerRepoActionsRunsRunIdIndexRoute;
   OwnerRepoActionsRunsRunIdJobJobIdRoute: typeof OwnerRepoActionsRunsRunIdJobJobIdRoute;
 }
@@ -360,6 +413,34 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof OwnerRepoPullNumberRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/$owner/$repo/releases/": {
+      id: "/$owner/$repo/releases/";
+      path: "/$owner/$repo/releases";
+      fullPath: "/$owner/$repo/releases/";
+      preLoaderRoute: typeof OwnerRepoReleasesIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/$owner/$repo/releases/$releaseId": {
+      id: "/$owner/$repo/releases/$releaseId";
+      path: "/$owner/$repo/releases/$releaseId";
+      fullPath: "/$owner/$repo/releases/$releaseId";
+      preLoaderRoute: typeof OwnerRepoReleasesReleaseIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/$owner/$repo/releases/latest": {
+      id: "/$owner/$repo/releases/latest";
+      path: "/$owner/$repo/releases/latest";
+      fullPath: "/$owner/$repo/releases/latest";
+      preLoaderRoute: typeof OwnerRepoReleasesLatestRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/$owner/$repo/releases/tag/$tag": {
+      id: "/$owner/$repo/releases/tag/$tag";
+      path: "/$owner/$repo/releases/tag/$tag";
+      fullPath: "/$owner/$repo/releases/tag/$tag";
+      preLoaderRoute: typeof OwnerRepoReleasesTagTagRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/$owner/$repo/actions/runs/$runId/": {
       id: "/$owner/$repo/actions/runs/$runId/";
       path: "/$owner/$repo/actions/runs/$runId";
@@ -392,7 +473,11 @@ const rootRouteChildren: RootRouteChildren = {
   OwnerRepoCommitShaRoute: OwnerRepoCommitShaRoute,
   OwnerRepoIssuesNumberRoute: OwnerRepoIssuesNumberRoute,
   OwnerRepoPullNumberRoute: OwnerRepoPullNumberRoute,
+  OwnerRepoReleasesReleaseIdRoute: OwnerRepoReleasesReleaseIdRoute,
+  OwnerRepoReleasesLatestRoute: OwnerRepoReleasesLatestRoute,
   OwnerRepoActionsIndexRoute: OwnerRepoActionsIndexRoute,
+  OwnerRepoReleasesIndexRoute: OwnerRepoReleasesIndexRoute,
+  OwnerRepoReleasesTagTagRoute: OwnerRepoReleasesTagTagRoute,
   OwnerRepoActionsRunsRunIdIndexRoute: OwnerRepoActionsRunsRunIdIndexRoute,
   OwnerRepoActionsRunsRunIdJobJobIdRoute:
     OwnerRepoActionsRunsRunIdJobJobIdRoute,

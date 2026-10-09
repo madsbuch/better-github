@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { InboxFilter } from "../queries/keys";
 
 export type PullTab = "conversation" | "files" | "commits" | "checks";
-export type RepoTab = "about" | "code" | "pulls" | "issues" | "commits" | "actions";
+export type RepoTab = "about" | "code" | "pulls" | "issues" | "commits" | "actions" | "releases";
 export type SearchType = "repos" | "pulls" | "issues" | "users";
 export type NotificationsFilter = "participating" | "all";
 /** Run filters in the Actions tab: GitHub's `status` values we offer. */
@@ -63,6 +63,11 @@ export const to = {
     linkOptions({ to: "/$owner/$repo/compare", params: { owner, repo }, search }),
   issue: (owner: string, repo: string, number: number) => linkOptions({ to: "/$owner/$repo/issues/$number", params: { owner, repo, number } }),
   commit: (owner: string, repo: string, sha: string) => linkOptions({ to: "/$owner/$repo/commit/$sha", params: { owner, repo, sha } }),
+  release: (owner: string, repo: string, tag: string) =>
+    linkOptions({ to: "/$owner/$repo/releases/tag/$tag", params: { owner, repo, tag } }),
+  latestRelease: (owner: string, repo: string) => linkOptions({ to: "/$owner/$repo/releases/latest", params: { owner, repo } }),
+  releaseById: (owner: string, repo: string, releaseId: number) =>
+    linkOptions({ to: "/$owner/$repo/releases/$releaseId", params: { owner, repo, releaseId } }),
   run: (owner: string, repo: string, runId: number) => linkOptions({ to: "/$owner/$repo/actions/runs/$runId", params: { owner, repo, runId } }),
   job: (owner: string, repo: string, runId: number, jobId: number) =>
     linkOptions({ to: "/$owner/$repo/actions/runs/$runId/job/$jobId", params: { owner, repo, runId, jobId } }),

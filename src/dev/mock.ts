@@ -2,7 +2,7 @@
 // Lets the UI be exercised (and screenshotted) without network access or a
 // token. Never included in production builds.
 
-import type { Backend, GraphQLEnvelope, RestRequest, RestResponse, SessionInfo } from "../lib/backend";
+import { ApiError, type Backend, type GraphQLEnvelope, type RestRequest, type RestResponse, type SessionInfo } from "../lib/backend";
 
 const now = Date.now();
 const ago = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
@@ -589,6 +589,61 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
   return undefined;
 }
 
+// ---------------------------------------------------------------- releases
+
+function release(id: number, tag: string, name: string, minutes: number, extra: Record<string, unknown> = {}) {
+  const asset = (assetId: number, file: string, size: number, contentType: string, downloads: number) => ({
+    id: assetId,
+    name: file,
+    label: null,
+    state: "uploaded",
+    content_type: contentType,
+    size,
+    download_count: downloads,
+    created_at: ago(minutes),
+    updated_at: ago(minutes),
+    browser_download_url: `https://github.com/acme/rocket/releases/download/${tag}/${file}`,
+  });
+  return {
+    id,
+    tag_name: tag,
+    name,
+    draft: false,
+    prerelease: false,
+    created_at: ago(minutes),
+    published_at: ago(minutes),
+    html_url: `https://github.com/acme/rocket/releases/tag/${tag}`,
+    target_commitish: "main",
+    author: { login: "alice", avatar_url: alice.avatarUrl },
+    body_html: `<h2>What's new in ${tag}</h2><ul><li>Resumable uploads</li><li>Retries with exponential backoff</li></ul>`,
+    assets: [
+      asset(id * 10 + 1, `rocket-${tag}.apk`, 12_788_988, "application/vnd.android.package-archive", 341),
+      asset(id * 10 + 2, `rocket-${tag}-linux-x86_64.tar.gz`, 4_200_000, "application/gzip", 87),
+      asset(id * 10 + 3, "checksums.txt", 192, "text/plain", 12),
+    ],
+    ...extra,
+  };
+}
+
+const RELEASES = [
+  release(1, "v2.0.0", "Rocket 2.0", 60 * 48),
+  release(2, "v2.0.0-rc.1", "2.0 release candidate", 60 * 24 * 9, { prerelease: true }),
+  release(3, "v1.4.2", "", 60 * 24 * 40, { assets: [], body_html: "" }),
+];
+
+/** A REST body that makes the request fail with 404, as GitHub does. */
+const NOT_FOUND = Symbol("not found");
+
+function releasesBody(path: string): unknown {
+  if (/\/releases$/.test(path)) return RELEASES;
+  if (/\/releases\/latest$/.test(path)) return RELEASES[0];
+  const byTag = /\/releases\/tags\/(.+)$/.exec(path);
+  if (byTag) return RELEASES.find((r) => r.tag_name === decodeURIComponent(byTag[1])) ?? NOT_FOUND;
+  const byId = /\/releases\/(\d+)$/.exec(path);
+  if (byId) return RELEASES.find((r) => r.id === Number(byId[1])) ?? NOT_FOUND;
+  return undefined;
+}
+
 function graphqlData(query: string, variables: Record<string, unknown>): unknown {
   const op = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? "";
   const newPull = newPullData(op, variables);
@@ -654,6 +709,8 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
           defaultBranchRef: { name: "main" },
           licenseInfo: { spdxId: "MIT", name: "MIT License" },
           parent: null,
+          latestRelease: { name: "Rocket 2.0", tagName: "v2.0.0", publishedAt: ago(60 * 48), isPrerelease: false },
+          releases: { totalCount: RELEASES.length },
           watchers: { totalCount: 41 },
           pullRequests: { totalCount: 12 },
           issues: { totalCount: 34 },
@@ -768,6 +825,8 @@ function restBody(request: RestRequest): unknown {
   }
   const actions = actionsBody(path);
   if (actions !== null) return actions;
+  const releases = releasesBody(path);
+  if (releases !== undefined) return releases;
   if (/\/pulls\/\d+\/files$/.test(path)) return FILES;
   if (/\/readme$/.test(path)) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';
@@ -833,10 +892,16 @@ export function createMockBackend(): Backend {
       signedIn = false;
       return delay(undefined);
     },
-    rest: <T,>(request: RestRequest) => delay<RestResponse<T>>({ status: 200, body: restBody(request) as T, link: null }),
+    rest: async <T,>(request: RestRequest) => {
+      const body = restBody(request);
+      if (body === NOT_FOUND) throw await delay(new ApiError("Not Found", "api", 404));
+      return delay<RestResponse<T>>({ status: 200, body: body as T, link: null });
+    },
     graphql: <T,>(query: string, variables?: Record<string, unknown>) =>
       delay<GraphQLEnvelope<T>>({ data: graphqlData(query, variables ?? {}) as T }),
     jobLogs: () => delay({ text: JOB_LOG, truncated: false }),
+    downloadUrl: (target) =>
+      delay(target.kind === "asset" ? `https://objects.githubusercontent.com/mock/${target.assetId}` : `https://codeload.github.com/mock/${target.ref}.${target.format}`),
     openUrl: async (url) => console.info("[mock] open", url),
     copyText: async (text) => console.info("[mock] copy", text),
   };

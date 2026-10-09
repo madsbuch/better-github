@@ -14,11 +14,13 @@ use tauri::{Manager, Runtime, State};
 
 use crate::auth::DeviceCode;
 use crate::error::{Error, Result};
-use crate::github::{JobLog, RestRequest, RestResponse};
+use crate::github::{ArchiveFormat, JobLog, RestRequest, RestResponse};
 use crate::store::{AuthMethod, Config, SessionInfo, Store, StoredSession};
 
 struct AppState {
     http: reqwest::Client,
+    /// Doesn't follow redirects: resolves download links.
+    downloads: reqwest::Client,
     store: Store,
     session: RwLock<Option<StoredSession>>,
     config: RwLock<Config>,
@@ -31,6 +33,7 @@ impl AppState {
         let config = store.load_config();
         AppState {
             http: github::build_client(),
+            downloads: github::build_no_redirect_client(),
             store,
             session: RwLock::new(session),
             config: RwLock::new(config),
@@ -215,6 +218,31 @@ async fn gh_job_logs(
     github::job_logs(&state.http, &token, &owner, &repo, job_id).await
 }
 
+/// A short-lived link to a release asset, for the device's download manager.
+#[tauri::command]
+async fn gh_asset_url(
+    state: State<'_, AppState>,
+    owner: String,
+    repo: String,
+    asset_id: u64,
+) -> Result<String> {
+    let token = state.token()?;
+    github::asset_url(&state.downloads, &token, &owner, &repo, asset_id).await
+}
+
+/// A short-lived link to a zip or tar.gz of the source at a ref.
+#[tauri::command]
+async fn gh_archive_url(
+    state: State<'_, AppState>,
+    owner: String,
+    repo: String,
+    git_ref: String,
+    format: ArchiveFormat,
+) -> Result<String> {
+    let token = state.token()?;
+    github::archive_url(&state.downloads, &token, &owner, &repo, &git_ref, format).await
+}
+
 /// Registers the app's commands; shared with the IPC tests.
 fn with_commands<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
@@ -228,6 +256,8 @@ fn with_commands<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         gh_rest,
         gh_graphql,
         gh_job_logs,
+        gh_asset_url,
+        gh_archive_url,
     ])
 }
 

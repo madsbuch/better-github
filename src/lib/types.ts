@@ -170,6 +170,8 @@ export interface RepoDetail {
   primaryLanguage: { name: string; color: string | null } | null;
   licenseInfo: { spdxId: string | null; name: string } | null;
   parent: { nameWithOwner: string } | null;
+  latestRelease: { name: string | null; tagName: string; publishedAt: string | null; isPrerelease: boolean } | null;
+  releases: { totalCount: number };
   watchers: { totalCount: number };
   pullRequests: { totalCount: number };
   issues: { totalCount: number };
@@ -637,3 +639,9 @@ export interface AssignableUsersResult {
 
 export type RestComparison = components["schemas"]["commit-comparison"];
 export type RestPullSimple = components["schemas"]["pull-request-simple"];
+
+// ---------------------------------------------------------------------------
+// Releases
+
+export type Release = components["schemas"]["release"];
+export type ReleaseAsset = components["schemas"]["release-asset"];

@@ -1699,3 +1699,14 @@ details.disclosure[open] > summary {
 .new-pull .btn-block {
   margin-top: 4px;
 }
+
+/* --------------------------------------------------------------- releases */
+
+.latest-release {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: inherit;
+}

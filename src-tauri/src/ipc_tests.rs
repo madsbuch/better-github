@@ -161,6 +161,41 @@ fn job_logs_take_the_frontends_arguments_and_check_names() {
 }
 
 #[test]
+fn download_links_take_the_frontends_arguments_and_check_them() {
+    let h = harness("downloads");
+    let err = h
+        .invoke(
+            "gh_asset_url",
+            json!({ "owner": "octo", "repo": "app", "assetId": 1 }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "not_authenticated");
+
+    h.sign_in_offline();
+    let err = h
+        .invoke(
+            "gh_asset_url",
+            json!({ "owner": "octo/x", "repo": "app", "assetId": 1 }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "invalid");
+    let err = h
+        .invoke(
+            "gh_archive_url",
+            json!({ "owner": "octo", "repo": "app", "gitRef": "../x", "format": "zip" }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "invalid");
+    // Only zip and tar exist.
+    assert!(h
+        .invoke(
+            "gh_archive_url",
+            json!({ "owner": "octo", "repo": "app", "gitRef": "v1", "format": "rar" }),
+        )
+        .is_err());
+}
+
+#[test]
 fn token_sign_in_validates_input_before_any_request() {
     let h = harness("token-input");
     let err = h

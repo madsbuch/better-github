@@ -77,6 +77,12 @@ export function appLinkForUrl(href: string): LinkTarget | null {
       return actionsLink(owner, name, segments.slice(3));
     case "compare":
       return compareLink(owner, name, segments.slice(3).join("/"));
+    case "releases":
+      if (segments.length === 3) return to.repo(owner, name, { tab: "releases" });
+      if (id === "latest" && rest.length === 0) return to.latestRelease(owner, name);
+      if (id === "tag" && rest.length) return to.release(owner, name, rest.join("/"));
+      // Asset downloads (releases/download/...) are files for the browser.
+      return null;
     default:
       return null;
   }
@@ -113,6 +119,7 @@ function appLinkForApiUrl(url: URL): LinkTarget | null {
   if (parts.length === 5 && kind === "issues" && int(id) !== null) return to.issue(owner, repo, int(id)!);
   if (parts.length === 5 && kind === "commits" && /^[0-9a-f]{4,40}$/i.test(id)) return to.commit(owner, repo, id);
   if (parts.length === 6 && kind === "actions" && id === "runs" && int(sub) !== null) return to.run(owner, repo, int(sub)!);
+  if (parts.length === 5 && kind === "releases" && int(id) !== null) return to.releaseById(owner, repo, int(id)!);
   return null;
 }
 
