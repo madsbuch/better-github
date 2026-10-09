@@ -59,31 +59,13 @@ Every push to `main` rebuilds the APK and replaces it in the [`latest` release](
 
 ### Signing
 
-CI signs release builds with the keystore in these repository secrets (the same setup as [tally-tauri](https://github.com/madsbuch/tally-tauri)):
-
-| Secret | Value |
-| --- | --- |
-| `ANDROID_KEYSTORE` | the keystore file, base64-encoded |
-| `ANDROID_KEYSTORE_PASSWORD` | the keystore password, also used as the key password |
-| `ANDROID_KEY_ALIAS` | the key alias |
-
-With the GitHub CLI:
+CI signs release builds with this app's own upload key, kept in the `ANDROID_KEYSTORE` (base64 keystore), `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` repository secrets. To create the key and set the secrets, run this once on your machine (needs the JDK's `keytool` and a signed-in GitHub CLI):
 
 ```sh
-base64 < upload.jks | gh secret set ANDROID_KEYSTORE -R madsbuch/gh-commander
-gh secret set ANDROID_KEYSTORE_PASSWORD -R madsbuch/gh-commander   # prompts for the value
-gh secret set ANDROID_KEY_ALIAS -R madsbuch/gh-commander --body upload
+./scripts/setup-android-signing.sh
 ```
 
-Keep the keystore: Android only accepts updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
-
-Create a keystore with `keytool -genkey -v -keystore upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`. For local release builds, put the same values in `src-tauri/gen/android/keystore.properties` (git-ignored):
-
-```properties
-keyAlias=upload
-password=<keystore password>
-storeFile=/absolute/path/to/upload.jks
-```
+It creates `~/.tauri/keystores/gh-commander-upload.jks`, uploads it to the repository secrets, and writes the git-ignored `src-tauri/gen/android/keystore.properties` for local release builds. It refuses to overwrite an existing keystore. Back up the keystore and its password: Android only installs updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
 
 ## Development
 
