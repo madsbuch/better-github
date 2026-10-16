@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compilePattern, NO_RULES, parseReviewRules, reviewFile, RULES_FILE } from "./reviewRules";
+import { checksByRule, compilePattern, NO_RULES, parseReviewRules, reviewFile, reviewGuide, RULES_FILE } from "./reviewRules";
 
 const matches = (pattern: string, path: string) => compilePattern(pattern)!.test(path);
 
@@ -104,9 +104,10 @@ describe("parseReviewRules", () => {
   });
 
   it("without an unmatched line, files no rule covers are medium", () => {
-    expect(reviewFile(parseReviewRules("low docs/**"), "src/main.ts")).toEqual({
+    expect(reviewFile(parseReviewRules("low docs/**"), "src/main.ts")).toMatchObject({
       risk: "medium",
       instructions: [{ risk: "medium", text: "No rule covers this file." }],
+      rules: [{ id: "unmatched", risk: "medium", label: "no rule", instructions: ["No rule covers this file."] }],
       matched: [],
       unmatched: true,
     });
@@ -139,7 +140,7 @@ describe("reviewFile", () => {
   });
 
   it("uses a rule's risk even without instructions", () => {
-    expect(review("Cargo.lock")).toEqual({ risk: "low", instructions: [], matched: ["*.lock (low)"], unmatched: false });
+    expect(review("Cargo.lock")).toMatchObject({ risk: "low", instructions: [], matched: ["*.lock (low)"], unmatched: false });
   });
 
   it("judges a renamed file by both its paths", () => {
@@ -147,12 +148,22 @@ describe("reviewFile", () => {
   });
 
   it("falls back to the unmatched rule", () => {
-    expect(review("emails/html/welcome.html")).toEqual({
+    expect(review("emails/html/welcome.html")).toMatchObject({
       risk: "low",
       instructions: [{ risk: "low", text: "Nothing covers this yet." }],
       matched: [],
       unmatched: true,
     });
+  });
+
+  it("keeps each rule's checks together, riskiest rule first, each check once", () => {
+    const auth = review("packages/lib/auth/session.ts");
+    expect(auth.rules.map((r) => [r.id, r.risk, r.label])).toEqual([
+      ["line:8", "high", "packages/lib/auth/**"],
+      ["line:15", "medium", "packages/lib/auth/**"],
+    ]);
+    // The medium rule repeats a high one's check, so reading it adds nothing.
+    expect(checksByRule(auth).map((r) => r.instructions)).toEqual([["Check every role.", "One dealership never sees another's data."], []]);
   });
 
   it("always rates changes to the rules file high", () => {
@@ -164,5 +175,19 @@ describe("reviewFile", () => {
     ]);
     expect(reviewFile(NO_RULES, RULES_FILE).risk).toBe("high");
     expect(reviewFile(rules, "docs/rules.md", RULES_FILE).risk).toBe("high");
+  });
+});
+
+describe("reviewGuide", () => {
+  it("lists every matching rule once, riskiest first, with the files it covers", () => {
+    const paths = ["docs/a.md", "packages/lib/auth/session.ts", "apps/consumer/src/Cart.tsx", "apps/consumer/src/Cart.test.ts", "emails/x.html"];
+    const files = new Map(paths.map((path) => [path, review(path)]));
+    expect(reviewGuide(files, paths).map(({ rule, labels, files }) => [rule.risk, labels, files])).toEqual([
+      ["high", ["packages/lib/auth/**"], ["packages/lib/auth/session.ts"]],
+      ["medium", ["apps/*/src/**"], ["apps/consumer/src/Cart.tsx"]],
+      ["medium", ["packages/lib/auth/**"], ["packages/lib/auth/session.ts"]],
+      ["low", ["docs/**", "**/*.test.ts"], ["docs/a.md", "apps/consumer/src/Cart.test.ts"]],
+      ["low", ["no rule"], ["emails/x.html"]],
+    ]);
   });
 });

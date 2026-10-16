@@ -161,7 +161,7 @@ high src/client.rs
   - Backoff has a ceiling, so a dead server can't stall the app forever.
 
 medium src/**
-  - Errors reach the caller with the server's message.
+  - Errors reach the caller with the server's message, as \`UploadError::Server\`.
 
 low *.md
   - Is it still true?

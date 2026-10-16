@@ -462,37 +462,93 @@
   margin-left: auto;
 }
 
-.review-notes {
-  padding: 10px 14px 10px 12px;
+/* One line between a file's name and its diff; the checks open in a sheet. */
+.review-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px 0 10px;
+  border: 0;
   border-bottom: 1px solid var(--border-muted);
   border-left: 3px solid var(--border);
   background: var(--bg-subtle);
-  font-size: 14px;
-  line-height: 1.45;
+  color: var(--fg);
+  font-size: 13px;
+  text-align: left;
 }
 
-.review-notes[data-risk="high"] {
+.review-strip svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.review-strip[data-risk="high"] {
   border-left-color: var(--danger);
   background: color-mix(in srgb, var(--danger-bg) 60%, var(--bg));
 }
 
-.review-notes[data-risk="medium"] {
+.review-strip[data-risk="medium"] {
   border-left-color: var(--attention);
   background: color-mix(in srgb, var(--attention-bg) 60%, var(--bg));
 }
 
-.review-notes ul {
-  margin: 0 0 6px;
-  padding-left: 18px;
+/* A rule's checks in the file and guide sheets. */
+.rule-checks {
+  margin: 0 0 16px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border-muted);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
-.review-notes li + li {
-  margin-top: 4px;
+.rule-checks[data-risk="high"] {
+  border-left-color: var(--danger);
 }
 
-.review-notes-why {
+.rule-checks[data-risk="medium"] {
+  border-left-color: var(--attention);
+}
+
+.rule-checks-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
   color: var(--fg-muted);
-  font-family: var(--mono);
-  font-size: 11.5px;
   overflow-wrap: anywhere;
+}
+
+.rule-checks ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.rule-checks li + li {
+  margin-top: 8px;
+}
+
+.rule-checks p {
+  margin: 0;
+}
+
+.rule-checks code {
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--bg-inset);
+  font-family: var(--mono);
+  font-size: 85%;
+  overflow-wrap: anywhere;
+}
+
+.rule-checks-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-muted);
 }

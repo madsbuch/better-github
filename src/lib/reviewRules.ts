@@ -31,6 +31,8 @@ interface Rule {
   include: { pattern: string; regex: RegExp }[];
   exclude: RegExp[];
   instructions: string[];
+  /** Where the rule starts in the file. */
+  line: number;
 }
 
 export interface ReviewRules {
@@ -46,11 +48,23 @@ export interface Instruction {
   text: string;
 }
 
+/** A rule as it applies to a file: what to check, and why it applies. */
+export interface RuleMatch {
+  /** The same for every file the rule matches: its line, or "unmatched" or the built-in rule. */
+  id: string;
+  risk: Risk;
+  /** The pattern that matched, or what stands in for one. */
+  label: string;
+  instructions: string[];
+}
+
 export interface FileReview {
   /** The verdict: the highest risk among the rules matching the file. */
   risk: Risk;
   /** What to check, from every matching rule, highest risk first. */
   instructions: Instruction[];
+  /** The rules behind it, highest risk first. */
+  rules: RuleMatch[];
   /** The patterns that matched, e.g. "src/** (medium)", for when a verdict looks wrong. */
   matched: string[];
   /** No rule matched; the verdict comes from the "unmatched" line. */
@@ -150,7 +164,7 @@ export function parseReviewRules(text: string): ReviewRules {
       warn(`"${head}" isn't low, medium or high.`);
       return;
     }
-    const rule: Rule = { risk: keyword, include: [], exclude: [], instructions: [] };
+    const rule: Rule = { risk: keyword, include: [], exclude: [], instructions: [], line };
     for (const word of rest) {
       const negated = word.startsWith("!");
       const pattern = negated ? word.slice(1) : word;
@@ -179,19 +193,19 @@ export const NO_RULES: ReviewRules = { rules: [], unmatched: { risk: "medium", i
  */
 export function reviewFile(rules: ReviewRules, path: string, previousPath?: string | null): FileReview {
   const paths = previousPath && previousPath !== path ? [path, previousPath] : [path];
-  const hits: { risk: Risk; instructions: string[]; why: string }[] = [];
+  const hits: RuleMatch[] = [];
 
   for (const rule of rules.rules) {
     const hit = rule.include.find(({ regex }) => paths.some((p) => regex.test(p) && !rule.exclude.some((x) => x.test(p))));
-    if (hit) hits.push({ risk: rule.risk, instructions: rule.instructions, why: `${hit.pattern} (${rule.risk})` });
+    if (hit) hits.push({ id: `line:${rule.line}`, risk: rule.risk, label: hit.pattern, instructions: rule.instructions });
   }
   if (paths.includes(RULES_FILE)) {
-    hits.push({ risk: "high", instructions: [RULES_FILE_INSTRUCTION], why: `${RULES_FILE} (always high)` });
+    hits.push({ id: "rules-file", risk: "high", label: RULES_FILE, instructions: [RULES_FILE_INSTRUCTION] });
   }
   const unmatched = hits.length === 0;
   if (unmatched) {
     const { risk, instructions } = rules.unmatched;
-    hits.push({ risk, instructions: instructions.length > 0 ? instructions : [NO_RULE_INSTRUCTION], why: "" });
+    hits.push({ id: "unmatched", risk, label: "no rule", instructions: instructions.length > 0 ? instructions : [NO_RULE_INSTRUCTION] });
   }
 
   // A set: the same instruction from two rules is listed once.
@@ -202,7 +216,36 @@ export function reviewFile(rules: ReviewRules, path: string, previousPath?: stri
   return {
     risk: hits.reduce<Risk>((highest, hit) => (RANK[hit.risk] > RANK[highest] ? hit.risk : highest), "low"),
     instructions: [...instructions.values()].sort((a, b) => RANK[b.risk] - RANK[a.risk]),
-    matched: unmatched ? [] : hits.map((hit) => hit.why),
+    rules: [...hits].sort((a, b) => RANK[b.risk] - RANK[a.risk]),
+    matched: unmatched ? [] : hits.map((hit) => (hit.id === "rules-file" ? `${RULES_FILE} (always high)` : `${hit.label} (${hit.risk})`)),
     unmatched,
   };
+}
+
+/**
+ * A file's rules for reading: riskiest first, each instruction once, under
+ * the riskiest rule that gives it.
+ */
+export function checksByRule(review: FileReview): RuleMatch[] {
+  const seen = new Set<string>();
+  return review.rules.map((rule) => ({ ...rule, instructions: rule.instructions.filter((text) => !seen.has(text) && !!seen.add(text)) }));
+}
+
+/**
+ * The review of a whole pull request: every rule that matches one of its
+ * files, once, riskiest first, with the files it covers (in `order`).
+ */
+export function reviewGuide(files: Map<string, FileReview>, order: string[]): { rule: RuleMatch; labels: string[]; files: string[] }[] {
+  const guide = new Map<string, { rule: RuleMatch; labels: string[]; files: string[] }>();
+  for (const path of order) {
+    for (const rule of files.get(path)?.rules ?? []) {
+      const entry = guide.get(rule.id) ?? { rule, labels: [], files: [] };
+      // The patterns it matched by, across the files.
+      if (!entry.labels.includes(rule.label)) entry.labels.push(rule.label);
+      entry.files.push(path);
+      guide.set(rule.id, entry);
+    }
+  }
+  const position = (id: string) => (id.startsWith("line:") ? Number(id.slice(5)) : id === "rules-file" ? -1 : Infinity);
+  return [...guide.values()].sort((a, b) => RANK[b.rule.risk] - RANK[a.rule.risk] || position(a.rule.id) - position(b.rule.id));
 }

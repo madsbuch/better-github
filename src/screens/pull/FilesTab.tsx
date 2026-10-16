@@ -1,4 +1,4 @@
-import { CheckIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
+import { CheckIcon, ChecklistIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { errorMessage } from "../../lib/api";
@@ -8,10 +8,10 @@ import type { DraftComment, useReviewDraft } from "../../lib/drafts";
 import { to, useNav } from "../../lib/nav";
 import { usePrefs } from "../../lib/prefs";
 import { useToast } from "../../lib/toast";
-import { riskRank, RULES_FILE, type FileReview, type Risk } from "../../lib/reviewRules";
+import { reviewGuide, riskRank, RULES_FILE, type FileReview, type Risk } from "../../lib/reviewRules";
 import type { FileViewedState, PullDetail, RestPullFile, ReviewThread } from "../../lib/types";
 import { DiffFile, type LineTarget } from "../../components/DiffView";
-import { ReviewNotes, RiskBadge } from "../../components/ReviewRules";
+import { FileReviewSheet, ReviewGuideSheet, ReviewStrip, RiskBadge } from "../../components/ReviewRules";
 import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
@@ -57,6 +57,9 @@ export function FilesTab({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [target, setTarget] = useState<{ line: LineTarget; draft?: DraftComment } | null>(null);
   const [fileMenu, setFileMenu] = useState<RestPullFile | null>(null);
+  // The file whose checks are open, and the whole pull request's.
+  const [checksFor, setChecksFor] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const verdicts = review.files;
   // Riskiest first, a change to the rules themselves before all; otherwise GitHub's order.
@@ -71,6 +74,8 @@ export function FilesTab({
     return [...changed].sort((a, b) => rank(b) - rank(a));
   }, [patches.data, verdicts]);
   const viewedCount = files.filter((f) => viewed.data?.[f.filename] === "VIEWED").length;
+  const guide = useMemo(() => reviewGuide(verdicts, files.map((f) => f.filename)), [verdicts, files]);
+  const copyPrompt = useCopyRulesPrompt();
 
   // Viewed and low-risk files start collapsed.
   const isCollapsed = useCallback(
@@ -129,7 +134,15 @@ export function FilesTab({
           {viewedCount}/{files.length} viewed
         </span>
       </div>
-      <ReviewSummary owner={owner} repo={repo} review={review} files={files} viewed={viewed.data} baseRef={pr.baseRefName} />
+      <ReviewSummary
+        owner={owner}
+        repo={repo}
+        review={review}
+        files={files}
+        viewed={viewed.data}
+        baseRef={pr.baseRefName}
+        onOpenGuide={() => setGuideOpen(true)}
+      />
       {files.map((file) => {
         const path = file.filename;
         return (
@@ -141,6 +154,7 @@ export function FilesTab({
             onToggleCollapsed={() => setCollapsed((c) => ({ ...c, [path]: !isCollapsed(path) }))}
             viewed={viewed.data?.[path] === "VIEWED"}
             review={verdicts.get(path)}
+            onOpenReview={() => setChecksFor(path)}
             onToggleViewed={() => {
               const next = viewed.data?.[path] !== "VIEWED";
               toggleViewed.mutate({ pullRequestId: pr.id, path, viewed: next });
@@ -169,6 +183,25 @@ export function FilesTab({
           toast.show(existing ? "Pending comment updated" : "Added to your review", "success");
         }}
         onCommentNow={commentNow}
+      />
+
+      <FileReviewSheet path={checksFor} review={checksFor ? verdicts.get(checksFor) : undefined} onClose={() => setChecksFor(null)} />
+      <ReviewGuideSheet
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        guide={guide}
+        onShowFile={(path) => {
+          setGuideOpen(false);
+          scrollToFile(path);
+        }}
+        footer={
+          <div className="review-summary" style={{ marginTop: 8, borderBottom: 0, padding: "8px 0" }}>
+            <span className="grow muted small">Do the rules need work? A coding agent can improve them.</span>
+            <button className="btn btn-sm" onClick={() => void copyPrompt(owner, repo, pr.baseRefName)}>
+              <CopyIcon size={14} /> Copy agent prompt
+            </button>
+          </div>
+        }
       />
 
       <Sheet open={jumpOpen} onClose={onJumpClose} title="Jump to file" full>
@@ -235,6 +268,7 @@ function sameData(prev: Record<string, unknown>, next: Record<string, unknown>):
 const FileWithComments = memo(function FileWithComments({
   file,
   review,
+  onOpenReview,
   threads,
   drafts,
   threadActions,
@@ -245,6 +279,8 @@ const FileWithComments = memo(function FileWithComments({
 }: {
   file: RestPullFile;
   review: FileReview | undefined;
+  /** Shows everything to check in this file. */
+  onOpenReview: () => void;
   wrap: boolean;
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -304,7 +340,7 @@ const FileWithComments = memo(function FileWithComments({
   const top = useMemo(
     () => (
       <>
-        {review && <ReviewNotes review={review} />}
+        {review && <ReviewStrip review={review} onOpen={onOpenReview} />}
         {outdated.length > 0 && (
           <div style={{ paddingBottom: 10, background: "var(--bg-subtle)" }}>
             {outdated.map((thread) => (
@@ -314,7 +350,7 @@ const FileWithComments = memo(function FileWithComments({
         )}
       </>
     ),
-    [review, outdated, threadActions, viewerLogin],
+    [review, onOpenReview, outdated, threadActions, viewerLogin],
   );
 
   return (
@@ -343,6 +379,7 @@ function ReviewSummary({
   files,
   viewed,
   baseRef,
+  onOpenGuide,
 }: {
   owner: string;
   repo: string;
@@ -350,6 +387,7 @@ function ReviewSummary({
   files: RestPullFile[];
   viewed: Record<string, FileViewedState> | undefined;
   baseRef: string;
+  onOpenGuide: () => void;
 }) {
   const groups = (["high", "medium", "low"] as Risk[])
     .map((risk) => {
@@ -377,7 +415,11 @@ function ReviewSummary({
               </span>
             </span>
           ))}
-          {review.rules && <span className="review-summary-action">{promptButton}</span>}
+          <span className="review-summary-action">
+            <button className="btn btn-sm" onClick={onOpenGuide}>
+              <ChecklistIcon size={14} /> Review guide
+            </button>
+          </span>
         </div>
       )}
       {review.loaded && !review.rules && !review.changesRules && (

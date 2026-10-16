@@ -96,7 +96,12 @@ export function PullScreen() {
     .map(([path]) => path);
 
   const setTab = (next: PullTab) => nav.replace(to.pull(owner, repo, number, next));
-  const refresh = () => queryClient.refetchQueries({ queryKey: keys.pull.all(owner, repo, number), type: "active" });
+  // Pulling to refresh reloads everything the screen shows, the review rules too.
+  const refresh = () =>
+    Promise.all([
+      queryClient.refetchQueries({ queryKey: keys.pull.all(owner, repo, number), type: "active" }),
+      queryClient.refetchQueries({ queryKey: keys.repo.reviewRulesAll(owner, repo), type: "active" }),
+    ]);
 
   const addComment = async (body: string) => {
     if (pr) await mutations.comment.mutateAsync({ subjectId: pr.id, body });

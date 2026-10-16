@@ -5,9 +5,10 @@ import { activeScreen, open, trackErrors } from "./helpers";
 // pull request 482 high, medium (no rule covers it) and low.
 const files = (page: Page) => activeScreen(page).locator(".diff-file");
 const verdict = (page: Page, i: number) => files(page).nth(i).locator(".diff-file-header .risk");
-const notes = (page: Page, i: number) => files(page).nth(i).locator(".review-notes");
+const strip = (page: Page, i: number) => files(page).nth(i).locator(".review-strip");
+const sheetRules = (page: Page) => page.locator(".sheet .rule-checks");
 
-test("each file shows its verdict and everything to check, riskiest first", async ({ page }) => {
+test("each file shows its verdict, riskiest first, and its checks by rule", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/482?tab=files");
 
@@ -18,22 +19,44 @@ test("each file shows its verdict and everything to check, riskiest first", asyn
   await expect(files(page).nth(2)).toHaveAttribute("data-path", "README.md");
   await expect(verdict(page, 2)).toHaveText("Low");
 
-  // Every instruction of every rule matching the file, highest risk first, above the diff.
-  await expect(notes(page, 0).locator("li")).toHaveText([
+  // One line above the diff; the checks open in a sheet, grouped by the rule they come from.
+  await expect(strip(page, 0)).toHaveText("3 checks · src/client.rs, src/**");
+  await strip(page, 0).click();
+  await expect(page.locator(".sheet .sheet-header")).toContainText("client.rs");
+  await expect(sheetRules(page)).toHaveCount(2);
+  await expect(sheetRules(page).nth(0).locator(".rule-checks-heading")).toHaveText("Highsrc/client.rs");
+  await expect(sheetRules(page).nth(0).locator("li")).toHaveText([
     /^Retries only repeat requests that are safe to repeat/,
     "Backoff has a ceiling, so a dead server can't stall the app forever.",
-    "Errors reach the caller with the server's message.",
   ]);
-  await expect(notes(page, 0).locator(".review-notes-why")).toHaveText("Matched src/client.rs (high), src/** (medium)");
+  await expect(sheetRules(page).nth(1).locator(".rule-checks-heading")).toHaveText("Mediumsrc/**");
+  // `code` shows as code.
+  await expect(sheetRules(page).nth(1).locator("li code")).toHaveText("UploadError::Server");
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator(".sheet")).toHaveCount(0);
 
   // Low-risk (and viewed) files start collapsed.
-  await expect(notes(page, 2)).toHaveCount(0);
+  await expect(strip(page, 2)).toHaveCount(0);
   await files(page).nth(2).locator(".diff-file-header .path").click();
-  await expect(notes(page, 2).locator("li")).toHaveText(["Is it still true?"]);
+  await expect(strip(page, 2)).toHaveText("1 check · *.md");
   await files(page).nth(1).locator(".diff-file-header .path").click();
-  await expect(notes(page, 1).locator("li")).toHaveText(["No rule covers this file. Consider adding one."]);
+  await expect(strip(page, 1)).toHaveText("1 check · no rule matches");
 
   await expect(activeScreen(page).locator(".review-summary")).toContainText("High 0/1 viewed");
+  expect(errors).toEqual([]);
+});
+
+test("the review guide lists every rule once, with the files it covers", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/acme/rocket/pull/482?tab=files");
+  await activeScreen(page).getByRole("button", { name: "Review guide" }).click();
+  await expect(sheetRules(page).locator(".rule-checks-heading")).toHaveText(["Highsrc/client.rs", "Mediumsrc/**", "MediumNo rule matches", "Low*.md"]);
+  await expect(sheetRules(page).nth(1).locator(".rule-checks-files")).toHaveText("client.rs");
+
+  // A file in it takes you to that file.
+  await sheetRules(page).nth(3).getByRole("button", { name: "README.md" }).click();
+  await expect(page.locator(".sheet")).toHaveCount(0);
+  await expect(strip(page, 2)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -69,7 +92,10 @@ test("a change to the rules is high risk and judged by the rules it replaces", a
   await expect(activeScreen(page).locator(".banner")).toContainText("This pull request changes .review-rules. The verdicts here use the rules on main");
   await expect(files(page).nth(0)).toHaveAttribute("data-path", ".review-rules");
   await expect(verdict(page, 0)).toHaveText("High");
-  await expect(notes(page, 0).locator("li")).toHaveText(["This file decides how every change is reviewed. Check that no rule was weakened or removed."]);
+  await strip(page, 0).click();
+  await expect(sheetRules(page).locator(".rule-checks-heading")).toHaveText(["High.review-rules (always high)"]);
+  await expect(sheetRules(page).locator("li")).toHaveText(["This file decides how every change is reviewed. Check that no rule was weakened or removed."]);
+  await page.getByRole("button", { name: "Close" }).click();
   // Its "low src/**" doesn't apply yet.
   await expect(files(page).nth(1)).toHaveAttribute("data-path", "src/client.rs");
   await expect(verdict(page, 1)).toHaveText("High");
@@ -112,7 +138,8 @@ test("rules only on the pull request's own branch are pointed out, not used", as
 test("the prompt for a repository with rules hands them over to improve", async ({ page }) => {
   const copied = clipboard(page);
   await open(page, "/acme/rocket/pull/482?tab=files");
-  await activeScreen(page).locator(".review-summary").getByRole("button", { name: "Copy agent prompt" }).click();
+  await activeScreen(page).getByRole("button", { name: "Review guide" }).click();
+  await page.locator(".sheet").getByRole("button", { name: "Copy agent prompt" }).click();
   await expect(page.locator(".toast", { hasText: "Prompt copied" })).toBeVisible();
   expect(copied()[0]).toMatch(/^Improve the review rules of acme\/rocket/);
   expect(copied()[0]).toContain("## The current rules (on main)\n\n    # How carefully changes to Rocket need reviewing.");
