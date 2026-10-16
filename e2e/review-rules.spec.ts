@@ -91,13 +91,22 @@ test("a repository without rules offers a prompt to have an agent write them", a
   await open(page, "/octocat/hello/pull/1?tab=files");
   await expect(files(page).first()).toBeVisible();
   await expect(activeScreen(page).locator(".diff-file-header .risk")).toHaveCount(0);
-  await expect(activeScreen(page).locator(".review-summary")).toContainText("No review rules here yet");
+  await expect(activeScreen(page).locator(".review-summary")).toContainText("No .review-rules on main, the branch this merges into.");
   await activeScreen(page).getByRole("button", { name: "Copy agent prompt" }).click();
   await expect(page.locator(".toast", { hasText: "Prompt copied" })).toBeVisible();
   expect(copied()).toHaveLength(1);
   expect(copied()[0]).toMatch(/^Set up review rules for octocat\/hello: write a `\.review-rules` file at its root\./);
   expect(copied()[0]).toContain("## The format");
   expect(errors).toEqual([]);
+});
+
+test("rules only on the pull request's own branch are pointed out, not used", async ({ page }) => {
+  await open(page, "/octocat/drafting/pull/1?tab=files");
+  await expect(activeScreen(page).locator(".review-summary")).toContainText(
+    "This pull request's branch has a .review-rules, but main doesn't. Verdicts use the rules on main",
+  );
+  await expect(activeScreen(page).locator(".diff-file-header .risk")).toHaveCount(0);
+  await expect(activeScreen(page).getByRole("button", { name: "Copy agent prompt" })).toHaveCount(0);
 });
 
 test("the prompt for a repository with rules hands them over to improve", async ({ page }) => {

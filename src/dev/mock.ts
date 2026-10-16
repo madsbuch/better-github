@@ -808,9 +808,11 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
     case "PullThreads":
       return { repository: { pullRequest: { reviewThreads: { totalCount: THREADS.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: THREADS } } } };
     case "ReviewRules": {
-      // Only acme/rocket has rules; other repositories show how to get some.
+      // acme/rocket has rules on main. In octocat/drafting only the pull
+      // request's own commit has them; other repositories have none.
       const rocket = variables.owner === "acme" && variables.name === "rocket" && variables.expression === "main:.review-rules";
-      return { repository: { object: rocket ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
+      const drafting = variables.owner === "octocat" && variables.name === "drafting" && variables.expression === `${PR_DETAIL.headRefOid}:.review-rules`;
+      return { repository: { object: rocket || drafting ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
     }
     case "PullFiles":
       return {

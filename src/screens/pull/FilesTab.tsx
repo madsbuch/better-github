@@ -16,7 +16,7 @@ import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
 import { pullQueries, useInlineComment, useToggleViewed } from "../../queries/pulls";
-import { useCopyRulesPrompt, type PullReview } from "../../queries/reviewRules";
+import { useCopyRulesPrompt, useRecheckReviewRules, type PullReview } from "../../queries/reviewRules";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
 
@@ -50,6 +50,7 @@ export function FilesTab({
   const toast = useToast();
   const nav = useNav();
   const patches = useQuery(pullQueries.patches(owner, repo, number, pr.headRefOid));
+  useRecheckReviewRules(owner, repo, pr.baseRefName);
   const viewed = useQuery(pullQueries.viewed(owner, repo, number));
   const toggleViewed = useToggleViewed(owner, repo, number);
   const inlineComment = useInlineComment(owner, repo, number);
@@ -380,9 +381,21 @@ function ReviewSummary({
         </div>
       )}
       {review.loaded && !review.rules && !review.changesRules && (
+        // Verdicts use the rules of the branch this merges into; say which one was checked.
         <div className="review-summary">
-          <span className="grow muted small">No review rules here yet. A coding agent can write them for you.</span>
-          {promptButton}
+          {review.headHasRules ? (
+            <span className="grow muted small">
+              This pull request's branch has a {RULES_FILE}, but {baseRef} doesn't. Verdicts use the rules on {baseRef}, the branch it
+              merges into, so they apply once the file is there.
+            </span>
+          ) : (
+            <>
+              <span className="grow muted small">
+                No {RULES_FILE} on {baseRef}, the branch this merges into. A coding agent can write one for you.
+              </span>
+              {promptButton}
+            </>
+          )}
         </div>
       )}
       {review.changesRules && (

@@ -20,7 +20,9 @@ export const reviewQueries = {
         const blob = repository?.object;
         return { text: blob?.text ?? null, truncated: blob?.isTruncated ?? false };
       },
-      staleTime: 5 * 60_000,
+      // Rules rarely change, but once someone adds them they should show up
+      // soon: a screen showing verdicts checks again when it opens.
+      staleTime: 30_000,
     }),
 };
 
@@ -33,6 +35,8 @@ export interface PullReview {
   loaded: boolean;
   /** The pull request changes .review-rules; its version applies only after merging. */
   changesRules: boolean;
+  /** The base branch has no rules, but the pull request's own commit does. */
+  headHasRules: boolean;
   /** .review-rules was too large for GitHub to send whole. */
   truncated: boolean;
   error: Error | null;
@@ -60,15 +64,29 @@ export function usePullReview(owner: string, repo: string, number: number, pr: P
     return verdicts;
   }, [rules, changed]);
 
+  const changesRules = (changed ?? []).some((f) => f.filename === RULES_FILE || f.previous_filename === RULES_FILE);
+  // Without rules on the base branch, say so if the pull request's own commit
+  // has some: they aren't used until they're on the base branch.
+  const headRules = useQuery({
+    ...reviewQueries.rules(owner, repo, pr?.headRefOid ?? ""),
+    enabled: !!pr && rulesFile.isSuccess && text === null && !changesRules,
+  });
+
   return {
     files,
     rules,
     loaded: rulesFile.isSuccess,
-    changesRules: (changed ?? []).some((f) => f.filename === RULES_FILE || f.previous_filename === RULES_FILE),
+    changesRules,
+    headHasRules: text === null && !changesRules && (headRules.data?.text ?? null) !== null,
     truncated: rulesFile.data?.truncated ?? false,
     error: rulesFile.error,
     retry: () => void rulesFile.refetch(),
   };
+}
+
+/** Checks the rules again, if they're more than a moment old, when a screen showing verdicts opens. */
+export function useRecheckReviewRules(owner: string, repo: string, ref: string) {
+  useQuery(reviewQueries.rules(owner, repo, ref));
 }
 
 /**
@@ -84,6 +102,8 @@ export function useCopyRulesPrompt() {
       const current = text === null ? null : { text, warnings: parseReviewRules(text).warnings };
       await backend.copyText(rulesPrompt({ repo: `${owner}/${repo}`, branch, current }));
       toast.show("Prompt copied. Paste it into your coding agent.", "success");
+      // The agent is about to change them: check again when the app is back in front.
+      void queryClient.invalidateQueries({ queryKey: keys.repo.reviewRules(owner, repo, branch), refetchType: "none" });
     } catch (error) {
       toast.show(`Couldn't copy the prompt: ${errorMessage(error)}`, "error");
     }
