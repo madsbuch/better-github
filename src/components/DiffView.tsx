@@ -31,6 +31,8 @@ interface DiffFileProps {
   inline?: Map<string, ReactNode>;
   /** Rendered above the diff, e.g. outdated review threads. */
   top?: ReactNode;
+  /** Shown before the line counts, e.g. the file's review verdict. */
+  badge?: ReactNode;
   selectedKey?: string | null;
   onLineSelect?: (target: LineTarget) => void;
 }
@@ -43,7 +45,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export const DiffFile = memo(function DiffFile(props: DiffFileProps) {
-  const { file, collapsed, onToggleCollapsed, viewed, onToggleViewed, onMenu, top } = props;
+  const { file, collapsed, onToggleCollapsed, viewed, onToggleViewed, onMenu, top, badge } = props;
   const slash = file.filename.lastIndexOf("/");
   const dir = slash >= 0 ? file.filename.slice(0, slash + 1) : "";
   const base = file.filename.slice(slash + 1);
@@ -59,7 +61,8 @@ export const DiffFile = memo(function DiffFile(props: DiffFileProps) {
           )}
           <span className="dir">{dir}</span>
           {base}
-          <span style={{ display: "flex", gap: 8, marginTop: 2, fontWeight: 400 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, fontWeight: 400 }}>
+            {badge}
             <span className="diffstat">
               <span className="add">+{file.additions}</span>
               <span className="del">−{file.deletions}</span>

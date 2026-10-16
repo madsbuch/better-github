@@ -30,6 +30,7 @@ import { useToast } from "../lib/toast";
 import type { StatusState } from "../lib/types";
 import { keys } from "../queries/keys";
 import { pullQueries, pullTabQueries, usePullMutations, useThreadActions } from "../queries/pulls";
+import { usePullReview } from "../queries/reviewRules";
 import { Screen } from "../components/Screen";
 import { ActionSheet, Sheet } from "../components/Sheet";
 import { CenterSpinner, EmptyState, ErrorView, ScreenTabs } from "../components/ui";
@@ -86,6 +87,13 @@ export function PullScreen() {
   useEffect(() => {
     if (headSha) void queryClient.prefetchQuery(pullQueries.patches(owner, repo, number, headSha));
   }, [queryClient, owner, repo, number, headSha]);
+
+  // Verdicts from the review rules of the branch this merges into.
+  const review = usePullReview(owner, repo, number, pr);
+  const viewed = useQuery(pullQueries.viewed(owner, repo, number));
+  const unviewedHigh = [...review.files]
+    .filter(([path, file]) => file.risk === "high" && viewed.data?.[path] !== "VIEWED")
+    .map(([path]) => path);
 
   const setTab = (next: PullTab) => nav.replace(to.pull(owner, repo, number, next));
   const refresh = () => queryClient.refetchQueries({ queryKey: keys.pull.all(owner, repo, number), type: "active" });
@@ -192,6 +200,7 @@ export function PullScreen() {
           viewerLogin={viewer.login}
           jumpOpen={jumpOpen}
           onJumpClose={() => setJumpOpen(false)}
+          review={review}
         />
       ) : tab === "commits" ? (
         <CommitsTab owner={owner} repo={repo} number={number} />
@@ -201,7 +210,14 @@ export function PullScreen() {
 
       {pr && repoInfo && (
         <>
-          <ReviewSheet open={reviewOpen} onClose={() => setReviewOpen(false)} pr={pr} drafts={drafts} mutations={mutations} />
+          <ReviewSheet
+            open={reviewOpen}
+            onClose={() => setReviewOpen(false)}
+            pr={pr}
+            drafts={drafts}
+            mutations={mutations}
+            unviewedHigh={unviewedHigh}
+          />
           <MergeSheet open={mergeOpen} onClose={() => setMergeOpen(false)} pr={pr} repoInfo={repoInfo} mutations={mutations} />
           <TextSheet
             open={commentOpen}

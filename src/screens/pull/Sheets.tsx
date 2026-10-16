@@ -19,12 +19,15 @@ export function ReviewSheet({
   pr,
   drafts,
   mutations,
+  unviewedHigh,
 }: {
   open: boolean;
   onClose: () => void;
   pr: PullDetail;
   drafts: Drafts;
   mutations: PullMutations;
+  /** High-risk files (by .review-rules) not marked viewed. */
+  unviewedHigh: string[];
 }) {
   const [event, setEvent] = useState<ReviewEvent>("COMMENT");
   const busy = mutations.submitReview.isPending;
@@ -37,6 +40,7 @@ export function ReviewSheet({
   }, [open, ownPull]);
 
   const valid = event === "APPROVE" || body.trim().length > 0 || comments.length > 0;
+  const unchecked = event === "APPROVE" ? unviewedHigh : [];
 
   const submit = () =>
     mutations.submitReview.mutate(
@@ -78,7 +82,7 @@ export function ReviewSheet({
       full
       footer={
         <button className="btn btn-primary" disabled={!valid || busy} onClick={submit}>
-          {busy && <Spinner small />} Submit review
+          {busy && <Spinner small />} {unchecked.length > 0 ? "Approve anyway" : "Submit review"}
           {comments.length > 0 ? ` (${comments.length} comment${comments.length === 1 ? "" : "s"})` : ""}
         </button>
       }
@@ -107,6 +111,20 @@ export function ReviewSheet({
             </span>
           </label>
         ))}
+        {unchecked.length > 0 && (
+          <div className="banner banner-danger" style={{ margin: 0 }}>
+            <span>
+              <span className="bold" style={{ display: "block" }}>
+                {unchecked.length === 1 ? "A high-risk file isn't" : `${unchecked.length} high-risk files aren't`} marked viewed
+              </span>
+              {unchecked.map((path) => (
+                <span key={path} className="mono small" style={{ display: "block", overflowWrap: "anywhere" }}>
+                  {path}
+                </span>
+              ))}
+            </span>
+          </div>
+        )}
         {comments.length > 0 && (
           <div>
             <div className="field-label">Pending comments</div>

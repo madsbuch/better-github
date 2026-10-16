@@ -1,18 +1,22 @@
 import { CheckIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
 import { anchorKey, suggestionBody } from "../../lib/diff";
 import type { DraftComment, useReviewDraft } from "../../lib/drafts";
 import { to, useNav } from "../../lib/nav";
 import { usePrefs } from "../../lib/prefs";
 import { useToast } from "../../lib/toast";
-import type { PullDetail, RestPullFile, ReviewThread } from "../../lib/types";
+import { riskRank, RULES_FILE, type FileReview, type Risk } from "../../lib/reviewRules";
+import type { FileViewedState, PullDetail, RestPullFile, ReviewThread } from "../../lib/types";
 import { DiffFile, type LineTarget } from "../../components/DiffView";
+import { ReviewNotes, RiskBadge } from "../../components/ReviewRules";
 import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
 import { pullQueries, useInlineComment, useToggleViewed } from "../../queries/pulls";
+import type { PullReview } from "../../queries/reviewRules";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
 
@@ -27,11 +31,14 @@ export function FilesTab({
   viewerLogin,
   jumpOpen,
   onJumpClose,
+  review,
 }: {
   owner: string;
   repo: string;
   number: number;
   pr: PullDetail;
+  /** Verdicts from .review-rules. */
+  review: PullReview;
   threads: ReviewThread[];
   threadActions: ThreadActions;
   drafts: Drafts;
@@ -50,12 +57,24 @@ export function FilesTab({
   const [target, setTarget] = useState<{ line: LineTarget; draft?: DraftComment } | null>(null);
   const [fileMenu, setFileMenu] = useState<RestPullFile | null>(null);
 
-  const files = patches.data ?? [];
+  const verdicts = review.files;
+  // Riskiest first, a change to the rules themselves before all; otherwise GitHub's order.
+  const files = useMemo(() => {
+    const changed = patches.data ?? [];
+    if (verdicts.size === 0) return changed;
+    const rank = (f: RestPullFile) => {
+      if (f.filename === RULES_FILE || f.previous_filename === RULES_FILE) return 3;
+      const risk = verdicts.get(f.filename)?.risk;
+      return risk ? riskRank(risk) : -1;
+    };
+    return [...changed].sort((a, b) => rank(b) - rank(a));
+  }, [patches.data, verdicts]);
   const viewedCount = files.filter((f) => viewed.data?.[f.filename] === "VIEWED").length;
 
+  // Viewed and low-risk files start collapsed.
   const isCollapsed = useCallback(
-    (path: string) => collapsed[path] ?? viewed.data?.[path] === "VIEWED",
-    [collapsed, viewed.data],
+    (path: string) => collapsed[path] ?? (viewed.data?.[path] === "VIEWED" || verdicts.get(path)?.risk === "low"),
+    [collapsed, viewed.data, verdicts],
   );
 
   const threadsByFile = useMemo(() => {
@@ -109,6 +128,7 @@ export function FilesTab({
           {viewedCount}/{files.length} viewed
         </span>
       </div>
+      <ReviewSummary review={review} files={files} viewed={viewed.data} baseRef={pr.baseRefName} />
       {files.map((file) => {
         const path = file.filename;
         return (
@@ -119,6 +139,7 @@ export function FilesTab({
             collapsed={isCollapsed(path)}
             onToggleCollapsed={() => setCollapsed((c) => ({ ...c, [path]: !isCollapsed(path) }))}
             viewed={viewed.data?.[path] === "VIEWED"}
+            review={verdicts.get(path)}
             onToggleViewed={() => {
               const next = viewed.data?.[path] !== "VIEWED";
               toggleViewed.mutate({ pullRequestId: pr.id, path, viewed: next });
@@ -160,6 +181,7 @@ export function FilesTab({
                 {file.filename}
               </span>
               {count > 0 && <span className="counter">{count}</span>}
+              {verdicts.get(file.filename) && <RiskBadge risk={verdicts.get(file.filename)!.risk} />}
               <span className="diffstat">
                 <span className="add">+{file.additions}</span>
                 <span className="del">−{file.deletions}</span>
@@ -211,6 +233,7 @@ function sameData(prev: Record<string, unknown>, next: Record<string, unknown>):
 
 const FileWithComments = memo(function FileWithComments({
   file,
+  review,
   threads,
   drafts,
   threadActions,
@@ -220,6 +243,7 @@ const FileWithComments = memo(function FileWithComments({
   ...rest
 }: {
   file: RestPullFile;
+  review: FileReview | undefined;
   wrap: boolean;
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -276,14 +300,21 @@ const FileWithComments = memo(function FileWithComments({
     return { inline, outdated };
   }, [threads, drafts, threadActions, viewerLogin, onEditDraft, onDeleteDraft]);
 
-  const top =
-    outdated.length > 0 ? (
-      <div style={{ paddingBottom: 10, background: "var(--bg-subtle)" }}>
-        {outdated.map((thread) => (
-          <ThreadCard key={thread.id} thread={thread} actions={threadActions} showContext viewerLogin={viewerLogin} defaultOpen={false} />
-        ))}
-      </div>
-    ) : undefined;
+  const top = useMemo(
+    () => (
+      <>
+        {review && <ReviewNotes review={review} />}
+        {outdated.length > 0 && (
+          <div style={{ paddingBottom: 10, background: "var(--bg-subtle)" }}>
+            {outdated.map((thread) => (
+              <ThreadCard key={thread.id} thread={thread} actions={threadActions} showContext viewerLogin={viewerLogin} defaultOpen={false} />
+            ))}
+          </div>
+        )}
+      </>
+    ),
+    [review, outdated, threadActions, viewerLogin],
+  );
 
   return (
     <DiffFile
@@ -298,9 +329,79 @@ const FileWithComments = memo(function FileWithComments({
       }}
       inline={inline}
       top={top}
+      badge={review && <RiskBadge risk={review.risk} />}
     />
   );
 }, sameData);
+
+/** The verdicts at a glance, and anything wrong with the rules. */
+function ReviewSummary({
+  review,
+  files,
+  viewed,
+  baseRef,
+}: {
+  review: PullReview;
+  files: RestPullFile[];
+  viewed: Record<string, FileViewedState> | undefined;
+  baseRef: string;
+}) {
+  const groups = (["high", "medium", "low"] as Risk[])
+    .map((risk) => {
+      const paths = files.filter((f) => review.files.get(f.filename)?.risk === risk).map((f) => f.filename);
+      return { risk, total: paths.length, viewed: paths.filter((path) => viewed?.[path] === "VIEWED").length };
+    })
+    .filter((group) => group.total > 0);
+  const warnings = review.rules?.warnings ?? [];
+
+  return (
+    <>
+      {groups.length > 0 && (
+        <div className="review-summary">
+          {groups.map((group) => (
+            <span key={group.risk}>
+              <RiskBadge risk={group.risk} />{" "}
+              <span className={group.viewed === group.total ? "c-success small" : "muted small"}>
+                {group.viewed}/{group.total} viewed
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      {review.changesRules && (
+        <div className="banner banner-attention">
+          {review.rules
+            ? `This pull request changes ${RULES_FILE}. The verdicts here use the rules on ${baseRef}; the changes apply once it's merged.`
+            : `This pull request adds ${RULES_FILE}. Its rules apply once it's merged.`}
+        </div>
+      )}
+      {(warnings.length > 0 || review.truncated) && (
+        <div className="banner banner-attention">
+          <span>
+            {review.truncated ? `${RULES_FILE} is too large; GitHub only sent part of it. ` : ""}
+            {warnings.length > 0 && `Some lines of ${RULES_FILE} on ${baseRef} are left out:`}
+            {warnings.slice(0, 3).map((w) => (
+              <span key={w.line} className="small" style={{ display: "block" }}>
+                Line {w.line}: {w.message}
+              </span>
+            ))}
+            {warnings.length > 3 && <span className="small">And {warnings.length - 3} more.</span>}
+          </span>
+        </div>
+      )}
+      {review.error && (
+        <div className="banner banner-danger">
+          <span className="grow">
+            Couldn't load {RULES_FILE}: {errorMessage(review.error)}
+          </span>
+          <button className="btn btn-sm" onClick={review.retry}>
+            Retry
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
 
 function DraftCard({ draft, onEdit, onDelete }: { draft: DraftComment; onEdit: () => void; onDelete: () => void }) {
   return (

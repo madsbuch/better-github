@@ -628,6 +628,11 @@ export interface RepoBranchesResult {
   } | null;
 }
 
+/** A blob has text; a folder (or nothing) at that path doesn't. */
+export interface ReviewRulesResult {
+  repository: { object: { text?: string | null; isTruncated?: boolean } | null } | null;
+}
+
 export interface SearchBranchesResult {
   repository: { refs: { nodes: BranchNameNode[] } | null } | null;
 }

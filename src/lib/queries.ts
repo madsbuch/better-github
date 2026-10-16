@@ -858,6 +858,17 @@ export const SEARCH_BRANCHES = /* GraphQL */ `
   ${BRANCH_NAME}
 `;
 
+/** A repository's .review-rules (src/lib/reviewRules.ts), as "<branch>:.review-rules". */
+export const REVIEW_RULES = /* GraphQL */ `
+  query ReviewRules($owner: String!, $name: String!, $expression: String!) {
+    repository(owner: $owner, name: $name) {
+      object(expression: $expression) {
+        ... on Blob { text isTruncated }
+      }
+    }
+  }
+`;
+
 /** What the "open a pull request" screen needs to know about the base repository. */
 export const NEW_PULL = /* GraphQL */ `
   query NewPull($owner: String!, $name: String!) {
@@ -920,6 +931,7 @@ export const ALL_DOCUMENTS: Record<string, string> = {
   REPO_RECENT_BRANCHES,
   REPO_BRANCHES,
   SEARCH_BRANCHES,
+  REVIEW_RULES,
   NEW_PULL,
   ASSIGNABLE_USERS,
 };

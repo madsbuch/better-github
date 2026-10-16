@@ -36,7 +36,9 @@ The fixtures dispatch GraphQL by **operation name** (`query PullThreads …`) an
 by path (Actions: `actionsBody`; releases: `releasesBody`; new pull requests:
 `newPullRest`; job logs: `JOB_LOG`). The branch picker reads `ALL_BRANCHES`: 240
 branches over three pages, with an old `staging` last, to exercise paging and
-ranking. Android-only bridges (`window.GhCommanderDownloads`)
+ranking. `ROCKET_REVIEW_RULES` is acme/rocket's `.review-rules` on
+main: pull request 482 gets one file of each verdict, and pull request 483 also
+edits the rules. Android-only bridges (`window.GhCommanderDownloads`)
 are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or
 endpoint, add a fixture there too, or the screen renders empty in dev and in the
 e2e smoke tests.

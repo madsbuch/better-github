@@ -1,0 +1,208 @@
+// Review rules: a `.review-rules` file at the root of a repository says how
+// risky a change to each file is and what to check when reviewing it.
+//
+//   high src-tauri/src/** !src-tauri/src/ipc_tests.rs
+//     - The token never reaches the web view: no command returns it,
+//       and no log line contains it.
+//
+//   low **/*.test.ts
+//     - The test fails if the change it covers is reverted.
+//
+//   unmatched medium
+//     - No rule covers this file. Consider adding one.
+//
+// A rule is a risk (low, medium or high) and path patterns, followed by its
+// instructions as indented "- " items. A file gets the instructions of every
+// rule that matches it, and its verdict is the highest risk among them.
+// "!pattern" leaves files out of that one rule. Order doesn't matter.
+
+export type Risk = "low" | "medium" | "high";
+
+const RANK: Record<Risk, number> = { low: 0, medium: 1, high: 2 };
+export const riskRank = (risk: Risk) => RANK[risk];
+
+/** At the root of the repository. Changes to it are always high risk. */
+export const RULES_FILE = ".review-rules";
+const RULES_FILE_INSTRUCTION = "This file decides how every change is reviewed. Check that no rule was weakened or removed.";
+const NO_RULE_INSTRUCTION = "No rule covers this file.";
+
+interface Rule {
+  risk: Risk;
+  include: { pattern: string; regex: RegExp }[];
+  exclude: RegExp[];
+  instructions: string[];
+}
+
+export interface ReviewRules {
+  rules: Rule[];
+  /** For files no rule matches. */
+  unmatched: { risk: Risk; instructions: string[] };
+  /** Lines that couldn't be read. They're left out. */
+  warnings: { line: number; message: string }[];
+}
+
+export interface Instruction {
+  risk: Risk;
+  text: string;
+}
+
+export interface FileReview {
+  /** The verdict: the highest risk among the rules matching the file. */
+  risk: Risk;
+  /** What to check, from every matching rule, highest risk first. */
+  instructions: Instruction[];
+  /** The patterns that matched, e.g. "src/** (medium)", for when a verdict looks wrong. */
+  matched: string[];
+  /** No rule matched; the verdict comes from the "unmatched" line. */
+  unmatched: boolean;
+}
+
+const isRisk = (word: string | undefined): word is Risk => word === "low" || word === "medium" || word === "high";
+
+/**
+ * A path pattern as CODEOWNERS and .gitignore read them: `*` and `?` stay
+ * within a folder, `**` spans folders, a pattern without a "/" (other than
+ * a trailing one) matches at any depth, a leading "/" anchors it to the
+ * root, and a pattern naming a folder matches everything inside it.
+ */
+export function compilePattern(pattern: string): RegExp | null {
+  let p = pattern;
+  const folderOnly = p.endsWith("/");
+  if (folderOnly) p = p.slice(0, -1);
+  const rooted = p.startsWith("/");
+  if (rooted) p = p.slice(1);
+  if (!p || p.includes("//")) return null;
+  const anchored = rooted || p.includes("/");
+
+  let source = "";
+  for (let i = 0; i < p.length; i++) {
+    const c = p[i];
+    if (c === "*" && p[i + 1] === "*" && (i === 0 || p[i - 1] === "/") && (i + 2 === p.length || p[i + 2] === "/")) {
+      if (p[i + 2] === "/") {
+        source += "(?:.*/)?"; // "**/": any number of folders, including none
+        i += 2;
+      } else {
+        source += ".*"; // a trailing "**": everything inside
+        i += 1;
+      }
+    } else if (c === "*") {
+      source += "[^/]*";
+      while (p[i + 1] === "*") i++;
+    } else if (c === "?") {
+      source += "[^/]";
+    } else {
+      source += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  return new RegExp(`^${anchored ? "" : "(?:.*/)?"}${source}${folderOnly ? "/.*" : "(?:/.*)?"}$`);
+}
+
+export function parseReviewRules(text: string): ReviewRules {
+  const rules: Rule[] = [];
+  let unmatched: ReviewRules["unmatched"] | null = null;
+  const warnings: ReviewRules["warnings"] = [];
+  // Where indented instructions go. "skip" swallows those of a line that couldn't be read.
+  let current: { instructions: string[] } | "skip" | null = null;
+
+  text.split(/\r?\n/).forEach((raw, index) => {
+    const line = index + 1;
+    const warn = (message: string) => warnings.push({ line, message });
+    const trimmed = raw.trim();
+    if (trimmed === "" || trimmed.startsWith("#")) return;
+
+    if (/^\s/.test(raw)) {
+      if (current === "skip") return;
+      if (current === null) {
+        warn("Instructions need a rule line above them.");
+        current = "skip";
+        return;
+      }
+      const item = /^[-*](?:\s+|$)(.*)$/.exec(trimmed);
+      const items = current.instructions;
+      if (item) {
+        if (item[1].trim()) items.push(item[1].trim());
+      } else if (items.length > 0) {
+        items[items.length - 1] += ` ${trimmed}`;
+      } else {
+        items.push(trimmed);
+      }
+      return;
+    }
+
+    const words = trimmed.split(/\s+/);
+    const comment = words.findIndex((w) => w.startsWith("#"));
+    if (comment !== -1) words.length = comment;
+    const [head, ...rest] = words;
+    const keyword = head.toLowerCase();
+    current = "skip";
+
+    if (keyword === "unmatched") {
+      const risk = rest[0]?.toLowerCase();
+      if (!isRisk(risk) || rest.length > 1) warn('Write "unmatched low", "unmatched medium" or "unmatched high".');
+      else if (unmatched) warn('Only the first "unmatched" line counts.');
+      else {
+        unmatched = { risk, instructions: [] };
+        current = unmatched;
+      }
+      return;
+    }
+    if (!isRisk(keyword)) {
+      warn(`"${head}" isn't low, medium or high.`);
+      return;
+    }
+    const rule: Rule = { risk: keyword, include: [], exclude: [], instructions: [] };
+    for (const word of rest) {
+      const negated = word.startsWith("!");
+      const pattern = negated ? word.slice(1) : word;
+      const regex = compilePattern(pattern);
+      if (!regex) warn(`"${word}" isn't a path pattern.`);
+      else if (negated) rule.exclude.push(regex);
+      else rule.include.push({ pattern, regex });
+    }
+    if (rule.include.length === 0) {
+      warn(`The ${keyword} rule needs at least one path.`);
+      return;
+    }
+    rules.push(rule);
+    current = rule;
+  });
+
+  return { rules, unmatched: unmatched ?? { risk: "medium", instructions: [] }, warnings };
+}
+
+/** For a repository without rules, where only a change to the rules file itself gets a verdict. */
+export const NO_RULES: ReviewRules = { rules: [], unmatched: { risk: "medium", instructions: [] }, warnings: [] };
+
+/**
+ * The verdict and instructions for one changed file. A renamed file is
+ * judged by its old and its new path, so moving it can't lower its risk.
+ */
+export function reviewFile(rules: ReviewRules, path: string, previousPath?: string | null): FileReview {
+  const paths = previousPath && previousPath !== path ? [path, previousPath] : [path];
+  const hits: { risk: Risk; instructions: string[]; why: string }[] = [];
+
+  for (const rule of rules.rules) {
+    const hit = rule.include.find(({ regex }) => paths.some((p) => regex.test(p) && !rule.exclude.some((x) => x.test(p))));
+    if (hit) hits.push({ risk: rule.risk, instructions: rule.instructions, why: `${hit.pattern} (${rule.risk})` });
+  }
+  if (paths.includes(RULES_FILE)) {
+    hits.push({ risk: "high", instructions: [RULES_FILE_INSTRUCTION], why: `${RULES_FILE} (always high)` });
+  }
+  const unmatched = hits.length === 0;
+  if (unmatched) {
+    const { risk, instructions } = rules.unmatched;
+    hits.push({ risk, instructions: instructions.length > 0 ? instructions : [NO_RULE_INSTRUCTION], why: "" });
+  }
+
+  // A set: the same instruction from two rules is listed once.
+  const instructions = new Map<string, Instruction>();
+  for (const hit of hits) {
+    for (const text of hit.instructions) instructions.set(`${hit.risk}\n${text}`, { risk: hit.risk, text });
+  }
+  return {
+    risk: hits.reduce<Risk>((highest, hit) => (RANK[hit.risk] > RANK[highest] ? hit.risk : highest), "low"),
+    instructions: [...instructions.values()].sort((a, b) => RANK[b.risk] - RANK[a.risk]),
+    matched: unmatched ? [] : hits.map((hit) => hit.why),
+    unmatched,
+  };
+}

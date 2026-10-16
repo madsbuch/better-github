@@ -152,6 +152,34 @@ const FILES = [
   { filename: "assets/logo.png", status: "added", additions: 0, deletions: 0, changes: 0 },
 ];
 
+// acme/rocket's .review-rules on main: one file of each verdict in pull request 482.
+const ROCKET_REVIEW_RULES = `# How carefully changes to Rocket need reviewing.
+
+high src/client.rs
+  - Retries only repeat requests that are safe to repeat: an upload
+    resumes where it stopped, it never starts over.
+  - Backoff has a ceiling, so a dead server can't stall the app forever.
+
+medium src/**
+  - Errors reach the caller with the server's message.
+
+low *.md
+  - Is it still true?
+
+unmatched medium
+  - No rule covers this file. Consider adding one.
+`;
+
+// Pull request 483 also edits the rules.
+const RULES_CHANGE = {
+  filename: ".review-rules",
+  status: "modified",
+  additions: 1,
+  deletions: 1,
+  changes: 2,
+  patch: "@@ -10,4 +10,4 @@ medium src/**\n   - Errors reach the caller with the server's message.\n \n-low *.md\n+low *.md src/**\n   - Is it still true?",
+};
+
 const PR_DETAIL = {
   id: "PR_acme/rocket_482",
   number: 482,
@@ -779,6 +807,8 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       return { repository: { pullRequest: { timelineItems: { totalCount: TIMELINE.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: TIMELINE } } } };
     case "PullThreads":
       return { repository: { pullRequest: { reviewThreads: { totalCount: THREADS.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: THREADS } } } };
+    case "ReviewRules":
+      return { repository: { object: variables.expression === "main:.review-rules" ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
     case "PullFiles":
       return {
         repository: {
@@ -870,6 +900,7 @@ function restBody(request: RestRequest): unknown {
   if (actions !== null) return actions;
   const releases = releasesBody(path);
   if (releases !== undefined) return releases;
+  if (/\/pulls\/483\/files$/.test(path)) return [...FILES, RULES_CHANGE];
   if (/\/pulls\/\d+\/files$/.test(path)) return FILES;
   if (/\/readme$/.test(path)) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';

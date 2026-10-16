@@ -65,6 +65,8 @@ export const keys = {
     branches: (owner: string, repo: string) => [...repoBase(owner, repo), "branches"] as const,
     branchList: (owner: string, repo: string) => [...repoBase(owner, repo), "branches", "list"] as const,
     branchSearch: (owner: string, repo: string, query: string) => [...repoBase(owner, repo), "branches", "search", query] as const,
+    /** .review-rules on a branch. */
+    reviewRules: (owner: string, repo: string, ref: string) => [...repoBase(owner, repo), "review-rules", ref] as const,
     contents: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "contents", ref, path] as const,
     blob: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob", ref, path] as const,
     blobHtml: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob-html", ref, path] as const,

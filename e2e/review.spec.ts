@@ -21,7 +21,8 @@ test("comment on a line, suggest a change and submit the review", async ({ page 
 
   await reviewButton.click();
   await page.getByRole("radio", { name: /Approve/ }).check();
-  await page.getByRole("button", { name: /Submit review \(1 comment\)/ }).click();
+  // src/client.rs is high risk (.review-rules) and not marked viewed.
+  await page.getByRole("button", { name: /Approve anyway \(1 comment\)/ }).click();
   await expect(page.locator(".toast", { hasText: "Approved" })).toBeVisible();
   await expect(page.locator(".sheet")).toHaveCount(0);
   await expect(page.locator(".draft-comment")).toHaveCount(0);

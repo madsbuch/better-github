@@ -441,3 +441,54 @@
     color: #ffdcd7;
   }
 }
+
+/* Review rules (.review-rules): a verdict per file and what to check. */
+.risk {
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.review-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.review-notes {
+  padding: 10px 14px 10px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  border-left: 3px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.review-notes[data-risk="high"] {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 60%, var(--bg));
+}
+
+.review-notes[data-risk="medium"] {
+  border-left-color: var(--attention);
+  background: color-mix(in srgb, var(--attention-bg) 60%, var(--bg));
+}
+
+.review-notes ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+
+.review-notes li + li {
+  margin-top: 4px;
+}
+
+.review-notes-why {
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}

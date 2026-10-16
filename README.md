@@ -12,6 +12,7 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 - Conversation timeline: comments, reviews with their threads, commits, force-pushes, label and title changes.
 - Merge box showing review decision, check status and mergeability, with *Update branch*, *Ready for review* and auto-merge controls.
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
+- **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and the instructions for reviewing it, right above its diff. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
@@ -37,6 +38,52 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 **Fast**
 - The app opens on the data it showed last time (cached on the device) and refreshes it in the background.
 - Screens preload: list rows load their screen as they scroll into view, every link starts loading when touched, and a screen loads its other tabs in the background. Navigating rarely shows a spinner; an end-to-end test fails if opening a pull request from the inbox does.
+
+## Review rules
+
+A `.review-rules` file at the root of a repository says how risky a change to
+each file is and what to check when reviewing it. In a pull request, every
+changed file shows one verdict and all its instructions:
+
+```
+# What to check, and how carefully.
+
+high apps/backend/prisma/**
+  - Migrations run on production data: safe while the previous release
+    is still running, and reversible.
+
+high packages/lib/auth/**
+  - Check every role, and that one customer never sees another's data.
+
+medium apps/*/src/** !apps/*/src/**/*.test.ts
+  - Errors tell the user what to do next.
+
+low **/*.test.ts docs/**
+  - The test fails if the change it covers is reverted.
+
+low *.lock
+
+unmatched medium
+  - No rule covers this file. Consider adding one.
+```
+
+- A rule is `low`, `medium` or `high`, then one or more path patterns, then its
+  instructions as indented `- ` items. An indented line without a dash continues
+  the item above it. A rule without instructions only sets the risk.
+- Patterns work like CODEOWNERS: `*` and `?` stay within a folder, `**` spans
+  folders, a pattern without a `/` matches at any depth, a leading `/` anchors it
+  to the root, and a folder matches everything inside it.
+- A file gets the instructions of every rule that matches it, and its verdict is
+  the highest risk among them. The order of the rules doesn't matter.
+  `!pattern` leaves files out of that one rule; it can't lower another rule's verdict.
+- `unmatched <risk>` (and its instructions) applies to files no rule matches.
+  Without it, those files are medium.
+- A renamed file is judged by both its old and its new path.
+- `#` starts a comment. Lines the app can't read are shown above the files and
+  left out.
+- The rules are always read from the branch the pull request merges into, so a
+  pull request can't lower its own verdicts. A change to `.review-rules` itself is
+  always high risk.
 
 ## Signing in
 
@@ -136,6 +183,7 @@ src/                  React app
   lib/queries.ts      GraphQL documents (validated against GitHub's schema in tests)
   lib/logs.ts         Actions log parsing: steps, groups, ANSI colors
   lib/diff.ts         patch parsing and word-level diffs
+  lib/reviewRules.ts  .review-rules: parsing, path patterns and per-file verdicts
   screens/            one file per screen; pull/ and actions/ hold their screens' parts
   dev/mock.ts         fixtures for VITE_MOCK=1
 e2e/                  Playwright tests against the fixtures
