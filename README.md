@@ -37,7 +37,7 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 
 **Fast**
 - The app opens on the data it showed last time (cached on the device) and refreshes it in the background.
-- Screens preload: list rows load their screen as they scroll into view, every link starts loading when touched, and a screen loads its other tabs in the background. Navigating rarely shows a spinner; an end-to-end test fails if opening a pull request from the inbox does.
+- Screens preload: list rows load their screen as they scroll into view (a pull request's diff too, when it's not huge), every link starts loading when touched, and a screen loads its other tabs in the background. Navigating rarely shows a spinner; an end-to-end test fails if opening a pull request from the inbox does.
 
 ## Review rules
 

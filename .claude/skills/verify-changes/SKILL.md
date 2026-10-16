@@ -105,10 +105,17 @@ e2e smoke tests.
 - List rows link with `preload="viewport"`, so their screen's data loads as they
   scroll into view; every link also preloads on touch (`defaultPreload: "intent"`).
 - Screens with tabs prefetch the other tabs' data on mount.
+- Data that depends on other data chains after it in the loader: a pull
+  request's diff needs its head commit, so `warmPullDiff` loads it right after
+  the details, ahead of time only for diffs up to 100 files and 2,000 lines.
 - `e2e/navigation.spec.ts` fails if a spinner or skeleton appears while opening a
   pull request from the inbox, and `e2e/branches.spec.ts` if the branch picker
   opens empty (`watchForLoading` in `e2e/helpers.ts`, which watches screens and
-  sheets). Keep them passing; add similar checks for new hot paths.
+  sheets). Keep them passing; add similar checks for new hot paths. A failure
+  names the screen and tab the spinner was on: that's the data to preload. CI
+  runs one worker on Chrome's headless shell, which is faster at clicking than
+  the full browser; reproduce with
+  `PW_CHROMIUM=/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell npx playwright test --workers=1`.
 - Branch pickers (`BranchSheet`) share one list per repository
   (`branchQueries.list`, every branch, newest first). Screens that show a picker
   load it in advance; the compare screen loads every page while it's open.

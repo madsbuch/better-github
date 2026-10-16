@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { PullTab } from "../../../../lib/nav";
 import { intParam, oneOf } from "../../../../lib/search-params";
-import { pullQueries } from "../../../../queries/pulls";
+import { pullQueries, warmPullDiff } from "../../../../queries/pulls";
 import { warm } from "../../../../queries/warm";
 import { PullScreen } from "../../../../screens/PullScreen";
 
@@ -16,8 +16,9 @@ export const Route = createFileRoute("/$owner/$repo/pull/$number")({
     stringify: (params) => ({ ...params, number: String(params.number) }),
   },
   validateSearch: (search: Record<string, unknown>): { tab?: PullTab } => ({ tab: oneOf(search.tab, TABS) }),
-  loader: ({ context: { queryClient }, params: { owner, repo, number }, preload }) =>
-    warm(queryClient, [pullQueries.detail(owner, repo, number), pullQueries.timeline(owner, repo, number)], {
+  loader: ({ context: { queryClient }, params: { owner, repo, number }, preload }) => {
+    warmPullDiff(queryClient, owner, repo, number, preload);
+    return warm(queryClient, [pullQueries.detail(owner, repo, number), pullQueries.timeline(owner, repo, number)], {
       secondary: [
         pullQueries.threads(owner, repo, number),
         pullQueries.checks(owner, repo, number),
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/$owner/$repo/pull/$number")({
         pullQueries.viewed(owner, repo, number),
       ],
       preload,
-    }),
+    });
+  },
   component: PullScreen,
 });

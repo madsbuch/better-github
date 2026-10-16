@@ -1,4 +1,4 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { encodePath, graphql, rest, restAll } from "../lib/api";
 import {
@@ -128,6 +128,26 @@ export const pullQueries = {
 };
 
 /** Data every tab of a pull request shows; started as soon as the PR opens. */
+/** Diffs up to this size load ahead of time, with the pull request; bigger ones once it's open. */
+const PRELOAD_DIFF = { files: 100, lines: 2000 };
+
+/**
+ * Starts loading a pull request's diff as soon as its head commit is known,
+ * so the Files tab is ready when it's opened. When only preloading (a row
+ * scrolled into view), large diffs wait until the pull request is opened.
+ */
+export function warmPullDiff(queryClient: QueryClient, owner: string, repo: string, number: number, preload: boolean) {
+  void queryClient
+    .ensureQueryData(pullQueries.detail(owner, repo, number))
+    .then((data) => {
+      const pr = data.repository?.pullRequest;
+      if (!pr) return;
+      const small = pr.changedFiles <= PRELOAD_DIFF.files && pr.additions + pr.deletions <= PRELOAD_DIFF.lines;
+      if (!preload || small) void queryClient.prefetchQuery(pullQueries.patches(owner, repo, number, pr.headRefOid));
+    })
+    .catch(() => undefined);
+}
+
 export function pullTabQueries(owner: string, repo: string, number: number) {
   return {
     timeline: pullQueries.timeline(owner, repo, number),
