@@ -43,7 +43,13 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 
 A `.review-rules` file at the root of a repository says how risky a change to
 each file is and what to check when reviewing it. In a pull request, every
-changed file shows one verdict and all its instructions:
+changed file shows one verdict and all its instructions.
+
+To have a coding agent write or improve the rules, tap *Copy agent prompt* in a
+pull request's Files tab, or *Copy review rules prompt* in a repository's menu,
+and paste it into the agent. The prompt explains the format and includes the
+current rules, if there are any.
+
 
 ```
 # What to check, and how carefully.

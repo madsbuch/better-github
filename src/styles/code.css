@@ -458,6 +458,10 @@
   border-bottom: 1px solid var(--border-muted);
 }
 
+.review-summary-action {
+  margin-left: auto;
+}
+
 .review-notes {
   padding: 10px 14px 10px 12px;
   border-bottom: 1px solid var(--border-muted);

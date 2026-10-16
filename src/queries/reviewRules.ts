@@ -1,8 +1,11 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { graphql } from "../lib/api";
+import { errorMessage, graphql } from "../lib/api";
+import { backend } from "../lib/backend";
 import { REVIEW_RULES } from "../lib/queries";
 import { NO_RULES, parseReviewRules, reviewFile, RULES_FILE, type FileReview, type ReviewRules } from "../lib/reviewRules";
+import { rulesPrompt } from "../lib/rulesPrompt";
+import { useToast } from "../lib/toast";
 import type { PullDetail, ReviewRulesResult } from "../lib/types";
 import { keys } from "./keys";
 import { pullQueries } from "./pulls";
@@ -26,6 +29,8 @@ export interface PullReview {
   files: Map<string, FileReview>;
   /** The rules in force: those on the branch the pull request merges into. */
   rules: ReviewRules | null;
+  /** Whether that branch has been checked for rules. */
+  loaded: boolean;
   /** The pull request changes .review-rules; its version applies only after merging. */
   changesRules: boolean;
   /** .review-rules was too large for GitHub to send whole. */
@@ -58,9 +63,29 @@ export function usePullReview(owner: string, repo: string, number: number, pr: P
   return {
     files,
     rules,
+    loaded: rulesFile.isSuccess,
     changesRules: (changed ?? []).some((f) => f.filename === RULES_FILE || f.previous_filename === RULES_FILE),
     truncated: rulesFile.data?.truncated ?? false,
     error: rulesFile.error,
     retry: () => void rulesFile.refetch(),
+  };
+}
+
+/**
+ * Copies a prompt for a coding agent to write the repository's review
+ * rules, or to improve the ones on `branch`.
+ */
+export function useCopyRulesPrompt() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return async (owner: string, repo: string, branch: string) => {
+    try {
+      const { text } = await queryClient.fetchQuery(reviewQueries.rules(owner, repo, branch));
+      const current = text === null ? null : { text, warnings: parseReviewRules(text).warnings };
+      await backend.copyText(rulesPrompt({ repo: `${owner}/${repo}`, branch, current }));
+      toast.show("Prompt copied. Paste it into your coding agent.", "success");
+    } catch (error) {
+      toast.show(`Couldn't copy the prompt: ${errorMessage(error)}`, "error");
+    }
   };
 }

@@ -807,8 +807,11 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       return { repository: { pullRequest: { timelineItems: { totalCount: TIMELINE.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: TIMELINE } } } };
     case "PullThreads":
       return { repository: { pullRequest: { reviewThreads: { totalCount: THREADS.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: THREADS } } } };
-    case "ReviewRules":
-      return { repository: { object: variables.expression === "main:.review-rules" ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
+    case "ReviewRules": {
+      // Only acme/rocket has rules; other repositories show how to get some.
+      const rocket = variables.owner === "acme" && variables.name === "rocket" && variables.expression === "main:.review-rules";
+      return { repository: { object: rocket ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
+    }
     case "PullFiles":
       return {
         repository: {

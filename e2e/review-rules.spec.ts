@@ -74,3 +74,44 @@ test("a change to the rules is high risk and judged by the rules it replaces", a
   await expect(files(page).nth(1)).toHaveAttribute("data-path", "src/client.rs");
   await expect(verdict(page, 1)).toHaveText("High");
 });
+
+/** What the app put on the clipboard (the mock logs it). */
+function clipboard(page: Page): () => string[] {
+  const copied: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (text.startsWith("[mock] copy ")) copied.push(text.slice("[mock] copy ".length));
+  });
+  return () => copied;
+}
+
+test("a repository without rules offers a prompt to have an agent write them", async ({ page }) => {
+  const errors = trackErrors(page);
+  const copied = clipboard(page);
+  await open(page, "/octocat/hello/pull/1?tab=files");
+  await expect(files(page).first()).toBeVisible();
+  await expect(activeScreen(page).locator(".diff-file-header .risk")).toHaveCount(0);
+  await expect(activeScreen(page).locator(".review-summary")).toContainText("No review rules here yet");
+  await activeScreen(page).getByRole("button", { name: "Copy agent prompt" }).click();
+  await expect(page.locator(".toast", { hasText: "Prompt copied" })).toBeVisible();
+  expect(copied()).toHaveLength(1);
+  expect(copied()[0]).toMatch(/^Set up review rules for octocat\/hello: write a `\.review-rules` file at its root\./);
+  expect(copied()[0]).toContain("## The format");
+  expect(errors).toEqual([]);
+});
+
+test("the prompt for a repository with rules hands them over to improve", async ({ page }) => {
+  const copied = clipboard(page);
+  await open(page, "/acme/rocket/pull/482?tab=files");
+  await activeScreen(page).locator(".review-summary").getByRole("button", { name: "Copy agent prompt" }).click();
+  await expect(page.locator(".toast", { hasText: "Prompt copied" })).toBeVisible();
+  expect(copied()[0]).toMatch(/^Improve the review rules of acme\/rocket/);
+  expect(copied()[0]).toContain("## The current rules (on main)\n\n    # How carefully changes to Rocket need reviewing.");
+
+  // The repository's menu has it too.
+  await open(page, "/acme/rocket");
+  await activeScreen(page).getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Copy review rules prompt" }).click();
+  await expect.poll(() => copied().length).toBe(2);
+  expect(copied()[1]).toBe(copied()[0]);
+});

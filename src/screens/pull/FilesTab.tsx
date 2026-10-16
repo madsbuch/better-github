@@ -16,7 +16,7 @@ import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
 import { pullQueries, useInlineComment, useToggleViewed } from "../../queries/pulls";
-import type { PullReview } from "../../queries/reviewRules";
+import { useCopyRulesPrompt, type PullReview } from "../../queries/reviewRules";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
 
@@ -128,7 +128,7 @@ export function FilesTab({
           {viewedCount}/{files.length} viewed
         </span>
       </div>
-      <ReviewSummary review={review} files={files} viewed={viewed.data} baseRef={pr.baseRefName} />
+      <ReviewSummary owner={owner} repo={repo} review={review} files={files} viewed={viewed.data} baseRef={pr.baseRefName} />
       {files.map((file) => {
         const path = file.filename;
         return (
@@ -336,11 +336,15 @@ const FileWithComments = memo(function FileWithComments({
 
 /** The verdicts at a glance, and anything wrong with the rules. */
 function ReviewSummary({
+  owner,
+  repo,
   review,
   files,
   viewed,
   baseRef,
 }: {
+  owner: string;
+  repo: string;
   review: PullReview;
   files: RestPullFile[];
   viewed: Record<string, FileViewedState> | undefined;
@@ -353,6 +357,12 @@ function ReviewSummary({
     })
     .filter((group) => group.total > 0);
   const warnings = review.rules?.warnings ?? [];
+  const copyPrompt = useCopyRulesPrompt();
+  const promptButton = (
+    <button className="btn btn-sm" onClick={() => void copyPrompt(owner, repo, baseRef)}>
+      <CopyIcon size={14} /> Copy agent prompt
+    </button>
+  );
 
   return (
     <>
@@ -366,6 +376,13 @@ function ReviewSummary({
               </span>
             </span>
           ))}
+          {review.rules && <span className="review-summary-action">{promptButton}</span>}
+        </div>
+      )}
+      {review.loaded && !review.rules && !review.changesRules && (
+        <div className="review-summary">
+          <span className="grow muted small">No review rules here yet. A coding agent can write them for you.</span>
+          {promptButton}
         </div>
       )}
       {review.changesRules && (

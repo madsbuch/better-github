@@ -33,6 +33,7 @@ import { keys } from "../queries/keys";
 import { newPullQueries } from "../queries/newPull";
 import { releaseQueries } from "../queries/releases";
 import { repoQueries, useStarRepo } from "../queries/repos";
+import { reviewQueries, useCopyRulesPrompt } from "../queries/reviewRules";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
 import { ActionsTab } from "./actions/ActionsTab";
 import { ReleasesTab } from "./releases/ReleasesTab";
@@ -76,6 +77,12 @@ export function RepoScreen() {
     void queryClient.prefetchQuery(repoQueries.contents(owner, repo, gitRef, ""));
     void queryClient.prefetchInfiniteQuery(repoQueries.commits(owner, repo, gitRef));
   }, [queryClient, owner, repo, gitRef]);
+  // So "Copy review rules prompt" can include the current rules right away.
+  const defaultBranch = data?.defaultBranchRef?.name;
+  useEffect(() => {
+    if (defaultBranch) void queryClient.prefetchQuery(reviewQueries.rules(owner, repo, defaultBranch));
+  }, [queryClient, owner, repo, defaultBranch]);
+  const copyRulesPrompt = useCopyRulesPrompt();
 
   const setTab = (next: RepoTab) => nav.replace(to.repo(owner, repo, { tab: next, ref: search.ref }));
   const setRef = (ref: string) => nav.replace(to.repo(owner, repo, { tab, ref }));
@@ -167,6 +174,12 @@ export function RepoScreen() {
             label: "Copy clone URL",
             icon: <CopyIcon size={18} />,
             onSelect: () => void backend.copyText(`https://github.com/${fullName}.git`).then(() => toast.show("Clone URL copied")),
+          },
+          {
+            label: "Copy review rules prompt",
+            icon: <CopyIcon size={18} />,
+            hidden: !defaultBranch,
+            onSelect: () => defaultBranch && void copyRulesPrompt(owner, repo, defaultBranch),
           },
         ]}
       />
