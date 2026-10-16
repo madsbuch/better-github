@@ -30,6 +30,8 @@ export type IssueStateReason = "COMPLETED" | "NOT_PLANNED" | "REOPENED" | "DUPLI
 export type ReviewDecision = "CHANGES_REQUESTED" | "APPROVED" | "REVIEW_REQUIRED" | null;
 export type ReviewState = "PENDING" | "COMMENTED" | "APPROVED" | "CHANGES_REQUESTED" | "DISMISSED";
 export type MergeMethod = "MERGE" | "SQUASH" | "REBASE";
+/** How the base branch is brought into a pull request's branch. */
+export type UpdateBranchMethod = "MERGE" | "REBASE";
 export type Permission = "ADMIN" | "MAINTAIN" | "WRITE" | "TRIAGE" | "READ" | null;
 export type MergeStateStatus = "DIRTY" | "UNKNOWN" | "BLOCKED" | "BEHIND" | "DRAFT" | "UNSTABLE" | "HAS_HOOKS" | "CLEAN";
 export type Mergeable = "MERGEABLE" | "CONFLICTING" | "UNKNOWN";

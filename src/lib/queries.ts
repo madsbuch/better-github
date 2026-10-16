@@ -702,6 +702,15 @@ export const UNRESOLVE_THREAD = /* GraphQL */ `
   }
 `;
 
+/** Brings the base branch into a pull request's branch, with a merge commit or a rebase. */
+export const UPDATE_PULL_BRANCH = /* GraphQL */ `
+  mutation UpdatePullBranch($pullRequestId: ID!, $expectedHeadOid: GitObjectID, $updateMethod: PullRequestBranchUpdateMethod) {
+    updatePullRequestBranch(input: { pullRequestId: $pullRequestId, expectedHeadOid: $expectedHeadOid, updateMethod: $updateMethod }) {
+      pullRequest { id headRefOid }
+    }
+  }
+`;
+
 export const MARK_FILE_VIEWED = /* GraphQL */ `
   mutation MarkFileViewed($pullRequestId: ID!, $path: String!) {
     markFileAsViewed(input: { pullRequestId: $pullRequestId, path: $path }) { clientMutationId }
@@ -917,6 +926,7 @@ export const ALL_DOCUMENTS: Record<string, string> = {
   REPLY_TO_THREAD,
   RESOLVE_THREAD,
   UNRESOLVE_THREAD,
+  UPDATE_PULL_BRANCH,
   MARK_FILE_VIEWED,
   UNMARK_FILE_VIEWED,
   READY_FOR_REVIEW,

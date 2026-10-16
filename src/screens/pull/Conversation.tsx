@@ -6,15 +6,19 @@ import {
   DotFillIcon,
   EyeIcon,
   FileDiffIcon,
+  GitCommitIcon,
   GitMergeIcon,
   GitPullRequestDraftIcon,
+  TriangleDownIcon,
   XCircleFillIcon,
 } from "@primer/octicons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { to } from "../../lib/nav";
-import type { PullDetail, PullResult, ReviewItem, ReviewState, ReviewThread } from "../../lib/types";
+import { setPref, usePrefs } from "../../lib/prefs";
+import type { PullDetail, PullResult, ReviewItem, ReviewState, ReviewThread, UpdateBranchMethod } from "../../lib/types";
+import { Sheet } from "../../components/Sheet";
 import { pullQueries } from "../../queries/pulls";
 import { Markdown } from "../../components/Markdown";
 import { CommentCard, CommitRow, EventRow, IssueCommentCard, ThreadCard, reviewVerb, type ThreadActions } from "../../components/Timeline";
@@ -38,6 +42,7 @@ export function Conversation({
   onShowChecks,
   onReadyForReview,
   onUpdateBranch,
+  updatingBranch,
   onDisableAutoMerge,
 }: {
   owner: string;
@@ -50,7 +55,8 @@ export function Conversation({
   onQuote: (text: string) => void;
   onShowChecks: () => void;
   onReadyForReview: () => void;
-  onUpdateBranch: () => void;
+  onUpdateBranch: (method: UpdateBranchMethod) => void;
+  updatingBranch: boolean;
   onDisableAutoMerge: () => void;
 }) {
   const timeline = useInfiniteQuery(pullQueries.timeline(owner, repo, number));
@@ -112,6 +118,7 @@ export function Conversation({
           onShowChecks={onShowChecks}
           onReadyForReview={onReadyForReview}
           onUpdateBranch={onUpdateBranch}
+          updatingBranch={updatingBranch}
           onDisableAutoMerge={onDisableAutoMerge}
         />
       )}
@@ -267,20 +274,91 @@ function MergeRow({ icon, title, detail, action }: { icon: ReactNode; title: str
   );
 }
 
+const UPDATE_OPTIONS: { method: UpdateBranchMethod; title: string; detail: (base: string) => string }[] = [
+  { method: "MERGE", title: "Update with merge commit", detail: (base) => `Merges the latest changes from ${base} into this branch.` },
+  {
+    method: "REBASE",
+    title: "Update with rebase",
+    detail: (base) => `Replays this branch's commits on top of ${base}. This rewrites the branch, so anyone who has it checked out needs to reset to it.`,
+  },
+];
+
+/** Behind the base branch: bring it in with a merge commit or a rebase, the way picked last. */
+function UpdateBranchRow({ pr, updating, onUpdate }: { pr: PullDetail; updating: boolean; onUpdate: (method: UpdateBranchMethod) => void }) {
+  const { updateBranchMethod: method } = usePrefs();
+  const [choosing, setChoosing] = useState(false);
+  const update = (next: UpdateBranchMethod) => {
+    setPref("updateBranchMethod", next);
+    onUpdate(next);
+  };
+  const base = pr.baseRefName;
+  return (
+    <>
+      <MergeRow
+        icon={<AlertIcon size={18} className="c-attention" />}
+        title="This branch is out of date"
+        detail={
+          !pr.viewerCanUpdateBranch
+            ? `It's behind ${base}.`
+            : method === "REBASE"
+              ? `Update rebases it onto ${base}.`
+              : `Update merges the latest changes from ${base} into it.`
+        }
+        action={
+          pr.viewerCanUpdateBranch ? (
+            <span className="split-btn">
+              <button className="btn btn-sm" disabled={updating} onClick={() => update(method)}>
+                {updating && <Spinner small />} Update branch
+              </button>
+              <button className="btn btn-sm" disabled={updating} aria-label="Ways to update the branch" onClick={() => setChoosing(true)}>
+                <TriangleDownIcon size={16} />
+              </button>
+            </span>
+          ) : undefined
+        }
+      />
+      <Sheet open={choosing} onClose={() => setChoosing(false)} title="Update branch">
+        {UPDATE_OPTIONS.map((option) => (
+          <button
+            key={option.method}
+            className="menu-item tall"
+            onClick={() => {
+              setChoosing(false);
+              update(option.method);
+            }}
+          >
+            {option.method === "MERGE" ? <GitMergeIcon size={18} /> : <GitCommitIcon size={18} />}
+            <span className="grow">
+              <span className="bold" style={{ display: "block" }}>
+                {option.title}
+              </span>
+              <span className="muted small">{option.detail(base)}</span>
+            </span>
+            {option.method === method && <CheckIcon size={16} className="c-accent" />}
+          </button>
+        ))}
+      </Sheet>
+    </>
+  );
+}
+
 function MergeBox({
   pr,
   onShowChecks,
   onReadyForReview,
   onUpdateBranch,
+  updatingBranch,
   onDisableAutoMerge,
 }: {
   pr: PullDetail;
   onShowChecks: () => void;
   onReadyForReview: () => void;
-  onUpdateBranch: () => void;
+  onUpdateBranch: (method: UpdateBranchMethod) => void;
+  updatingBranch: boolean;
   onDisableAutoMerge: () => void;
 }) {
   const rows: ReactNode[] = [];
+  const conflicting = pr.mergeable === "CONFLICTING" || pr.mergeStateStatus === "DIRTY";
 
   if (pr.reviewDecision === "APPROVED") {
     rows.push(<MergeRow key="review" icon={<CheckCircleFillIcon size={18} className="c-success" />} title="Changes approved" />);
@@ -331,7 +409,7 @@ function MergeBox({
         }
       />,
     );
-  } else if (pr.mergeable === "CONFLICTING" || pr.mergeStateStatus === "DIRTY") {
+  } else if (conflicting) {
     rows.push(
       <MergeRow
         key="merge"
@@ -341,21 +419,7 @@ function MergeBox({
       />,
     );
   } else if (pr.mergeStateStatus === "BEHIND") {
-    rows.push(
-      <MergeRow
-        key="merge"
-        icon={<AlertIcon size={18} className="c-attention" />}
-        title="This branch is out-of-date"
-        detail={`Merge the latest changes from ${pr.baseRefName} into this branch.`}
-        action={
-          pr.viewerCanUpdateBranch ? (
-            <button className="btn btn-sm" onClick={onUpdateBranch}>
-              Update
-            </button>
-          ) : undefined
-        }
-      />,
-    );
+    // The out-of-date row below says it all.
   } else if (pr.mergeStateStatus === "BLOCKED") {
     rows.push(
       <MergeRow
@@ -371,6 +435,12 @@ function MergeBox({
     rows.push(
       <MergeRow key="merge" icon={<CheckCircleFillIcon size={18} className="c-success" />} title="No conflicts with the base branch" />,
     );
+  }
+
+  // Being behind gets its own row: GitHub reports a branch that's blocked
+  // (say, waiting for a review) and behind as BLOCKED, not BEHIND.
+  if (!conflicting && (pr.viewerCanUpdateBranch || pr.mergeStateStatus === "BEHIND")) {
+    rows.push(<UpdateBranchRow key="behind" pr={pr} updating={updatingBranch} onUpdate={onUpdateBranch} />);
   }
 
   if (pr.autoMergeRequest) {

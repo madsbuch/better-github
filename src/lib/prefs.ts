@@ -1,14 +1,17 @@
 // Small persisted UI preferences.
 
 import { useSyncExternalStore } from "react";
+import type { UpdateBranchMethod } from "./types";
 
 export interface Prefs {
   wrapDiff: boolean;
   wrapCode: boolean;
+  /** How "Update branch" brings in the base branch; the last one picked. */
+  updateBranchMethod: UpdateBranchMethod;
 }
 
 const KEY = "ghc.prefs";
-const DEFAULTS: Prefs = { wrapDiff: true, wrapCode: false };
+const DEFAULTS: Prefs = { wrapDiff: true, wrapCode: false, updateBranchMethod: "MERGE" };
 const listeners = new Set<() => void>();
 
 let current: Prefs = load();

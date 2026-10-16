@@ -20,6 +20,7 @@ import {
   RESOLVE_THREAD,
   UNMARK_FILE_VIEWED,
   UNRESOLVE_THREAD,
+  UPDATE_PULL_BRANCH,
 } from "../lib/queries";
 import type {
   FileViewedState,
@@ -33,6 +34,7 @@ import type {
   PullTimelineResult,
   RestPullFile,
   ReviewThread,
+  UpdateBranchMethod,
 } from "../lib/types";
 import type { ThreadActions } from "../components/Timeline";
 import { affects, keys } from "./keys";
@@ -178,9 +180,9 @@ export function usePullMutations(owner: string, repo: string, number: number) {
   });
 
   const updateBranch = useAppMutation({
-    mutationFn: (headSha: string) =>
-      rest(`/repos/${owner}/${repo}/pulls/${number}/update-branch`, { method: "PUT", body: { expected_head_sha: headSha } }),
-    success: "Branch update started",
+    mutationFn: ({ pullRequestId, headSha, method }: { pullRequestId: string; headSha: string; method: UpdateBranchMethod; base: string }) =>
+      graphql(UPDATE_PULL_BRANCH, { pullRequestId, expectedHeadOid: headSha, updateMethod: method }),
+    success: ({ method, base }) => (method === "REBASE" ? `Rebasing onto ${base}…` : `Merging ${base} into the branch…`),
     invalidates,
   });
 

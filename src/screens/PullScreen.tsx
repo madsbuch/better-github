@@ -27,7 +27,7 @@ import { to, useNav, type PullTab } from "../lib/nav";
 import { setPref, usePrefs } from "../lib/prefs";
 import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
-import type { StatusState } from "../lib/types";
+import type { StatusState, UpdateBranchMethod } from "../lib/types";
 import { keys } from "../queries/keys";
 import { pullQueries, pullTabQueries, usePullMutations, useThreadActions } from "../queries/pulls";
 import { usePullReview } from "../queries/reviewRules";
@@ -107,8 +107,13 @@ export function PullScreen() {
     setCommentOpen(true);
   };
 
-  const updateBranch = () => {
-    if (headSha) mutations.updateBranch.mutate(headSha);
+  const updateBranch = (method: UpdateBranchMethod) => {
+    if (!pr || !headSha) return;
+    mutations.updateBranch.mutate(
+      { pullRequestId: pr.id, headSha, method, base: pr.baseRefName },
+      // GitHub finishes the update in the background; look again in a moment.
+      { onSuccess: () => window.setTimeout(() => void refresh(), 3000) },
+    );
   };
 
   const pendingCount = drafts.draft.comments.length;
@@ -186,6 +191,7 @@ export function PullScreen() {
           onShowChecks={() => setTab("checks")}
           onReadyForReview={() => void mutations.readyForReview(pr.id)}
           onUpdateBranch={updateBranch}
+          updatingBranch={mutations.updateBranch.isPending}
           onDisableAutoMerge={() => void mutations.disableAutoMerge(pr.id)}
         />
       ) : tab === "files" ? (
@@ -248,8 +254,9 @@ export function PullScreen() {
               {
                 label: "Update branch",
                 icon: <SyncIcon size={18} />,
-                hidden: !(pr.state === "OPEN" && pr.mergeStateStatus === "BEHIND" && pr.viewerCanUpdateBranch),
-                onSelect: updateBranch,
+                // True whenever the branch is behind, also when GitHub reports BLOCKED.
+                hidden: !(pr.state === "OPEN" && pr.viewerCanUpdateBranch),
+                onSelect: () => updateBranch(prefs.updateBranchMethod),
               },
               { label: "Open in browser", icon: <LinkExternalIcon size={18} />, onSelect: () => void backend.openUrl(tab === "conversation" ? url : `${url}/${tab}`) },
               { label: "Copy link", icon: <CopyIcon size={18} />, onSelect: () => void backend.copyText(url).then(() => toast.show("Link copied")) },

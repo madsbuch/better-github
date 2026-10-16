@@ -357,6 +357,24 @@ svg.octicon {
   width: 100%;
 }
 
+/* A button with a menu of alternatives beside it. */
+.split-btn {
+  display: inline-flex;
+  flex: none;
+}
+
+.split-btn > .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.split-btn > .btn + .btn {
+  margin-left: -1px;
+  padding: 0 6px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1153,6 +1171,18 @@ button.kv:active {
 
 .sheet-search .search-bar {
   margin: 0;
+}
+
+/* A menu item with a line of explanation under its title. */
+.menu-item.tall {
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.menu-item.tall svg {
+  flex: none;
+  margin-top: 2px;
 }
 
 /* Branch picker rows: the whole name wraps, and what matched the search is marked. */

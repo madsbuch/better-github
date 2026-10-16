@@ -10,7 +10,7 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 - Branches you pushed in the last two days that have no pull request get a *Compare & pull request* prompt in the inbox and on the repository's pull requests.
 - Inbox with review requests, your PRs, assigned, mentioned and reviewed, with counts, CI status and review state on every row.
 - Conversation timeline: comments, reviews with their threads, commits, force-pushes, label and title changes.
-- Merge box showing review decision, check status and mergeability, with *Update branch*, *Ready for review* and auto-merge controls.
+- Merge box showing review decision, check status and mergeability, with *Ready for review* and auto-merge controls. Whenever the branch is behind its base, also while merging is blocked for another reason, *Update branch* brings the base in with a merge commit or a rebase (the last one you picked).
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
 - **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and the instructions for reviewing it, right above its diff. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
@@ -49,6 +49,11 @@ To have a coding agent write or improve the rules, tap *Copy agent prompt* in a
 pull request's Files tab, or *Copy review rules prompt* in a repository's menu,
 and paste it into the agent. The prompt explains the format and includes the
 current rules, if there are any.
+
+The app reads the rules from the branch a pull request merges into, so new rules
+apply once they're merged there. When it finds none, the Files tab names the
+branch it checked, and says so if the pull request's own branch has a
+`.review-rules`.
 
 
 ```
