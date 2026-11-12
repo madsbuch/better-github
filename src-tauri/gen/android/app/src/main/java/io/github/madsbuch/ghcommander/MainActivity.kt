@@ -1,5 +1,6 @@
 package io.github.madsbuch.ghcommander
 
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
@@ -9,6 +10,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : TauriActivity() {
+  private val theme by lazy { Theme(this) }
+  private var webView: WebView? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
@@ -36,5 +40,17 @@ class MainActivity : TauriActivity() {
     // Runs before the first page load, so the page always sees the interface.
     webView.addJavascriptInterface(BrowserTabs(this), "GhCommanderAndroid")
     webView.addJavascriptInterface(Downloads(this), "GhCommanderDownloads")
+    webView.addJavascriptInterface(theme, "GhCommanderTheme")
+    this.webView = webView
+  }
+
+  // uiMode is in the manifest's configChanges, so switching the device between
+  // light and dark lands here instead of recreating the activity. Tell the page,
+  // which re-reads the setting from Theme.kt (see src/lib/theme.ts).
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    if (theme.onConfigurationChanged(newConfig)) {
+      webView?.evaluateJavascript("window.dispatchEvent(new Event('ghc:systemtheme'))", null)
+    }
   }
 }

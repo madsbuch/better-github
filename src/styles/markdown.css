@@ -286,32 +286,30 @@
   color: #82071e;
 }
 
-@media (prefers-color-scheme: dark) {
-  .markdown .pl-c1,
-  .markdown .pl-s .pl-v,
-  .markdown .pl-ent {
-    color: #79c0ff;
-  }
-  .markdown .pl-e,
-  .markdown .pl-en {
-    color: #d2a8ff;
-  }
-  .markdown .pl-k {
-    color: #ff7b72;
-  }
-  .markdown .pl-s,
-  .markdown .pl-pds,
-  .markdown .pl-sr {
-    color: #a5d6ff;
-  }
-  .markdown .pl-v,
-  .markdown .pl-smw {
-    color: #ffa657;
-  }
-  .markdown .pl-mi1 {
-    color: #7ee787;
-  }
-  .markdown .pl-md {
-    color: #ffa198;
-  }
+[data-theme="dark"] .markdown .pl-c1,
+[data-theme="dark"] .markdown .pl-s .pl-v,
+[data-theme="dark"] .markdown .pl-ent {
+  color: #79c0ff;
+}
+[data-theme="dark"] .markdown .pl-e,
+[data-theme="dark"] .markdown .pl-en {
+  color: #d2a8ff;
+}
+[data-theme="dark"] .markdown .pl-k {
+  color: #ff7b72;
+}
+[data-theme="dark"] .markdown .pl-s,
+[data-theme="dark"] .markdown .pl-pds,
+[data-theme="dark"] .markdown .pl-sr {
+  color: #a5d6ff;
+}
+[data-theme="dark"] .markdown .pl-v,
+[data-theme="dark"] .markdown .pl-smw {
+  color: #ffa657;
+}
+[data-theme="dark"] .markdown .pl-mi1 {
+  color: #7ee787;
+}
+[data-theme="dark"] .markdown .pl-md {
+  color: #ffa198;
 }

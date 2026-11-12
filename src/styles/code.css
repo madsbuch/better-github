@@ -371,75 +371,73 @@
   color: #82071e;
 }
 
-@media (prefers-color-scheme: dark) {
-  .hl-keyword,
-  .hl-meta .hl-keyword,
-  .hl-template-tag,
-  .hl-template-variable,
-  .hl-type,
-  .hl-variable.language_ {
-    color: #ff7b72;
-  }
+[data-theme="dark"] .hl-keyword,
+[data-theme="dark"] .hl-meta .hl-keyword,
+[data-theme="dark"] .hl-template-tag,
+[data-theme="dark"] .hl-template-variable,
+[data-theme="dark"] .hl-type,
+[data-theme="dark"] .hl-variable.language_ {
+  color: #ff7b72;
+}
 
-  .hl-title,
-  .hl-title.class_,
-  .hl-title.class_.inherited__,
-  .hl-title.function_ {
-    color: #d2a8ff;
-  }
+[data-theme="dark"] .hl-title,
+[data-theme="dark"] .hl-title.class_,
+[data-theme="dark"] .hl-title.class_.inherited__,
+[data-theme="dark"] .hl-title.function_ {
+  color: #d2a8ff;
+}
 
-  .hl-attr,
-  .hl-attribute,
-  .hl-literal,
-  .hl-meta,
-  .hl-number,
-  .hl-operator,
-  .hl-variable,
-  .hl-selector-attr,
-  .hl-selector-class,
-  .hl-selector-id {
-    color: #79c0ff;
-  }
+[data-theme="dark"] .hl-attr,
+[data-theme="dark"] .hl-attribute,
+[data-theme="dark"] .hl-literal,
+[data-theme="dark"] .hl-meta,
+[data-theme="dark"] .hl-number,
+[data-theme="dark"] .hl-operator,
+[data-theme="dark"] .hl-variable,
+[data-theme="dark"] .hl-selector-attr,
+[data-theme="dark"] .hl-selector-class,
+[data-theme="dark"] .hl-selector-id {
+  color: #79c0ff;
+}
 
-  .hl-regexp,
-  .hl-string,
-  .hl-meta .hl-string {
-    color: #a5d6ff;
-  }
+[data-theme="dark"] .hl-regexp,
+[data-theme="dark"] .hl-string,
+[data-theme="dark"] .hl-meta .hl-string {
+  color: #a5d6ff;
+}
 
-  .hl-built_in,
-  .hl-symbol {
-    color: #ffa657;
-  }
+[data-theme="dark"] .hl-built_in,
+[data-theme="dark"] .hl-symbol {
+  color: #ffa657;
+}
 
-  .hl-comment,
-  .hl-code,
-  .hl-formula {
-    color: #8b949e;
-  }
+[data-theme="dark"] .hl-comment,
+[data-theme="dark"] .hl-code,
+[data-theme="dark"] .hl-formula {
+  color: #8b949e;
+}
 
-  .hl-name,
-  .hl-quote,
-  .hl-selector-tag,
-  .hl-selector-pseudo {
-    color: #7ee787;
-  }
+[data-theme="dark"] .hl-name,
+[data-theme="dark"] .hl-quote,
+[data-theme="dark"] .hl-selector-tag,
+[data-theme="dark"] .hl-selector-pseudo {
+  color: #7ee787;
+}
 
-  .hl-section {
-    color: #1f6feb;
-  }
+[data-theme="dark"] .hl-section {
+  color: #1f6feb;
+}
 
-  .hl-bullet {
-    color: #f2cc60;
-  }
+[data-theme="dark"] .hl-bullet {
+  color: #f2cc60;
+}
 
-  .hl-addition {
-    color: #aff5b4;
-  }
+[data-theme="dark"] .hl-addition {
+  color: #aff5b4;
+}
 
-  .hl-deletion {
-    color: #ffdcd7;
-  }
+[data-theme="dark"] .hl-deletion {
+  color: #ffdcd7;
 }
 
 /* Review rules (.review-rules): a verdict per file and what to check. */

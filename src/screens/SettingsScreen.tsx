@@ -73,6 +73,21 @@ export function SettingsScreen() {
         </p>
       </div>
 
+      <h3 className="section-title">Appearance</h3>
+      <div className="chips" role="radiogroup" aria-label="Theme" style={{ borderBottom: 0 }}>
+        {(["system", "light", "dark"] as const).map((t) => (
+          <button
+            key={t}
+            role="radio"
+            aria-checked={prefs.theme === t}
+            className={prefs.theme === t ? "chip active" : "chip"}
+            onClick={() => setPref("theme", t)}
+          >
+            {t === "system" ? "System" : t === "light" ? "Light" : "Dark"}
+          </button>
+        ))}
+      </div>
+
       <h3 className="section-title">Code</h3>
       <label className="kv checkbox-row">
         <input type="checkbox" checked={prefs.wrapDiff} onChange={(e) => setPref("wrapDiff", e.target.checked)} />

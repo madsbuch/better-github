@@ -3,7 +3,11 @@
 import { useSyncExternalStore } from "react";
 import type { UpdateBranchMethod } from "./types";
 
+export type ThemePref = "system" | "light" | "dark";
+
 export interface Prefs {
+  /** Light or dark; "system" follows the device (see theme.ts). */
+  theme: ThemePref;
   wrapDiff: boolean;
   wrapCode: boolean;
   /** How "Update branch" brings in the base branch; the last one picked. */
@@ -11,7 +15,7 @@ export interface Prefs {
 }
 
 const KEY = "ghc.prefs";
-const DEFAULTS: Prefs = { wrapDiff: true, wrapCode: false, updateBranchMethod: "MERGE" };
+const DEFAULTS: Prefs = { theme: "system", wrapDiff: true, wrapCode: false, updateBranchMethod: "MERGE" };
 const listeners = new Set<() => void>();
 
 let current: Prefs = load();
@@ -35,12 +39,15 @@ export function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
   listeners.forEach((l) => l());
 }
 
+export function getPref<K extends keyof Prefs>(key: K): Prefs[K] {
+  return current[key];
+}
+
+export function subscribePrefs(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 export function usePrefs(): Prefs {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    () => current,
-  );
+  return useSyncExternalStore(subscribePrefs, () => current);
 }
