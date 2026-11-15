@@ -17,7 +17,7 @@ const TABS: { id: TabId; label: string; path: string; target: ReturnType<(typeof
   { id: "profile", label: "You", path: "/profile", target: to.profile() },
 ];
 
-/** The signed-in app: one screen at a time (the matched route) and the bottom tabs. */
+/** One routed screen, with bottom tabs on phones and persistent navigation on tablets. */
 export function Shell() {
   const queryClient = useQueryClient();
   const pathname = useLocation({ select: (l) => l.pathname });
@@ -44,8 +44,9 @@ export function Shell() {
   }, [pathname, index]);
 
   return (
-    <div className="app">
+    <div className="app app-shell">
       <ProgressBar />
+      <TabBar current={tab} rail />
       <div className="stack">
         <section className="screen" ref={screen}>
           <Outlet />
@@ -68,13 +69,14 @@ function ProgressBar() {
   return <div className={`nav-progress${visible ? " active" : ""}`} aria-hidden />;
 }
 
-function TabBar({ current }: { current: TabId }) {
+function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) {
   const viewer = useViewer();
   const nav = useNav();
   const unread = useQuery(notificationQueries.hasUnread());
 
   return (
-    <nav className="tabbar" aria-label="Main">
+    <nav className={`main-nav ${rail ? "nav-rail" : "tabbar"}`} aria-label="Main">
+      {rail && <img className="nav-logo" src="/icon.svg" alt="GitHub Commander" />}
       {TABS.map((tab) => {
         const active = tab.id === current;
         let icon: ReactNode;

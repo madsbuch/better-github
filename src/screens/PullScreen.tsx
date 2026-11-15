@@ -126,6 +126,7 @@ export function PullScreen() {
 
   return (
     <Screen
+      wide={tab === "files"}
       title={pr?.title ?? `Pull request #${number}`}
       subtitle={`${owner}/${repo} #${number}`}
       actions={

@@ -42,6 +42,7 @@ export function BlobScreen() {
 
   return (
     <Screen
+      wide={!isMarkdown || !preview}
       title={name}
       subtitle={`${owner}/${repo}${gitRef ? ` · ${gitRef}` : ""}`}
       actions={

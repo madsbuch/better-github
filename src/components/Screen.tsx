@@ -14,6 +14,8 @@ interface ScreenProps {
   onRefresh?: () => Promise<unknown>;
   /** Set false when the child manages its own scrolling. */
   scroll?: boolean;
+  /** Let code, diffs and logs use all available tablet width. */
+  wide?: boolean;
   children: ReactNode;
   contentRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -21,7 +23,7 @@ interface ScreenProps {
 const THRESHOLD = 64;
 const MAX_PULL = 96;
 
-export function Screen({ title, subtitle, actions, header, footer, onRefresh, scroll = true, children, contentRef }: ScreenProps) {
+export function Screen({ title, subtitle, actions, header, footer, onRefresh, scroll = true, wide = false, children, contentRef }: ScreenProps) {
   const canGoBack = useCanGoBack();
   const nav = useNav();
   const ownRef = useRef<HTMLDivElement>(null);
@@ -33,7 +35,7 @@ export function Screen({ title, subtitle, actions, header, footer, onRefresh, sc
 
   usePullToRefresh(ref, indicator, refreshRef, refreshing, setRefreshing);
 
-  // Tapping the current bottom tab again scrolls back to the top.
+  // Tapping the current navigation destination again scrolls back to the top.
   useEffect(() => {
     const handler = () => ref.current?.scrollTo({ top: 0, behavior: "smooth" });
     window.addEventListener("ghc:scroll-top", handler);
@@ -56,7 +58,7 @@ export function Screen({ title, subtitle, actions, header, footer, onRefresh, sc
       </header>
       {header}
       {/* The router restores this element's scroll position on back (see router.tsx). */}
-      <div className={`content${scroll ? "" : " no-scroll"}`} ref={ref} data-scroll-restoration-id="screen">
+      <div className={`content${scroll ? "" : " no-scroll"}${wide ? " content-wide" : ""}`} ref={ref} data-scroll-restoration-id="screen">
         {onRefresh && (
           <div className="ptr" ref={indicator} style={{ opacity: 0, transform: "translateY(-48px)" }} aria-hidden>
             <SyncIcon size={18} className={refreshing ? "spin" : undefined} />

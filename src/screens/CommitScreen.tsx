@@ -26,6 +26,7 @@ export function CommitScreen() {
 
   return (
     <Screen
+      wide
       title={`Commit ${sha.slice(0, 7)}`}
       subtitle={`${owner}/${repo}`}
       actions={

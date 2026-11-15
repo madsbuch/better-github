@@ -197,7 +197,7 @@
 .diff-inline {
   position: sticky;
   left: 0;
-  width: 100vw;
+  width: 100%;
   max-width: 100%;
   padding: 2px 0 10px;
   border-top: 1px solid var(--border-muted);
@@ -207,10 +207,6 @@
   font-size: 14px;
   line-height: 1.45;
   cursor: default;
-}
-
-.diff-body:not(.wrap) .diff-inline {
-  width: 100vw;
 }
 
 .draft-comment {

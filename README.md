@@ -34,6 +34,7 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 - Issues: timeline, commenting with quote-reply, close as completed or not planned, and reopen.
 - Search across repositories, pull requests, issues and people. Links to github.com inside rendered markdown open in the app when it has a screen for them.
 - Light and dark themes follow the system. Pull-to-refresh. The Android back button closes sheets first, then goes back through screens. Screens keep their scroll position.
+- **Tablets**: at window widths of 768px and up, navigation stays in a side rail, including while reviewing a pull request. Code, diffs and logs use the available width; reading views stay comfortably bounded. Sheets become inset dialogs. Rotation and split-screen resizing keep the current screen and unfinished comments intact, switching back to the phone layout in narrow windows.
 
 **Fast**
 - The app opens on the data it showed last time (cached on the device) and refreshes it in the background.
@@ -124,13 +125,13 @@ Then do one of the following:
 - To open instantly, the app caches GitHub's answers in its private storage (IndexedDB inside the app sandbox) for up to a day. Diffs, file contents and job logs are never written to disk. Signing out deletes the cache, and every new build starts with a fresh one.
 - Rendered markdown is sanitized with DOMPurify. The content security policy allows only the app's own scripts, no frames, and no network requests from the web view other than images.
 
-## Installing on a phone
+## Installing on a phone or tablet
 
-Open this link on your phone and install the APK (Android asks you to allow installs from your browser the first time):
+Open this link on your phone or tablet and install the APK (Android asks you to allow installs from your browser the first time):
 
 **<https://github.com/madsbuch/gh-commander/releases/download/latest/gh-commander.apk>**
 
-If GitHub's own app is installed, Android may open github.com links in it instead of downloading the file. Paste the link into your browser's address bar instead. The installed app is called **GitHub Commander**, and its bottom bar reads *Pull requests · Inbox · Repos · You*.
+If GitHub's own app is installed, Android may open github.com links in it instead of downloading the file. Paste the link into your browser's address bar instead. The installed app is called **GitHub Commander**, and its navigation reads *Pull requests · Inbox · Repos · You* — along the bottom on phones and in a side rail on tablets.
 
 Every push to `main` rebuilds the APK and replaces it in the [`latest` release](https://github.com/madsbuch/gh-commander/releases/tag/latest), so the link always serves the newest build. Each build gets a higher Android `versionCode`, so a newer APK installs as an update and keeps your sign-in. Builds of other branches and pull requests are attached to their **Android** workflow run as the `gh-commander-apk` artifact.
 

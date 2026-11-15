@@ -219,7 +219,7 @@ export function LoginScreen() {
       <img className="login-logo" src="/icon.svg" alt="" />
       <div>
         <h1>GitHub Commander</h1>
-        <p style={{ marginTop: 8 }}>Review pull requests, triage your inbox and browse code — built for your phone.</p>
+        <p style={{ marginTop: 8 }}>Review pull requests, triage your inbox and browse code on your phone or tablet.</p>
       </div>
 
       {error && <div className="banner banner-danger" style={{ margin: 0 }}>{error}</div>}

@@ -13,7 +13,7 @@ interface SheetProps {
   full?: boolean;
 }
 
-/** Bottom sheet. Registered with the router so the back button closes it. */
+/** Bottom sheet on phones, inset dialog on tablets. Back closes either presentation. */
 export function Sheet({ open, onClose, title, children, footer, full = false }: SheetProps) {
   useOverlay(open, onClose);
   if (!open) return null;
@@ -63,7 +63,7 @@ export function ActionSheet({
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="sheet" role="menu" aria-label={title}>
         <div className="sheet-handle" />
-        <div style={{ padding: "6px 0 10px" }}>
+        <div className="sheet-menu">
           {actions
             .filter((a) => !a.hidden)
             .map((action) => (

@@ -42,6 +42,7 @@ export function JobScreen() {
 
   return (
     <Screen
+      wide
       title={data?.name ?? `Job ${jobId}`}
       subtitle={data?.workflow_name ? `${data.workflow_name}${data.head_branch ? ` · ${data.head_branch}` : ""}` : `${owner}/${repo}`}
       actions={

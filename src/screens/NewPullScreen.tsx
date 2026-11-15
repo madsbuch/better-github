@@ -85,6 +85,7 @@ export function NewPullScreen() {
 
   return (
     <Screen
+      wide={search.tab === "files"}
       title="Open a pull request"
       subtitle={baseRepo}
       header={
