@@ -271,5 +271,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running GitHub Commander");
+        .expect("error while running Better GitHub");
 }

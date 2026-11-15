@@ -81,7 +81,7 @@ const REPOS = [
   ["acme", "rocket", "Blazing fast uploads for everyone", "Rust", "#dea584", 2410, false],
   ["acme", "web", "The acme.dev website", "TypeScript", "#3178c6", 312, false],
   ["octocat", "dotfiles", "My config files", "Shell", "#89e051", 12, true],
-  ["octocat", "gh-commander", "A fast, review-focused GitHub client for Android", "TypeScript", "#3178c6", 87, false],
+  ["octocat", "better-github", "A fast, review-focused GitHub client for Android", "TypeScript", "#3178c6", 87, false],
 ].map(([owner, name, description, lang, color, stars, isPrivate], i) => ({
   __typename: "Repository",
   id: `R_${i}`,

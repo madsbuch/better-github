@@ -1,6 +1,6 @@
 ---
 name: verify-changes
-description: Checks to run before pushing GitHub Commander to main, how to see the UI without a GitHub account, and the rules for routes, query keys, invalidation and preloading. Use before every push (every push to main publishes a release), after changing GraphQL queries, REST calls, routes or links, query keys or mutations, Rust commands or Android files, or when asked to test, screenshot or debug the app.
+description: Checks to run before pushing Better GitHub to main, how to see the UI without a GitHub account, and the rules for routes, query keys, invalidation and preloading. Use before every push (every push to main publishes a release), after changing GraphQL queries, REST calls, routes or links, query keys or mutations, Rust commands or Android files, or when asked to test, screenshot or debug the app.
 ---
 
 # Verifying changes

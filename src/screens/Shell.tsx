@@ -76,7 +76,7 @@ function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) 
 
   return (
     <nav className={`main-nav ${rail ? "nav-rail" : "tabbar"}`} aria-label="Main">
-      {rail && <img className="nav-logo" src="/icon.svg" alt="GitHub Commander" />}
+      {rail && <img className="nav-logo" src="/icon.svg" alt="Better GitHub" />}
       {TABS.map((tab) => {
         const active = tab.id === current;
         let icon: ReactNode;

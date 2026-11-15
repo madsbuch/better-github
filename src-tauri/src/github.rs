@@ -37,7 +37,7 @@ fn client_with(policy: redirect::Policy) -> Client {
         HeaderValue::from_static(API_VERSION),
     );
     Client::builder()
-        .user_agent(concat!("gh-commander/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("better-github/", env!("CARGO_PKG_VERSION")))
         .default_headers(headers)
         .redirect(policy)
         .connect_timeout(Duration::from_secs(15))

@@ -28,7 +28,7 @@ export function rulesPrompt({ repo, branch, current }: RulesPromptInput): string
   const sections = [
     `${task}
 
-The GitHub Commander app reads this file. For every file a pull request changes, it shows reviewers a risk verdict (high, medium or low) and instructions on what to check, right above the file's diff. High-risk files come first, and approving warns when one hasn't been marked viewed.`,
+The Better GitHub app reads this file. For every file a pull request changes, it shows reviewers a risk verdict (high, medium or low) and instructions on what to check, right above the file's diff. High-risk files come first, and approving warns when one hasn't been marked viewed.`,
 
     `## The format
 

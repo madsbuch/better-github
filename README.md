@@ -1,4 +1,4 @@
-# GitHub Commander
+# Better GitHub
 
 A fast, review-focused GitHub client for Android, built with [Tauri 2](https://tauri.app), React and Rust.
 
@@ -129,11 +129,13 @@ Then do one of the following:
 
 Open this link on your phone or tablet and install the APK (Android asks you to allow installs from your browser the first time):
 
-**<https://github.com/madsbuch/gh-commander/releases/download/latest/gh-commander.apk>**
+**<https://github.com/madsbuch/better-github/releases/download/latest/better-github.apk>**
 
-If GitHub's own app is installed, Android may open github.com links in it instead of downloading the file. Paste the link into your browser's address bar instead. The installed app is called **GitHub Commander**, and its navigation reads *Pull requests · Inbox · Repos · You* — along the bottom on phones and in a side rail on tablets.
+If GitHub's own app is installed, Android may open github.com links in it instead of downloading the file. Paste the link into your browser's address bar instead. The installed app is called **Better GitHub**, and its navigation reads *Pull requests · Inbox · Repos · You* — along the bottom on phones and in a side rail on tablets.
 
-Every push to `main` rebuilds the APK and replaces it in the [`latest` release](https://github.com/madsbuch/gh-commander/releases/tag/latest), so the link always serves the newest build. Each build gets a higher Android `versionCode`, so a newer APK installs as an update and keeps your sign-in. Builds of other branches and pull requests are attached to their **Android** workflow run as the `gh-commander-apk` artifact.
+Every push to `main` rebuilds the APK and replaces it in the [`latest` release](https://github.com/madsbuch/better-github/releases/tag/latest), so the link always serves the newest build. Each build gets a higher Android `versionCode`, so a newer APK installs as an update and keeps your sign-in. Builds of other branches and pull requests are attached to their **Android** workflow run as the `better-github-apk` artifact.
+
+Better GitHub updates existing GitHub Commander installations in place. The application ID, signing key and stored data are unchanged, and the old `gh-commander.apk` download link continues to serve the current build.
 
 ### Signing
 

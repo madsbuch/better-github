@@ -1,7 +1,7 @@
 [package]
 name = "gh-commander"
 version = "0.1.0"
-description = "GitHub Commander - a fast, review-focused GitHub client"
+description = "Better GitHub - a fast, review-focused GitHub client"
 edition = "2021"
 rust-version = "1.80"
 

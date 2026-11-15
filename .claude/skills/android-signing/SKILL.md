@@ -1,6 +1,6 @@
 ---
 name: android-signing
-description: Create or replace GitHub Commander's Android signing key and the GitHub Actions secrets CI signs with. Use when setting up signing for the first time, when builds warn "ANDROID_KEYSTORE is not set", when the key is lost or must be rotated, or when doing local release builds.
+description: Create or replace Better GitHub's Android signing key and the GitHub Actions secrets CI signs with. Use when setting up signing for the first time, when builds warn "ANDROID_KEYSTORE is not set", when the key is lost or must be rotated, or when doing local release builds.
 ---
 
 # Android signing
@@ -27,12 +27,12 @@ debug key.
 
 This is a one-off done by the owner on their own machine. Keep the script out of
 the repo. It needs the JDK's `keytool` and an authenticated GitHub CLI
-(`gh auth login`). Paste it at the root of a gh-commander checkout:
+(`gh auth login`). Paste it at the root of a better-github checkout:
 
 ```sh
 bash <<'SETUP'
 set -euo pipefail
-REPO=madsbuch/gh-commander
+REPO=madsbuch/better-github
 KEYSTORE="$HOME/.tauri/keystores/gh-commander-upload.jks"
 KEY_ALIAS=gh-commander
 PROPERTIES="$(git rev-parse --show-toplevel)/src-tauri/gen/android/keystore.properties"
@@ -47,7 +47,7 @@ mkdir -p "$(dirname "$KEYSTORE")"
 keytool -genkeypair -noprompt -keystore "$KEYSTORE" -storetype PKCS12 \
   -storepass:env STORE_PASSWORD -keypass:env STORE_PASSWORD \
   -alias "$KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 \
-  -dname "CN=GitHub Commander" >/dev/null
+  -dname "CN=Better GitHub" >/dev/null
 chmod 600 "$KEYSTORE"
 
 base64 < "$KEYSTORE" | tr -d '\n' | gh secret set ANDROID_KEYSTORE -R "$REPO"

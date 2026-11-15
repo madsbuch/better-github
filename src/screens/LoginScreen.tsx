@@ -7,7 +7,7 @@ import { useToast } from "../lib/toast";
 import { Spinner } from "../components/ui";
 
 const TOKEN_URL =
-  "https://github.com/settings/tokens/new?description=GitHub%20Commander&scopes=repo,read:org,notifications,read:user";
+  "https://github.com/settings/tokens/new?description=Better%20GitHub&scopes=repo,read:org,notifications,read:user";
 const NEW_OAUTH_APP_URL = "https://github.com/settings/applications/new";
 
 type DeviceState =
@@ -188,7 +188,7 @@ export function LoginScreen() {
         <div>
           <h1>Confirm on GitHub</h1>
           <p style={{ marginTop: 8 }}>
-            Enter this code at <span className="mono">github.com/login/device</span> to let GitHub Commander access your
+            Enter this code at <span className="mono">github.com/login/device</span> to let Better GitHub access your
             account.
           </p>
         </div>
@@ -218,7 +218,7 @@ export function LoginScreen() {
     <div className="login">
       <img className="login-logo" src="/icon.svg" alt="" />
       <div>
-        <h1>GitHub Commander</h1>
+        <h1>Better GitHub</h1>
         <p style={{ marginTop: 8 }}>Review pull requests, triage your inbox and browse code on your phone or tablet.</p>
       </div>
 

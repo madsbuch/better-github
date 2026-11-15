@@ -131,12 +131,12 @@ export function SettingsScreen() {
 
       <h3 className="section-title">About</h3>
       <div className="kv">
-        <span className="grow">GitHub Commander{version ? ` ${version}` : ""}</span>
+        <span className="grow">Better GitHub{version ? ` ${version}` : ""}</span>
       </div>
       <button
         className="kv"
         style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border-muted)", background: "none", textAlign: "left", color: "var(--accent)" }}
-        onClick={() => void backend.openUrl("https://github.com/madsbuch/gh-commander")}
+        onClick={() => void backend.openUrl("https://github.com/madsbuch/better-github")}
       >
         Source code on GitHub
       </button>
