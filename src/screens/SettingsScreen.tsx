@@ -5,43 +5,62 @@ import { errorMessage } from "../lib/api";
 import { backend, type AuthConfig } from "../lib/backend";
 import { fullDate } from "../lib/format";
 import { setPref, usePrefs } from "../lib/prefs";
-import { useSessionApi, useViewer } from "../lib/session";
+import { useIsGuest, useSessionApi, useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
+import { guestQueries } from "../queries/guest";
 import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 
 export function SettingsScreen() {
-  const session = useViewer();
-  const { signOut } = useSessionApi();
-  const prefs = usePrefs();
-  const toast = useToast();
-  const [config, setConfig] = useState<AuthConfig | null>(null);
-  const [clientId, setClientId] = useState("");
-  const [version, setVersion] = useState<string | null>(null);
-
-  const rate = useQuery(viewerQueries.rateLimit());
-
-  useEffect(() => {
-    backend.authConfig().then((c) => {
-      setConfig(c);
-      setClientId(c.clientId ?? "");
-    });
-    if (backend.native) getVersion().then(setVersion).catch(() => setVersion(null));
-  }, []);
-
-  const saveClientId = async () => {
-    try {
-      const next = await backend.authSetClientId(clientId.trim() || null);
-      setConfig(next);
-      setClientId(next.clientId ?? "");
-      toast.show("Saved", "success");
-    } catch (e) {
-      toast.show(errorMessage(e), "error");
-    }
-  };
-
+  const guest = useIsGuest();
   return (
     <Screen title="Settings">
+      {guest ? <GuestAccount /> : <Account />}
+      <AppSettings />
+    </Screen>
+  );
+}
+
+function GuestAccount() {
+  const { leaveGuest } = useSessionApi();
+  const rate = useQuery(guestQueries.rateLimit());
+  return (
+    <>
+      <h3 className="section-title">Account</h3>
+      <div className="kv">
+        <span className="grow">
+          Browsing without signing in
+          <span className="muted small" style={{ display: "block" }}>
+            Public profiles and repositories only
+          </span>
+        </span>
+      </div>
+      {rate.data && (
+        <div className="kv">
+          <span className="grow">
+            API rate limit
+            <span className="muted small" style={{ display: "block" }}>
+              {rate.data.remaining.toLocaleString()} of {rate.data.limit.toLocaleString()} requests left · resets {fullDate(rate.data.resetAt)}
+            </span>
+          </span>
+        </div>
+      )}
+      <div className="pad">
+        <button className="btn btn-block btn-primary" onClick={() => void leaveGuest()}>
+          Sign in to GitHub
+        </button>
+      </div>
+    </>
+  );
+}
+
+function Account() {
+  const session = useViewer();
+  const { signOut } = useSessionApi();
+  const rate = useQuery(viewerQueries.rateLimit());
+
+  return (
+    <>
       <h3 className="section-title">Account</h3>
       <div className="kv">
         <span className="grow">
@@ -73,6 +92,38 @@ export function SettingsScreen() {
         </p>
       </div>
 
+    </>
+  );
+}
+
+function AppSettings() {
+  const prefs = usePrefs();
+  const toast = useToast();
+  const [config, setConfig] = useState<AuthConfig | null>(null);
+  const [clientId, setClientId] = useState("");
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    backend.authConfig().then((c) => {
+      setConfig(c);
+      setClientId(c.clientId ?? "");
+    });
+    if (backend.native) getVersion().then(setVersion).catch(() => setVersion(null));
+  }, []);
+
+  const saveClientId = async () => {
+    try {
+      const next = await backend.authSetClientId(clientId.trim() || null);
+      setConfig(next);
+      setClientId(next.clientId ?? "");
+      toast.show("Saved", "success");
+    } catch (e) {
+      toast.show(errorMessage(e), "error");
+    }
+  };
+
+  return (
+    <>
       <h3 className="section-title">Appearance</h3>
       <div className="chips" role="radiogroup" aria-label="Theme" style={{ borderBottom: 0 }}>
         {(["system", "light", "dark"] as const).map((t) => (
@@ -140,6 +191,6 @@ export function SettingsScreen() {
       >
         Source code on GitHub
       </button>
-    </Screen>
+    </>
   );
 }

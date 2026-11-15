@@ -185,14 +185,15 @@ async function browserFetch(
   init: RequestInit & { accept?: string },
 ): Promise<Response> {
   const token = storage()?.getItem(TOKEN_KEY);
-  if (!token) throw new ApiError("You are not signed in", "not_authenticated", 401);
+  // Like the app: without a token (guest mode), only reads.
+  if (!token && (init.method ?? "GET") !== "GET") throw new ApiError("You are not signed in", "not_authenticated", 401);
   let response: Response;
   try {
     response = await fetch(url, {
       ...init,
       headers: {
         Accept: init.accept ?? "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "X-GitHub-Api-Version": "2022-11-28",
         ...(init.body ? { "Content-Type": "application/json" } : {}),
       },

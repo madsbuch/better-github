@@ -1,5 +1,8 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
-import { graphql } from "../lib/api";
+import { graphql, restPage } from "../lib/api";
+import { isGuest } from "../lib/guest";
+import { queryClient } from "./client";
+import { guestQueries, toOwnerResult, type RestRepo } from "./guest";
 import { OWNER, RATE_LIMIT, VIEWER, VIEWER_REPOS, VIEWER_STARRED } from "../lib/queries";
 import type { Connection, OwnerResult, RepoListItem, ViewerResult } from "../lib/types";
 import { keys, type ViewerRepoTab } from "./keys";
@@ -36,7 +39,14 @@ export const viewerQueries = {
   owner: (login: string) =>
     infiniteQueryOptions({
       queryKey: keys.owner(login),
-      queryFn: ({ pageParam }) => graphql<OwnerResult>(OWNER, { login, after: pageParam }),
+      queryFn: async ({ pageParam }): Promise<OwnerResult> => {
+        if (!isGuest()) return graphql<OwnerResult>(OWNER, { login, after: pageParam });
+        // Guests: the first page shares the profile list's cached requests; later pages follow REST links.
+        const profile = await queryClient.fetchQuery(guestQueries.profile(login));
+        if (!profile) return { repositoryOwner: null };
+        const repos = pageParam ? await restPage<RestRepo>(pageParam) : await queryClient.fetchQuery(guestQueries.repos(login));
+        return toOwnerResult(profile, repos);
+      },
       initialPageParam: null as string | null,
       getNextPageParam: (last) =>
         last.repositoryOwner?.repositories.pageInfo.hasNextPage ? last.repositoryOwner.repositories.pageInfo.endCursor : undefined,

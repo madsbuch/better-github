@@ -3,14 +3,20 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { to, useNav } from "../lib/nav";
+import { useIsGuest } from "../lib/session";
 import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 import { RepoRow } from "../components/rows";
 import { EmptyState, ErrorView, LoadMore, Segmented, SkeletonList } from "../components/ui";
+import { GuestReposScreen } from "./GuestScreens";
 
 const route = getRouteApi("/repos");
 
 export function ReposScreen() {
+  return useIsGuest() ? <GuestReposScreen /> : <AccountReposScreen />;
+}
+
+function AccountReposScreen() {
   const tab = route.useSearch({ select: (s) => s.tab ?? "yours" });
   const nav = useNav();
   const [filter, setFilter] = useState("");

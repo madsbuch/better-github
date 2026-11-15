@@ -1,4 +1,5 @@
 import { ApiError, backend, type QueryValue, type RestRequest } from "./backend";
+import { isGuest } from "./guest";
 
 export { ApiError };
 
@@ -63,6 +64,8 @@ export async function restAll<T>(path: string, options: RestOptions = {}, limit 
 }
 
 export async function graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  // GitHub's GraphQL API always needs a token; guest screens use REST.
+  if (isGuest()) throw new ApiError("Sign in to GitHub to see this.", "not_authenticated", 401);
   const envelope = await guard(backend.graphql<T>(query, variables));
   return dropNullNodes(envelope.data) as T;
 }
@@ -110,6 +113,12 @@ export function encodePath(path: string): string {
 export function errorMessage(error: unknown): string {
   const e = ApiError.from(error);
   if (e.kind === "network") return "Can't reach GitHub. Check your connection.";
+  if (isGuest()) {
+    if (e.kind === "not_authenticated" || e.status === 401) return "Sign in to GitHub to see this.";
+    if (e.status === 404) return "Not found. It may be private.";
+    if ((e.status === 403 || e.status === 429) && /rate limit/i.test(e.message))
+      return "GitHub allows 60 requests an hour without signing in. Try again later, or sign in for more.";
+  }
   if (e.status === 404) return "Not found, or you don't have access.";
   if (e.status === 403 && /rate limit/i.test(e.message)) return "GitHub rate limit reached. Try again in a bit.";
   return e.message;

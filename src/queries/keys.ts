@@ -2,6 +2,8 @@
 //
 //   ["viewer", ...]                       the signed-in user
 //   ["owner", login]                      a user or organization page
+//     ..., "guest-profile" | "guest-repos" the same over REST, for guest mode
+//   ["guest", ...]                        guest-mode only data
 //   ["search", kind, query]               search results (the PR inbox is a search too)
 //   ["notifications", ...]
 //   ["repo", owner, repo, ...]            everything about one repository:
@@ -45,6 +47,11 @@ export const keys = {
     recentBranches: () => ["viewer", "recent-branches"] as const,
   },
   owner: (login: string) => ["owner", login.toLowerCase()] as const,
+  guest: {
+    profile: (login: string) => ["owner", login.toLowerCase(), "guest-profile"] as const,
+    repos: (login: string) => ["owner", login.toLowerCase(), "guest-repos"] as const,
+    rateLimit: () => ["guest", "rate-limit"] as const,
+  },
   search: {
     all: () => ["search"] as const,
     issues: (query: string) => ["search", "issues", query] as const,

@@ -49,6 +49,15 @@ impl AppState {
             .ok_or(Error::NotAuthenticated)
     }
 
+    /// The token if signed in; `None` in guest mode (public reads only).
+    fn optional_token(&self) -> Option<String> {
+        self.session
+            .read()
+            .expect("session lock poisoned")
+            .as_ref()
+            .map(|s| s.token.clone())
+    }
+
     fn client_id(&self) -> Option<String> {
         self.config
             .read()
@@ -193,8 +202,8 @@ fn auth_logout(state: State<'_, AppState>) -> Result<()> {
 
 #[tauri::command]
 async fn gh_rest(state: State<'_, AppState>, request: RestRequest) -> Result<RestResponse> {
-    let token = state.token()?;
-    github::rest(&state.http, &token, request).await
+    let token = state.optional_token();
+    github::rest(&state.http, token.as_deref(), request).await
 }
 
 #[tauri::command]
@@ -226,8 +235,8 @@ async fn gh_asset_url(
     repo: String,
     asset_id: u64,
 ) -> Result<String> {
-    let token = state.token()?;
-    github::asset_url(&state.downloads, &token, &owner, &repo, asset_id).await
+    let token = state.optional_token();
+    github::asset_url(&state.downloads, token.as_deref(), &owner, &repo, asset_id).await
 }
 
 /// A short-lived link to a zip or tar.gz of the source at a ref.
@@ -239,8 +248,16 @@ async fn gh_archive_url(
     git_ref: String,
     format: ArchiveFormat,
 ) -> Result<String> {
-    let token = state.token()?;
-    github::archive_url(&state.downloads, &token, &owner, &repo, &git_ref, format).await
+    let token = state.optional_token();
+    github::archive_url(
+        &state.downloads,
+        token.as_deref(),
+        &owner,
+        &repo,
+        &git_ref,
+        format,
+    )
+    .await
 }
 
 /// Registers the app's commands; shared with the IPC tests.

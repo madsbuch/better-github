@@ -2,6 +2,8 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { ApiError, encodePath, graphql, rest, restPage } from "../lib/api";
 import { REPO } from "../lib/queries";
 import type { RepoResult, RestCommit, RestCommitListItem, RestContentFile, RestContentItem } from "../lib/types";
+import { isGuest } from "../lib/guest";
+import { guestRepoDetail } from "./guest";
 import { affects, keys } from "./keys";
 import { patchQueries, useAppMutation } from "./mutation";
 
@@ -29,7 +31,10 @@ function looksBinary(bytes: Uint8Array): boolean {
 
 export const repoQueries = {
   detail: (owner: string, repo: string) =>
-    queryOptions({ queryKey: keys.repo.detail(owner, repo), queryFn: () => graphql<RepoResult>(REPO, { owner, name: repo }) }),
+    queryOptions({
+      queryKey: keys.repo.detail(owner, repo),
+      queryFn: () => (isGuest() ? guestRepoDetail(owner, repo) : graphql<RepoResult>(REPO, { owner, name: repo })),
+    }),
   /** Rendered README HTML, or null when the repository has none. */
   readme: (owner: string, repo: string) =>
     queryOptions({

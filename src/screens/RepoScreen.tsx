@@ -24,7 +24,7 @@ import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
 import { splitRepo, to, useNav, type RepoTab } from "../lib/nav";
 import { recentBranches } from "../lib/newPull";
-import { useViewer } from "../lib/session";
+import { useIsGuest, useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
 import type { RepoDetail } from "../lib/types";
 import { actionsQueries } from "../queries/actions";
@@ -61,9 +61,12 @@ export function RepoScreen() {
   const data = detail.data?.repository ?? null;
   const gitRef = search.ref ?? data?.defaultBranchRef?.name ?? "";
   const star = useStarRepo(owner, repo);
+  const guest = useIsGuest();
 
   // Every tab's first page loads in the background, so switching tabs is instant.
+  // Not for guests, who have 60 requests an hour.
   useEffect(() => {
+    if (guest) return;
     void queryClient.prefetchQuery(repoQueries.readme(owner, repo));
     void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "pulls", "open")));
     void queryClient.prefetchInfiniteQuery(searchQueries.issues(repoListQuery(owner, repo, "issues", "open")));
@@ -71,17 +74,17 @@ export function RepoScreen() {
     void queryClient.prefetchQuery(newPullQueries.repoBranches(owner, repo));
     void queryClient.prefetchInfiniteQuery(releaseQueries.list(owner, repo));
     void queryClient.prefetchInfiniteQuery(branchQueries.list(owner, repo));
-  }, [queryClient, owner, repo]);
+  }, [queryClient, owner, repo, guest]);
   useEffect(() => {
-    if (!gitRef) return;
+    if (!gitRef || guest) return;
     void queryClient.prefetchQuery(repoQueries.contents(owner, repo, gitRef, ""));
     void queryClient.prefetchInfiniteQuery(repoQueries.commits(owner, repo, gitRef));
-  }, [queryClient, owner, repo, gitRef]);
+  }, [queryClient, owner, repo, gitRef, guest]);
   // So "Copy review rules prompt" can include the current rules right away.
   const defaultBranch = data?.defaultBranchRef?.name;
   useEffect(() => {
-    if (defaultBranch) void queryClient.prefetchQuery(reviewQueries.rules(owner, repo, defaultBranch));
-  }, [queryClient, owner, repo, defaultBranch]);
+    if (defaultBranch && !guest) void queryClient.prefetchQuery(reviewQueries.rules(owner, repo, defaultBranch));
+  }, [queryClient, owner, repo, defaultBranch, guest]);
   const copyRulesPrompt = useCopyRulesPrompt();
 
   const setTab = (next: RepoTab) => nav.replace(to.repo(owner, repo, { tab: next, ref: search.ref }));
@@ -94,7 +97,7 @@ export function RepoScreen() {
       subtitle={owner}
       actions={
         <>
-          {data && (
+          {data && !guest && (
             <button className="icon-btn" aria-label={data.viewerHasStarred ? "Unstar" : "Star"} onClick={() => star.mutate(!data.viewerHasStarred)}>
               {data.viewerHasStarred ? <StarFillIcon size={20} className="c-attention" /> : <StarIcon size={20} />}
             </button>
@@ -108,17 +111,28 @@ export function RepoScreen() {
         <ScreenTabs
           value={tab}
           onChange={setTab}
-          tabs={[
-            { value: "about", label: "Overview", icon: <BookIcon size={16} /> },
-            { value: "pulls", label: "Pull requests", icon: <GitPullRequestIcon size={16} />, count: data?.pullRequests.totalCount },
-            { value: "releases", label: "Releases", icon: <TagIcon size={16} />, count: data?.releases.totalCount },
-            { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
-            { value: "code", label: "Code", icon: <CodeIcon size={16} /> },
-            ...(data?.hasIssuesEnabled === false
-              ? []
-              : [{ value: "issues" as RepoTab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
-            { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
-          ]}
+          tabs={
+            guest
+              ? // Pull request and issue lists need GitHub's GraphQL API, which needs a token.
+                [
+                  { value: "about", label: "Overview", icon: <BookIcon size={16} /> },
+                  { value: "releases", label: "Releases", icon: <TagIcon size={16} /> },
+                  { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
+                  { value: "code", label: "Code", icon: <CodeIcon size={16} /> },
+                  { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
+                ]
+              : [
+                  { value: "about", label: "Overview", icon: <BookIcon size={16} /> },
+                  { value: "pulls", label: "Pull requests", icon: <GitPullRequestIcon size={16} />, count: data?.pullRequests.totalCount },
+                  { value: "releases", label: "Releases", icon: <TagIcon size={16} />, count: data?.releases.totalCount },
+                  { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
+                  { value: "code", label: "Code", icon: <CodeIcon size={16} /> },
+                  ...(data?.hasIssuesEnabled === false
+                    ? []
+                    : [{ value: "issues" as RepoTab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
+                  { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
+                ]
+          }
         />
       }
       onRefresh={refresh}
@@ -130,7 +144,7 @@ export function RepoScreen() {
       ) : !data ? (
         <EmptyState title="Repository not found">It may be private or it doesn't exist.</EmptyState>
       ) : tab === "about" ? (
-        <About repo={data} onSelect={setTab} />
+        <About repo={data} onSelect={setTab} guest={guest} />
       ) : tab === "code" ? (
         gitRef ? (
           <>
@@ -140,6 +154,10 @@ export function RepoScreen() {
         ) : (
           <EmptyState title="This repository is empty" />
         )
+      ) : (tab === "pulls" || tab === "issues") && guest ? (
+        <EmptyState icon={<LockIcon size={32} />} title={`Sign in to see ${tab === "pulls" ? "pull requests" : "issues"}`}>
+          GitHub only lists them for signed-in users.
+        </EmptyState>
       ) : tab === "pulls" || tab === "issues" ? (
         <RepoIssues owner={owner} repo={repo} kind={tab} parent={data.parent?.nameWithOwner} />
       ) : tab === "actions" ? (
@@ -162,6 +180,7 @@ export function RepoScreen() {
           {
             label: "New pull request",
             icon: <GitPullRequestIcon size={18} />,
+            hidden: guest,
             onSelect: () => nav.navigate(newPullTarget(owner, repo, data?.parent?.nameWithOwner)),
           },
           { label: "Open in browser", icon: <LinkExternalIcon size={18} />, onSelect: () => void backend.openUrl(`https://github.com/${fullName}`) },
@@ -178,7 +197,7 @@ export function RepoScreen() {
           {
             label: "Copy review rules prompt",
             icon: <CopyIcon size={18} />,
-            hidden: !defaultBranch,
+            hidden: !defaultBranch || guest,
             onSelect: () => defaultBranch && void copyRulesPrompt(owner, repo, defaultBranch),
           },
         ]}
@@ -187,7 +206,7 @@ export function RepoScreen() {
   );
 }
 
-function About({ repo, onSelect }: { repo: RepoDetail; onSelect: (tab: RepoTab) => void }) {
+function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: RepoTab) => void; guest: boolean }) {
   const [owner, name] = [repo.owner.login, repo.name];
   const branch = repo.defaultBranchRef?.name;
   const readme = useQuery({ ...repoQueries.readme(owner, name), enabled: !!branch });
@@ -214,15 +233,23 @@ function About({ repo, onSelect }: { repo: RepoDetail; onSelect: (tab: RepoTab) 
           )}
         </h2>
         <div className="repo-shortcuts" role="group" aria-label="Repository tasks">
-          <button onClick={() => onSelect("pulls")} aria-label="Review pull requests">
-            <GitPullRequestIcon size={20} />
-            <span className="bold">Pull requests</span>
-            <span className="small muted">{compactNumber(repo.pullRequests.totalCount)} open</span>
-          </button>
+          {guest ? (
+            <button onClick={() => onSelect("code")} aria-label="Browse code">
+              <CodeIcon size={20} />
+              <span className="bold">Code</span>
+              <span className="small muted">Browse files</span>
+            </button>
+          ) : (
+            <button onClick={() => onSelect("pulls")} aria-label="Review pull requests">
+              <GitPullRequestIcon size={20} />
+              <span className="bold">Pull requests</span>
+              <span className="small muted">{compactNumber(repo.pullRequests.totalCount)} open</span>
+            </button>
+          )}
           <button onClick={() => onSelect("releases")} aria-label="Download releases">
             <TagIcon size={20} />
             <span className="bold">Releases</span>
-            <span className="small muted">{compactNumber(repo.releases.totalCount)} releases</span>
+            <span className="small muted">{guest ? "Download" : `${compactNumber(repo.releases.totalCount)} releases`}</span>
           </button>
           <button onClick={() => onSelect("actions")} aria-label="View build runs">
             <PlayIcon size={20} />
@@ -244,11 +271,18 @@ function About({ repo, onSelect }: { repo: RepoDetail; onSelect: (tab: RepoTab) 
         )}
         {repo.repositoryTopics.nodes.length > 0 && (
           <div className="wrap-flex" style={{ margin: "6px 0" }}>
-            {repo.repositoryTopics.nodes.map((t) => (
-              <Link key={t.topic.name} {...to.search(`topic:${t.topic.name}`, "repos")} className="pill pill-accent">
-                {t.topic.name}
-              </Link>
-            ))}
+            {repo.repositoryTopics.nodes.map((t) =>
+              // Search needs a token.
+              guest ? (
+                <span key={t.topic.name} className="pill pill-accent">
+                  {t.topic.name}
+                </span>
+              ) : (
+                <Link key={t.topic.name} {...to.search(`topic:${t.topic.name}`, "repos")} className="pill pill-accent">
+                  {t.topic.name}
+                </Link>
+              ),
+            )}
           </div>
         )}
         <div className="stats-row">
@@ -290,7 +324,7 @@ function About({ repo, onSelect }: { repo: RepoDetail; onSelect: (tab: RepoTab) 
                 )}
               </span>
             </span>
-            {repo.releases.totalCount > 1 && <span className="muted small nowrap">+{repo.releases.totalCount - 1} more</span>}
+            {!guest && repo.releases.totalCount > 1 && <span className="muted small nowrap">+{repo.releases.totalCount - 1} more</span>}
           </Link>
         )}
       </div>

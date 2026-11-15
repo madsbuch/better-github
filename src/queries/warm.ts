@@ -2,6 +2,7 @@
 // view, or is followed, so data is usually cached before the screen renders.
 
 import type { FetchInfiniteQueryOptions, FetchQueryOptions, QueryClient } from "@tanstack/react-query";
+import { isGuest } from "../lib/guest";
 import { viewerQueries } from "./viewer";
 
 // Each factory in src/queries returns one of these.
@@ -29,6 +30,11 @@ export async function warm(
   primary: AnyOptions[],
   { secondary = [], preload = false }: { secondary?: AnyOptions[]; preload?: boolean } = {},
 ): Promise<void> {
+  // Guests have 60 requests an hour: load only what is actually opened.
+  if (isGuest()) {
+    if (preload) return;
+    secondary = [];
+  }
   const ready = Promise.all(primary.map((options) => load(queryClient, options)));
   if (!preload) secondary.forEach((options) => void load(queryClient, options));
   await Promise.race([ready, new Promise((resolve) => setTimeout(resolve, NAVIGATION_WAIT_MS))]);
@@ -36,6 +42,7 @@ export async function warm(
 
 /** Fills the cache for the main tabs right after startup, so switching tabs never waits. */
 export function warmStartup(queryClient: QueryClient) {
+  if (isGuest()) return;
   const options: AnyOptions[] = [
     viewerQueries.repos("yours"),
     viewerQueries.repos("starred"),

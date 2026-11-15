@@ -33,6 +33,11 @@ A fast GitHub client for Android, built around your repositories with [Tauri 2](
 - Tap an asset, or the source code as zip or tar.gz, to download it. Android's download manager saves it with a progress notification; the release page also shows progress and an **Open** action once it finishes. Download references survive navigation and app restarts, so opening the release again doesn't download a second copy. This works for private repositories too.
 - Opening an APK launches Android's installer. If Android first asks to allow installs from Better GitHub, grant that permission, return to the release and tap **Open** again. Failed or deleted downloads can be retried, and a separate download button lets you fetch another copy.
 
+**Browse without signing in**
+- *Browse without signing in* on the sign-in screen opens a guest mode: add GitHub users and organizations to a list, and the app shows their public repositories, newest first, with a filter per profile.
+- Guests can open profiles, a repository's overview and README, code, commits, releases (including downloads) and Actions runs. Pull request and issue lists, search and notifications need GitHub's GraphQL API, which always needs a token, so they appear once you sign in.
+- Without a token, GitHub allows 60 requests an hour, so guest mode loads only what you open (no preloading) and keeps data for 10 minutes. Settings shows how many requests are left. The list of profiles stays on the device; signing in leaves guest mode.
+
 **Everything else**
 - Notifications inbox grouped by repository: filter unread, participating or all; mark done; mark all as read. Opening a notification goes to the matching PR or issue in the app.
 - Repositories: yours and starred, with filtering. Each repo shows its README, a code browser with a branch switcher, PRs, issues, Actions and commits. You can also star repos.

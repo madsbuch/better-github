@@ -113,13 +113,25 @@ fn rejects_malformed_client_ids() {
 }
 
 #[test]
-fn api_calls_require_a_session() {
+fn guests_can_read_but_not_write() {
     let h = harness("unauthenticated");
     let err = h
-        .invoke("gh_rest", json!({ "request": { "path": "/user" } }))
+        .invoke(
+            "gh_rest",
+            json!({ "request": { "method": "PUT", "path": "/user/starred/o/r" } }),
+        )
         .unwrap_err();
     assert_eq!(err["kind"], "not_authenticated");
     assert_eq!(err["status"], 401);
+
+    // Reads go out without a token, still only to api.github.com.
+    let err = h
+        .invoke(
+            "gh_rest",
+            json!({ "request": { "path": "https://example.com/steal" } }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "invalid");
 
     let err = h
         .invoke(
@@ -163,13 +175,14 @@ fn job_logs_take_the_frontends_arguments_and_check_names() {
 #[test]
 fn download_links_take_the_frontends_arguments_and_check_them() {
     let h = harness("downloads");
+    // Guests can download from public repositories; names are checked first.
     let err = h
         .invoke(
             "gh_asset_url",
-            json!({ "owner": "octo", "repo": "app", "assetId": 1 }),
+            json!({ "owner": "..", "repo": "app", "assetId": 1 }),
         )
         .unwrap_err();
-    assert_eq!(err["kind"], "not_authenticated");
+    assert_eq!(err["kind"], "invalid");
 
     h.sign_in_offline();
     let err = h

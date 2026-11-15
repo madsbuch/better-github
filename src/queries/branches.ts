@@ -4,6 +4,8 @@ import { graphql } from "../lib/api";
 import type { Branch } from "../lib/branchSearch";
 import { REPO_BRANCHES, SEARCH_BRANCHES } from "../lib/queries";
 import type { BranchNameNode, RepoBranchesResult, SearchBranchesResult } from "../lib/types";
+import { isGuest } from "../lib/guest";
+import { guestBranchPage } from "./guest";
 import { keys } from "./keys";
 
 /** Pages of 100, so up to 3,000 branches. Past that, typing also searches GitHub. */
@@ -25,6 +27,11 @@ export const branchQueries = {
     infiniteQueryOptions({
       queryKey: keys.repo.branchList(owner, repo),
       queryFn: async ({ pageParam }): Promise<BranchPage> => {
+        if (isGuest()) {
+          // REST lists branches by name, without a total or commit dates.
+          const page = await guestBranchPage(owner, repo, pageParam);
+          return { defaultBranch: null, total: page.branches.length, ...page };
+        }
         const { repository } = await graphql<RepoBranchesResult>(REPO_BRANCHES, { owner, name: repo, after: pageParam });
         const refs = repository?.refs;
         return {
@@ -45,7 +52,9 @@ export const branchQueries = {
     queryOptions({
       queryKey: keys.repo.branchSearch(owner, repo, query),
       queryFn: async () =>
-        ((await graphql<SearchBranchesResult>(SEARCH_BRANCHES, { owner, name: repo, query })).repository?.refs?.nodes ?? []).map(toBranch),
+        isGuest()
+          ? [] // No branch search without a token; the loaded list is filtered instead.
+          : ((await graphql<SearchBranchesResult>(SEARCH_BRANCHES, { owner, name: repo, query })).repository?.refs?.nodes ?? []).map(toBranch),
       staleTime: 2 * 60_000,
       meta: { persist: false },
     }),

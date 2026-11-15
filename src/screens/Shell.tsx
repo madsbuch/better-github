@@ -1,9 +1,9 @@
-import { RepoIcon } from "@primer/octicons-react";
+import { PeopleIcon, RepoIcon } from "@primer/octicons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useLocation, useRouterState, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { to, useNav } from "../lib/nav";
-import { useViewer } from "../lib/session";
+import { useSessionApi } from "../lib/session";
 import { warmStartup } from "../queries/warm";
 import { Avatar, ErrorView, SkeletonList } from "../components/ui";
 
@@ -67,7 +67,7 @@ function ProgressBar() {
 }
 
 function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) {
-  const viewer = useViewer();
+  const { state } = useSessionApi();
   const nav = useNav();
 
   return (
@@ -77,7 +77,10 @@ function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) 
         const active = tab.id === current;
         let icon: ReactNode;
         if (tab.id === "repos") icon = <RepoIcon size={20} />;
-        else icon = <Avatar src={viewer.avatarUrl} size={22} />;
+        else if (state.status === "signed-in") icon = <Avatar src={state.session.avatarUrl} size={22} />;
+        else icon = <PeopleIcon size={20} />;
+        // Guests have no account; their second tab lists the profiles they follow.
+        const label = tab.id === "profile" && state.status !== "signed-in" ? "Profiles" : tab.label;
         return (
           <button
             key={tab.id}
@@ -91,7 +94,7 @@ function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) 
             <span className="tab-icon">
               {icon}
             </span>
-            {tab.label}
+            {label}
           </button>
         );
       })}

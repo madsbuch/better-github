@@ -1,4 +1,4 @@
-import { CopyIcon, KeyIcon, LinkExternalIcon, MarkGithubIcon } from "@primer/octicons-react";
+import { CopyIcon, EyeIcon, KeyIcon, LinkExternalIcon, MarkGithubIcon } from "@primer/octicons-react";
 import { useEffect, useRef, useState } from "react";
 import { errorMessage } from "../lib/api";
 import { backend, type AuthConfig, type DeviceCode } from "../lib/backend";
@@ -17,7 +17,7 @@ type DeviceState =
   | { step: "finishing" };
 
 export function LoginScreen() {
-  const { signedIn } = useSessionApi();
+  const { signedIn, browseAsGuest } = useSessionApi();
   const toast = useToast();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [device, setDevice] = useState<DeviceState>({ step: "idle" });
@@ -322,6 +322,14 @@ export function LoginScreen() {
           </button>
         </div>
       )}
+
+      <div className="divider">or</div>
+      <button className="btn btn-block" onClick={browseAsGuest}>
+        <EyeIcon size={16} /> Browse without signing in
+      </button>
+      <p className="small" style={{ marginTop: -8 }}>
+        Follow users and organizations to browse their public repositories, code and releases.
+      </p>
 
       {backend.native && config?.clientId && !showClientId && (
         <button className="link-btn small" style={{ alignSelf: "center" }} onClick={() => setShowClientId(true)}>

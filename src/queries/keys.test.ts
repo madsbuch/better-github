@@ -17,6 +17,11 @@ describe("query keys", () => {
     expect(keys.repo.all("OCTO", "x")).toEqual(["repo", "octo", "x"]);
   });
 
+  it("keep an owner's guest data under the owner", () => {
+    expect(keys.guest.repos("Octo").slice(0, 2)).toEqual(keys.owner("octo"));
+    expect(keys.guest.profile("Octo").slice(0, 2)).toEqual(keys.owner("octo"));
+  });
+
   it("nest everything about a repository under it", () => {
     const repo = keys.repo.all("o", "r");
     for (const key of [keys.pull.timeline("o", "r", 1), keys.issue.detail("o", "r", 2), keys.actions.jobLog("o", "r", 3), keys.repo.readme("o", "r")]) {

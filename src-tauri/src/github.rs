@@ -1,5 +1,8 @@
 //! Thin authenticated proxy to the GitHub REST and GraphQL APIs.
 //!
+//! Without a session (guest mode), REST reads and download links go out
+//! without a token, so public data stays browsable; writes need a token.
+//!
 //! The token never leaves the Rust side. Requests can only target
 //! `https://api.github.com`, so a compromised page cannot exfiltrate the
 //! token by pointing a request at another host.
@@ -172,15 +175,34 @@ async fn api_error(status: StatusCode, response: reqwest::Response) -> Error {
     }
 }
 
-pub async fn rest(client: &Client, token: &str, request: RestRequest) -> Result<RestResponse> {
+/// Guests (no token) may only read.
+fn check_anonymous(method: &Method, token: Option<&str>) -> Result<()> {
+    if token.is_none() && method != Method::GET {
+        return Err(Error::NotAuthenticated);
+    }
+    Ok(())
+}
+
+/// Adds the token, when there is one.
+fn authorize(builder: reqwest::RequestBuilder, token: Option<&str>) -> reqwest::RequestBuilder {
+    match token {
+        Some(token) => builder.header(AUTHORIZATION, format!("Bearer {token}")),
+        None => builder,
+    }
+}
+
+/// A REST call; `token` is `None` in guest mode, which allows only reads.
+pub async fn rest(
+    client: &Client,
+    token: Option<&str>,
+    request: RestRequest,
+) -> Result<RestResponse> {
     let method = parse_method(request.method.as_deref())?;
+    check_anonymous(&method, token)?;
     let url = resolve_url(&request.path, request.query.as_ref())?;
     let accept = request.accept.as_deref().unwrap_or(DEFAULT_ACCEPT);
 
-    let mut builder = client
-        .request(method, url)
-        .header(AUTHORIZATION, format!("Bearer {token}"))
-        .header(ACCEPT, accept);
+    let mut builder = authorize(client.request(method, url), token).header(ACCEPT, accept);
     if let Some(body) = &request.body {
         builder = builder.json(body);
     }
@@ -406,10 +428,13 @@ fn ref_segments(git_ref: &str) -> Result<Vec<&str>> {
 /// Asks the API for a download and returns where it redirects: a
 /// short-lived signed URL that needs no token, so the device's download
 /// manager can fetch it. The client must not follow redirects.
-async fn signed_location(client: &Client, token: &str, url: Url, accept: &str) -> Result<String> {
-    let response = client
-        .get(url)
-        .header(AUTHORIZATION, format!("Bearer {token}"))
+async fn signed_location(
+    client: &Client,
+    token: Option<&str>,
+    url: Url,
+    accept: &str,
+) -> Result<String> {
+    let response = authorize(client.get(url), token)
         .header(ACCEPT, accept)
         .send()
         .await?;
@@ -435,10 +460,10 @@ async fn signed_location(client: &Client, token: &str, url: Url, accept: &str) -
     Err(Error::Invalid("GitHub sent no download link".into()))
 }
 
-/// A release asset's download link.
+/// A release asset's download link. Without a token, public repositories only.
 pub async fn asset_url(
     client: &Client,
-    token: &str,
+    token: Option<&str>,
     owner: &str,
     repo: &str,
     asset_id: u64,
@@ -460,7 +485,7 @@ pub async fn asset_url(
 /// A zip or tar.gz of the source at a ref (a release's "Source code").
 pub async fn archive_url(
     client: &Client,
-    token: &str,
+    token: Option<&str>,
     owner: &str,
     repo: &str,
     git_ref: &str,
@@ -638,6 +663,18 @@ mod tests {
         let whole = tail_text(b"first\nsecond\n".to_vec(), 100, false);
         assert!(!whole.truncated);
         assert_eq!(whole.text, "first\nsecond\n");
+    }
+
+    #[test]
+    fn guests_can_only_read() {
+        assert!(check_anonymous(&Method::GET, None).is_ok());
+        for method in [Method::POST, Method::PUT, Method::PATCH, Method::DELETE] {
+            assert!(matches!(
+                check_anonymous(&method, None),
+                Err(Error::NotAuthenticated)
+            ));
+            assert!(check_anonymous(&method, Some("gho_x")).is_ok());
+        }
     }
 
     #[test]

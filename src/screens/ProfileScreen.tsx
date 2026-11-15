@@ -16,12 +16,17 @@ import { Link } from "@tanstack/react-router";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
 import { to } from "../lib/nav";
-import { useSessionApi, useViewer } from "../lib/session";
+import { useIsGuest, useSessionApi, useViewer } from "../lib/session";
 import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 import { Avatar, ErrorView } from "../components/ui";
+import { GuestProfilesScreen } from "./GuestScreens";
 
 export function ProfileScreen() {
+  return useIsGuest() ? <GuestProfilesScreen /> : <AccountProfileScreen />;
+}
+
+function AccountProfileScreen() {
   const session = useViewer();
   const { signOut } = useSessionApi();
   const viewer = useQuery(viewerQueries.profile());

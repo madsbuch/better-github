@@ -891,12 +891,67 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
   }
 }
 
+// Guest mode's REST endpoints (src/queries/guest.ts): public data only.
+const PROFILES: Record<string, Record<string, unknown>> = {
+  acme: { login: "acme", type: "Organization", name: "Acme Inc.", bio: "We build rockets.", location: "Earth", avatar_url: avatar(9), followers: 1200, public_repos: 2 },
+  octocat: { login: "octocat", type: "User", name: "The Octocat", bio: "GitHub's mascot", company: "@github", avatar_url: avatar(1), followers: 9000, following: 9, public_repos: 1 },
+};
+
+function restRepo(repo: (typeof REPOS)[number]) {
+  return {
+    node_id: repo.id,
+    name: repo.name,
+    full_name: repo.nameWithOwner,
+    description: repo.description,
+    html_url: `https://github.com/${repo.nameWithOwner}`,
+    homepage: repo.name === "rocket" ? "https://rocket.acme.dev" : null,
+    private: repo.isPrivate,
+    fork: false,
+    archived: false,
+    stargazers_count: repo.stargazerCount,
+    forks_count: 12,
+    subscribers_count: 40,
+    open_issues_count: 3,
+    has_issues: true,
+    pushed_at: repo.pushedAt,
+    default_branch: "main",
+    size: 1024,
+    language: repo.primaryLanguage.name,
+    topics: repo.name === "rocket" ? ["uploads", "rust"] : [],
+    license: { spdx_id: "MIT", name: "MIT License" },
+    owner: { login: repo.owner.login, avatar_url: repo.owner.avatarUrl },
+  };
+}
+
+function guestRest(path: string): unknown {
+  if (path === "/rate_limit") return { resources: { core: { limit: 60, remaining: 52, reset: Math.floor(now / 1000) + 1800 } } };
+  const user = /^\/users\/([^/]+)$/.exec(path);
+  if (user) {
+    const profile = PROFILES[user[1].toLowerCase()];
+    return profile ? { ...profile, html_url: `https://github.com/${profile.login}` } : NOT_FOUND;
+  }
+  const userRepos = /^\/users\/([^/]+)\/repos$/.exec(path);
+  if (userRepos) {
+    if (!PROFILES[userRepos[1].toLowerCase()]) return NOT_FOUND;
+    return REPOS.filter((r) => !r.isPrivate && r.owner.login === userRepos[1].toLowerCase()).map(restRepo);
+  }
+  const repo = /^\/repos\/([^/]+)\/([^/]+)$/.exec(path);
+  if (repo) {
+    const found = REPOS.find((r) => r.nameWithOwner.toLowerCase() === `${repo[1]}/${repo[2]}`.toLowerCase() && !r.isPrivate);
+    return found ? restRepo(found) : NOT_FOUND;
+  }
+  if (/^\/repos\/[^/]+\/[^/]+\/branches$/.test(path)) return [{ name: "main" }, { name: "staging" }, { name: "eng-629-retries" }];
+  return undefined;
+}
+
 function restBody(request: RestRequest): unknown {
   const path = request.path.replace(/^https:\/\/api\.github\.com/, "").split("?")[0];
   const method = request.method ?? "GET";
   const newPull = newPullRest(path, method, request);
   if (newPull !== undefined) return newPull;
   if (method !== "GET") return {};
+  const guest = guestRest(path);
+  if (guest !== undefined) return guest;
   if (path === "/notifications") {
     const all = request.query?.all === true;
     return all ? NOTIFICATIONS : NOTIFICATIONS.filter((n) => n.unread);

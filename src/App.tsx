@@ -14,6 +14,7 @@ export function App() {
       </div>
     );
   }
-  // Routes (src/routes) only load once signed in, so loaders never run without a token.
+  // Routes (src/routes) only load once signed in or browsing as a guest; guest
+  // loaders use REST only (see lib/guest.ts).
   return <RouterProvider router={router} />;
 }
