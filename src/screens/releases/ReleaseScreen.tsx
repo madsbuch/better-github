@@ -41,16 +41,12 @@ export function ReleaseScreen({ owner, repo, lookup }: { owner: string; repo: st
   const [menu, setMenu] = useState(false);
   const release = useQuery(releaseQueries.one(owner, repo, lookup));
   const detail = useQuery(repoQueries.detail(owner, repo));
-  const download = useDownload();
   const r = release.data;
   const latest = !!r && detail.data?.repository?.latestRelease?.tagName === r.tag_name;
   const fallback = lookup === "latest" ? "Latest release" : "tag" in lookup ? lookup.tag : "Release";
   const url = r?.html_url ?? `https://github.com/${owner}/${repo}/releases`;
   // A draft's tag may not exist yet, so there's no source to download.
   const archives: ("zip" | "tar")[] = r?.draft ? [] : ["zip", "tar"];
-
-  const start = (target: DownloadTarget, file: DownloadFile) => download.mutate({ target, file });
-  const busy = (name: string) => download.isPending && download.variables?.file.name === name;
 
   return (
     <Screen
@@ -96,13 +92,8 @@ export function ReleaseScreen({ owner, repo, lookup }: { owner: string; repo: st
                   {formatBytes(asset.size)} · {compactNumber(asset.download_count)} download{asset.download_count === 1 ? "" : "s"}
                 </>
               }
-              busy={busy(asset.name)}
-              onDownload={() =>
-                start(
-                  { kind: "asset", owner, repo, assetId: asset.id, browserUrl: asset.browser_download_url },
-                  { name: asset.name, contentType: asset.content_type },
-                )
-              }
+              target={{ kind: "asset", owner, repo, assetId: asset.id, browserUrl: asset.browser_download_url }}
+              file={{ name: asset.name, contentType: asset.content_type }}
             />
           ))}
           {archives.map((format) => {
@@ -113,13 +104,8 @@ export function ReleaseScreen({ owner, repo, lookup }: { owner: string; repo: st
                 icon={<FileCodeIcon size={16} />}
                 name={`Source code (${format === "zip" ? "zip" : "tar.gz"})`}
                 meta={name}
-                busy={busy(name)}
-                onDownload={() =>
-                  start(
-                    { kind: "archive", owner, repo, ref: r!.tag_name, format },
-                    { name, contentType: format === "zip" ? "application/zip" : "application/gzip" },
-                  )
-                }
+                target={{ kind: "archive", owner, repo, ref: r!.tag_name, format }}
+                file={{ name, contentType: format === "zip" ? "application/zip" : "application/gzip" }}
               />
             );
           })}
@@ -167,27 +153,39 @@ function DownloadRow({
   icon,
   name,
   meta,
-  busy,
-  onDownload,
+  target,
+  file,
 }: {
   icon: ReactNode;
   name: string;
   meta: ReactNode;
-  busy: boolean;
-  onDownload: () => void;
+  target: DownloadTarget;
+  file: DownloadFile;
 }) {
+  const download = useDownload(target, file);
+  const action = download.complete ? "Open" : download.retry ? "Retry download" : "Download";
   return (
-    <button className="row" onClick={onDownload} disabled={busy} aria-label={`Download ${name}`}>
-      <span className="row-icon c-muted">{icon}</span>
-      <span className="row-body">
-        <span className="bold" style={{ display: "block", overflowWrap: "anywhere" }}>
-          {name}
+    <div className="download-row">
+      <button className="row" onClick={download.complete ? download.open : download.start} disabled={download.busy} aria-label={`${action} ${name}`}>
+        <span className="row-icon c-muted">{icon}</span>
+        <span className="row-body">
+          <span className="bold" style={{ display: "block", overflowWrap: "anywhere" }}>
+            {name}
+          </span>
+          <span className="muted small" style={{ overflowWrap: "anywhere" }}>
+            {meta}
+          </span>
+          {download.message && <span className="download-status small" role="status">{download.message}</span>}
         </span>
-        <span className="muted small" style={{ overflowWrap: "anywhere" }}>
-          {meta}
+        <span className="row-trailing c-accent">
+          {download.busy ? <Spinner small /> : download.complete ? "Open" : <DownloadIcon size={18} />}
         </span>
-      </span>
-      <span className="row-trailing c-accent">{busy ? <Spinner small /> : <DownloadIcon size={18} />}</span>
-    </button>
+      </button>
+      {download.complete && (
+        <button className="icon-btn" aria-label={`Download ${name} again`} onClick={download.start} disabled={download.busy}>
+          <DownloadIcon size={18} />
+        </button>
+      )}
+    </div>
   );
 }

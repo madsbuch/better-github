@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { open, screenTitle, trackErrors } from "./helpers";
 
 const SCREENS: [string, string | RegExp][] = [
-  ["/", "Pull requests"],
+  ["/", "Repositories"],
+  ["/pulls", "Pull requests"],
   ["/notifications", "Inbox"],
   ["/repos", "Repositories"],
   ["/repos?tab=starred", "Repositories"],

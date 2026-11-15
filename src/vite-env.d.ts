@@ -9,7 +9,7 @@ interface Window {
   /** Added to the web view by the Android app (BrowserTabs.kt); absent elsewhere. */
   readonly GhCommanderAndroid?: { openBrowserTab(url: string): boolean };
   /** Android's download manager (Downloads.kt); absent elsewhere. */
-  readonly GhCommanderDownloads?: { download(url: string, fileName: string, mimeType: string): boolean };
+  readonly GhCommanderDownloads?: import("./lib/downloads").AndroidDownloadManager;
   /** The device's dark theme setting, and the colours of the system bars (Theme.kt); absent elsewhere. */
   readonly GhCommanderTheme?: { systemDark(): boolean; apply(dark: boolean): void };
 }

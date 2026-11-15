@@ -1,18 +1,15 @@
-import { BellIcon, GitPullRequestIcon, RepoIcon } from "@primer/octicons-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { RepoIcon } from "@primer/octicons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useLocation, useRouterState, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { to, useNav } from "../lib/nav";
 import { useViewer } from "../lib/session";
-import { notificationQueries } from "../queries/notifications";
 import { warmStartup } from "../queries/warm";
 import { Avatar, ErrorView, SkeletonList } from "../components/ui";
 
-type TabId = "inbox" | "notifications" | "repos" | "profile";
+type TabId = "repos" | "profile";
 
 const TABS: { id: TabId; label: string; path: string; target: ReturnType<(typeof to)[TabId]> }[] = [
-  { id: "inbox", label: "Pull requests", path: "/", target: to.inbox() },
-  { id: "notifications", label: "Inbox", path: "/notifications", target: to.notifications() },
   { id: "repos", label: "Repos", path: "/repos", target: to.repos() },
   { id: "profile", label: "You", path: "/profile", target: to.profile() },
 ];
@@ -72,7 +69,6 @@ function ProgressBar() {
 function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) {
   const viewer = useViewer();
   const nav = useNav();
-  const unread = useQuery(notificationQueries.hasUnread());
 
   return (
     <nav className={`main-nav ${rail ? "nav-rail" : "tabbar"}`} aria-label="Main">
@@ -80,9 +76,7 @@ function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) 
       {TABS.map((tab) => {
         const active = tab.id === current;
         let icon: ReactNode;
-        if (tab.id === "inbox") icon = <GitPullRequestIcon size={20} />;
-        else if (tab.id === "notifications") icon = <BellIcon size={20} />;
-        else if (tab.id === "repos") icon = <RepoIcon size={20} />;
+        if (tab.id === "repos") icon = <RepoIcon size={20} />;
         else icon = <Avatar src={viewer.avatarUrl} size={22} />;
         return (
           <button
@@ -96,7 +90,6 @@ function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) 
           >
             <span className="tab-icon">
               {icon}
-              {tab.id === "notifications" && unread.data && <span className="tab-dot" />}
             </span>
             {tab.label}
           </button>

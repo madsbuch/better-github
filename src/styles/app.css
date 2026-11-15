@@ -1784,6 +1784,32 @@ details.disclosure[open] > summary {
 
 /* --------------------------------------------------------------- releases */
 
+.repo-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.repo-shortcuts button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 96px;
+  padding: 12px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  font-size: 14px;
+  text-align: center;
+}
+
+.repo-shortcuts button:active {
+  background: var(--bg-active);
+}
+
 .latest-release {
   display: flex;
   align-items: center;
@@ -1791,6 +1817,26 @@ details.disclosure[open] > summary {
   margin-top: 12px;
   padding: 10px 12px;
   color: inherit;
+}
+
+.download-row {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.download-row > .row {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.download-status {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
 }
 
 /* Use the current window width, so rotation and Android split-screen adapt

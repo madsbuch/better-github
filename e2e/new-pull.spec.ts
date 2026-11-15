@@ -3,7 +3,7 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 
 test("open a pull request from a branch you just pushed", async ({ page }) => {
   const errors = trackErrors(page);
-  await open(page, "/");
+  await open(page, "/pulls");
   // Only your own fresh branch without a pull request is suggested.
   const prompts = activeScreen(page).locator(".branch-prompt");
   await expect(prompts).toHaveCount(1);
@@ -103,10 +103,10 @@ test("start from the repository's pull requests and pick a branch", async ({ pag
 });
 
 test("dismissed suggestions stay dismissed", async ({ page }) => {
-  await open(page, "/");
+  await open(page, "/pulls");
   await activeScreen(page).getByRole("button", { name: "Dismiss octocat/faster-uploads" }).click();
   await expect(activeScreen(page).locator(".branch-prompt")).toHaveCount(0);
-  await open(page, "/");
+  await open(page, "/pulls");
   await expect(activeScreen(page).locator("a.row").first()).toBeVisible();
   await expect(activeScreen(page).locator(".branch-prompt")).toHaveCount(0);
 });

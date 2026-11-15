@@ -32,7 +32,12 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       expect(rail.x + rail.width).toBeLessThanOrEqual(content.x + 1);
       await expectWithinViewport(page, navigation);
       await expect(page.locator(".tabbar")).toBeHidden();
+      await expect(screenTitle(page)).toHaveText("Repositories");
+      await expect(navigation.getByRole("button")).toHaveText(["Repos", "You"]);
 
+      await activeScreen(page).locator("a.row").first().tap();
+      await expect(screenTitle(page)).toHaveText("rocket");
+      await activeScreen(page).getByRole("button", { name: "Review pull requests" }).tap();
       await activeScreen(page).locator("a.row").first().tap();
       await expect(screenTitle(page)).toHaveText(/^Add retry/);
       await expect(navigation).toBeVisible();
@@ -41,8 +46,8 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       await expect(navigation.getByRole("button", { name: "Repos", exact: true })).toHaveAttribute("aria-current", "page");
       await activeScreen(page).locator("a.row").first().tap();
       await expect(screenTitle(page)).toHaveText("rocket");
-      await navigation.getByRole("button", { name: "Inbox", exact: true }).tap();
-      await expect(screenTitle(page)).toHaveText("Inbox");
+      await navigation.getByRole("button", { name: "You", exact: true }).tap();
+      await expect(screenTitle(page)).toHaveText("You");
       await expectNoPageOverflow(page);
       expect(errors).toEqual([]);
     });

@@ -3,6 +3,7 @@ import { clearCache } from "../queries/client";
 import { onUnauthorized } from "./api";
 import { backend, type SessionInfo } from "./backend";
 import { toast } from "./toast";
+import { clearDownloads } from "./downloads";
 
 type SessionState = { status: "signed-out" } | { status: "signed-in"; session: SessionInfo };
 
@@ -24,6 +25,7 @@ export function SessionProvider({ initial, children }: { initial: SessionInfo | 
     } finally {
       // Nothing from this account may outlive the session, on screen or on disk.
       await clearCache().catch(() => undefined);
+      clearDownloads();
       setState({ status: "signed-out" });
     }
   }, []);

@@ -1,8 +1,13 @@
 # Better GitHub
 
-A fast, review-focused GitHub client for Android, built with [Tauri 2](https://tauri.app), React and Rust.
+A fast GitHub client for Android, built around your repositories with [Tauri 2](https://tauri.app), React and Rust.
 
 ## Features
+
+**Repository home**
+- The app opens on your repositories, with filtering and a Starred tab. Primary navigation is *Repos · You*.
+- Each repository's Overview puts *Pull requests*, *Releases* and *Builds* up front: review changes, download a release, or inspect and retry a workflow run.
+- Account-wide pull requests and notifications remain available under *You*.
 
 **Pull requests**
 - **Branch picker** for repositories with many branches: every branch is loaded ahead of time, and typing ranks them, the branch you named first, then names starting with it, then ones containing it. Words can come in any order, separators can be left out ("eng629" finds `eng-629-…`), and Enter picks the top match.
@@ -24,8 +29,9 @@ A fast, review-focused GitHub client for Android, built with [Tauri 2](https://t
 - A job shows its steps (updating live while it runs) and each step's output: colored, with collapsible groups, errors and warnings highlighted. Failed steps open by themselves. GitHub's API only publishes a job's log once the job has finished, so a running job links to the live log on github.com.
 
 **Releases**
-- Every repository has a *Releases* tab, and its About tab shows the latest release. A release shows its notes, tag and assets.
-- Tap an asset, or the source code as zip or tar.gz, to download it. Android's download manager saves it to Downloads with a progress notification, and tapping the notification opens it (an APK installs). This works for private repositories too.
+- Every repository has a *Releases* tab, and its Overview shows the latest release. A release shows its notes, tag and assets.
+- Tap an asset, or the source code as zip or tar.gz, to download it. Android's download manager saves it with a progress notification; the release page also shows progress and an **Open** action once it finishes. Download references survive navigation and app restarts, so opening the release again doesn't download a second copy. This works for private repositories too.
+- Opening an APK launches Android's installer. If Android first asks to allow installs from Better GitHub, grant that permission, return to the release and tap **Open** again. Failed or deleted downloads can be retried, and a separate download button lets you fetch another copy.
 
 **Everything else**
 - Notifications inbox grouped by repository: filter unread, participating or all; mark done; mark all as read. Opening a notification goes to the matching PR or issue in the app.
@@ -131,7 +137,7 @@ Open this link on your phone or tablet and install the APK (Android asks you to 
 
 **<https://github.com/madsbuch/better-github/releases/download/latest/better-github.apk>**
 
-If GitHub's own app is installed, Android may open github.com links in it instead of downloading the file. Paste the link into your browser's address bar instead. The installed app is called **Better GitHub**, and its navigation reads *Pull requests · Inbox · Repos · You* — along the bottom on phones and in a side rail on tablets.
+If GitHub's own app is installed, Android may open github.com links in it instead of downloading the file. Paste the link into your browser's address bar instead. The installed app is called **Better GitHub**, and its navigation reads *Repos · You* — along the bottom on phones and in a side rail on tablets.
 
 Every push to `main` rebuilds the APK and replaces it in the [`latest` release](https://github.com/madsbuch/better-github/releases/tag/latest), so the link always serves the newest build. Each build gets a higher Android `versionCode`, so a newer APK installs as an update and keeps your sign-in. Builds of other branches and pull requests are attached to their **Android** workflow run as the `better-github-apk` artifact.
 

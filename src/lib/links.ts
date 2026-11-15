@@ -35,7 +35,7 @@ export function appLinkForUrl(href: string): LinkTarget | null {
       return s;
     }
   });
-  if (segments.length === 0) return to.inbox();
+  if (segments.length === 0) return to.repos();
   const [owner, repo, kind, id, ...rest] = segments;
 
   if (segments.length === 1) {

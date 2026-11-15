@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as NotificationsRouteImport } from "./routes/notifications";
 import { Route as ProfileRouteImport } from "./routes/profile";
+import { Route as PullsRouteImport } from "./routes/pulls";
 import { Route as ReposRouteImport } from "./routes/repos";
 import { Route as SearchRouteImport } from "./routes/search";
 import { Route as SettingsRouteImport } from "./routes/settings";
@@ -44,6 +45,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: "/profile",
   path: "/profile",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PullsRoute = PullsRouteImport.update({
+  id: "/pulls",
+  path: "/pulls",
   getParentRoute: () => rootRouteImport,
 } as any);
 const ReposRoute = ReposRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/notifications": typeof NotificationsRoute;
   "/profile": typeof ProfileRoute;
+  "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
   "/settings": typeof SettingsRoute;
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/notifications": typeof NotificationsRoute;
   "/profile": typeof ProfileRoute;
+  "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
   "/settings": typeof SettingsRoute;
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   "/": typeof IndexRoute;
   "/notifications": typeof NotificationsRoute;
   "/profile": typeof ProfileRoute;
+  "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
   "/settings": typeof SettingsRoute;
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | "/"
     | "/notifications"
     | "/profile"
+    | "/pulls"
     | "/repos"
     | "/search"
     | "/settings"
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | "/"
     | "/notifications"
     | "/profile"
+    | "/pulls"
     | "/repos"
     | "/search"
     | "/settings"
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | "/"
     | "/notifications"
     | "/profile"
+    | "/pulls"
     | "/repos"
     | "/search"
     | "/settings"
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   NotificationsRoute: typeof NotificationsRoute;
   ProfileRoute: typeof ProfileRoute;
+  PullsRoute: typeof PullsRoute;
   ReposRoute: typeof ReposRoute;
   SearchRoute: typeof SearchRoute;
   SettingsRoute: typeof SettingsRoute;
@@ -327,6 +340,13 @@ declare module "@tanstack/react-router" {
       path: "/profile";
       fullPath: "/profile";
       preLoaderRoute: typeof ProfileRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pulls": {
+      id: "/pulls";
+      path: "/pulls";
+      fullPath: "/pulls";
+      preLoaderRoute: typeof PullsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/repos": {
@@ -462,6 +482,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
+  PullsRoute: PullsRoute,
   ReposRoute: ReposRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,

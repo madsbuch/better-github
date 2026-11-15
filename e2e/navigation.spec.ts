@@ -5,7 +5,7 @@ const PR_TITLE = /^Add retry with exponential backoff/;
 
 test("back closes a sheet before leaving the screen", async ({ page }) => {
   const errors = trackErrors(page);
-  await open(page, "/");
+  await open(page, "/pulls");
   await activeScreen(page).locator("a.row").first().click();
   await expect(screenTitle(page)).toHaveText(PR_TITLE);
 
@@ -25,7 +25,7 @@ test("back closes a sheet before leaving the screen", async ({ page }) => {
   // ...and then leaves the screen.
   await page.goBack();
   await expect(screenTitle(page)).toHaveText("Pull requests");
-  await expect(page.locator(".tabbar")).toBeVisible();
+  await expect(page.locator(".tabbar")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -58,6 +58,9 @@ test("picking a branch in the sheet switches the ref", async ({ page }) => {
 test("bottom tabs switch root screens and keep back working", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/");
+  await expect(screenTitle(page)).toHaveText("Repositories");
+  await page.locator(".tabbar").getByRole("button", { name: "You" }).click();
+  await expect(screenTitle(page)).toHaveText("You");
   await page.locator(".tabbar").getByRole("button", { name: "Repos" }).click();
   await expect(screenTitle(page)).toHaveText("Repositories");
   await activeScreen(page).locator("a.row").first().click();
@@ -70,7 +73,7 @@ test("bottom tabs switch root screens and keep back working", async ({ page }) =
 });
 
 test("earlier screens keep their state underneath", async ({ page }) => {
-  await open(page, "/");
+  await open(page, "/pulls");
   await activeScreen(page).getByRole("tab", { name: /Assigned/ }).click();
   await expect(page).toHaveURL(/filter=assigned/);
   await activeScreen(page).locator("a.row").first().click();
@@ -80,7 +83,7 @@ test("earlier screens keep their state underneath", async ({ page }) => {
 
 test("opening a pull request from the inbox never shows a spinner", async ({ page }) => {
   const errors = trackErrors(page);
-  await open(page, "/");
+  await open(page, "/pulls");
   await expect(activeScreen(page).locator("a.row").first()).toBeVisible();
   const loading = await watchForLoading(page);
   await activeScreen(page).locator("a.row").first().click();

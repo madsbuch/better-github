@@ -2,9 +2,6 @@
 // view, or is followed, so data is usually cached before the screen renders.
 
 import type { FetchInfiniteQueryOptions, FetchQueryOptions, QueryClient } from "@tanstack/react-query";
-import { INBOX_FILTERS, searchQueries } from "./search";
-import { newPullQueries } from "./newPull";
-import { notificationQueries } from "./notifications";
 import { viewerQueries } from "./viewer";
 
 // Each factory in src/queries returns one of these.
@@ -40,13 +37,9 @@ export async function warm(
 /** Fills the cache for the main tabs right after startup, so switching tabs never waits. */
 export function warmStartup(queryClient: QueryClient) {
   const options: AnyOptions[] = [
-    searchQueries.inboxCounts(),
-    ...INBOX_FILTERS.map((f) => searchQueries.inbox(f.id)),
-    notificationQueries.list("unread"),
-    notificationQueries.hasUnread(),
     viewerQueries.repos("yours"),
+    viewerQueries.repos("starred"),
     viewerQueries.profile(),
-    newPullQueries.recentBranches(),
   ];
   // prefetch* respects staleTime, so fresh restored data isn't refetched.
   for (const o of options) {

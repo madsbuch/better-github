@@ -4,6 +4,8 @@ import { to } from "./nav";
 
 describe("appLinkForUrl", () => {
   it.each([
+    ["https://github.com", to.repos()],
+    ["https://github.com/pulls", to.inbox()],
     ["https://github.com/octo/repo/pull/12", to.pull("octo", "repo", 12)],
     ["https://github.com/octo/repo/pull/12/files", to.pull("octo", "repo", 12, "files")],
     ["https://github.com/octo/repo/pull/12#discussion_r1", to.pull("octo", "repo", 12)],

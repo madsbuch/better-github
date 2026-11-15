@@ -12,7 +12,7 @@ import { Screen } from "../components/Screen";
 import { SearchIssueRow } from "../components/rows";
 import { EmptyState, ErrorView, LoadMore, Segmented, SkeletonList } from "../components/ui";
 
-const route = getRouteApi("/");
+const route = getRouteApi("/pulls");
 
 const EMPTY: Record<InboxFilter, string> = {
   review: "Nobody is waiting on your review. Nice.",

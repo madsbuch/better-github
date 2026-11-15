@@ -40,7 +40,7 @@ export interface RepoSearch {
 // ------------------------------------------------------------------ links
 
 export const to = {
-  inbox: (filter?: InboxFilter) => linkOptions({ to: "/", search: { filter: filter === "review" ? undefined : filter } }),
+  inbox: (filter?: InboxFilter) => linkOptions({ to: "/pulls", search: { filter: filter === "review" ? undefined : filter } }),
   notifications: (filter?: NotificationsFilter) => linkOptions({ to: "/notifications", search: { filter } }),
   repos: (tab?: "starred") => linkOptions({ to: "/repos", search: { tab } }),
   profile: () => linkOptions({ to: "/profile" }),

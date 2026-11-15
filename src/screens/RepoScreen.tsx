@@ -109,14 +109,14 @@ export function RepoScreen() {
           value={tab}
           onChange={setTab}
           tabs={[
-            { value: "about", label: "About", icon: <BookIcon size={16} /> },
-            { value: "code", label: "Code", icon: <CodeIcon size={16} /> },
+            { value: "about", label: "Overview", icon: <BookIcon size={16} /> },
             { value: "pulls", label: "Pull requests", icon: <GitPullRequestIcon size={16} />, count: data?.pullRequests.totalCount },
+            { value: "releases", label: "Releases", icon: <TagIcon size={16} />, count: data?.releases.totalCount },
+            { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
+            { value: "code", label: "Code", icon: <CodeIcon size={16} /> },
             ...(data?.hasIssuesEnabled === false
               ? []
               : [{ value: "issues" as RepoTab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
-            { value: "actions", label: "Actions", icon: <PlayIcon size={16} /> },
-            { value: "releases", label: "Releases", icon: <TagIcon size={16} />, count: data?.releases.totalCount },
             { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
           ]}
         />
@@ -130,7 +130,7 @@ export function RepoScreen() {
       ) : !data ? (
         <EmptyState title="Repository not found">It may be private or it doesn't exist.</EmptyState>
       ) : tab === "about" ? (
-        <About repo={data} />
+        <About repo={data} onSelect={setTab} />
       ) : tab === "code" ? (
         gitRef ? (
           <>
@@ -187,7 +187,7 @@ export function RepoScreen() {
   );
 }
 
-function About({ repo }: { repo: RepoDetail }) {
+function About({ repo, onSelect }: { repo: RepoDetail; onSelect: (tab: RepoTab) => void }) {
   const [owner, name] = [repo.owner.login, repo.name];
   const branch = repo.defaultBranchRef?.name;
   const readme = useQuery({ ...repoQueries.readme(owner, name), enabled: !!branch });
@@ -213,6 +213,23 @@ function About({ repo }: { repo: RepoDetail }) {
             </span>
           )}
         </h2>
+        <div className="repo-shortcuts" role="group" aria-label="Repository tasks">
+          <button onClick={() => onSelect("pulls")} aria-label="Review pull requests">
+            <GitPullRequestIcon size={20} />
+            <span className="bold">Pull requests</span>
+            <span className="small muted">{compactNumber(repo.pullRequests.totalCount)} open</span>
+          </button>
+          <button onClick={() => onSelect("releases")} aria-label="Download releases">
+            <TagIcon size={20} />
+            <span className="bold">Releases</span>
+            <span className="small muted">{compactNumber(repo.releases.totalCount)} releases</span>
+          </button>
+          <button onClick={() => onSelect("actions")} aria-label="View build runs">
+            <PlayIcon size={20} />
+            <span className="bold">Builds</span>
+            <span className="small muted">View &amp; retry</span>
+          </button>
+        </div>
         {repo.parent && (
           <div className="muted small" style={{ marginBottom: 6 }}>
             <RepoForkedIcon size={13} /> forked from{" "}

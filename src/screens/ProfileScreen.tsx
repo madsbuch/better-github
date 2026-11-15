@@ -1,6 +1,8 @@
 import {
+  BellIcon,
   ChevronRightIcon,
   GearIcon,
+  GitPullRequestIcon,
   LinkExternalIcon,
   LocationIcon,
   OrganizationIcon,
@@ -73,6 +75,16 @@ export function ProfileScreen() {
         <Link {...to.settings()} className="kv">
           <GearIcon size={18} />
           <span className="grow">Settings</span>
+          <ChevronRightIcon size={16} className="c-muted" />
+        </Link>
+        <Link {...to.inbox()} preload="viewport" className="kv">
+          <GitPullRequestIcon size={18} />
+          <span className="grow">All pull requests</span>
+          <ChevronRightIcon size={16} className="c-muted" />
+        </Link>
+        <Link {...to.notifications()} preload="viewport" className="kv">
+          <BellIcon size={18} />
+          <span className="grow">Notifications</span>
           <ChevronRightIcon size={16} className="c-muted" />
         </Link>
         <button className="kv" style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border-muted)", background: "none", textAlign: "left" }} onClick={() => void backend.openUrl(`https://github.com/${session.login}`)}>
