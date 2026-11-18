@@ -59,7 +59,7 @@ export function InboxScreen() {
       ) : (
         <>
           {search.nodes.map((node, i) => (
-            <SearchIssueRow key={"id" in node ? (node as { id: string }).id : i} node={node} />
+            <SearchIssueRow key={"id" in node ? node.id : i} node={node} />
           ))}
           <LoadMore hasMore={search.hasNextPage} loading={search.isFetchingNextPage} onLoadMore={() => void search.fetchNextPage()} />
         </>

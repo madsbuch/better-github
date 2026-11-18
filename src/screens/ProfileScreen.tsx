@@ -22,13 +22,16 @@ import { Screen } from "../components/Screen";
 import { Avatar, ErrorView } from "../components/ui";
 import { GuestProfilesScreen } from "./GuestScreens";
 
+/** `text`, or null when it is missing or empty. */
+const nonEmpty = (text: string | null | undefined): string | null => (text === null || text === undefined || text === "" ? null : text);
+
 export function ProfileScreen() {
   return useIsGuest() ? <GuestProfilesScreen /> : <AccountProfileScreen />;
 }
 
 function AccountProfileScreen() {
   const session = useViewer();
-  const { signOut } = useSessionApi();
+  const sessionApi = useSessionApi();
   const viewer = useQuery(viewerQueries.profile());
   const v = viewer.data?.viewer;
 
@@ -37,25 +40,25 @@ function AccountProfileScreen() {
       <div className="profile-header">
         <Avatar src={v?.avatarUrl ?? session.avatarUrl} size={72} />
         <div className="grow">
-          <h2 className="ellipsis">{v?.name || session.name || session.login}</h2>
+          <h2 className="ellipsis">{nonEmpty(v?.name) ?? nonEmpty(session.name) ?? session.login}</h2>
           <div className="muted">{session.login}</div>
         </div>
       </div>
       {viewer.isError && <ErrorView error={viewer.error} onRetry={() => void viewer.refetch()} />}
       {v && (
         <div style={{ padding: "0 16px 12px" }}>
-          {v.bio && <p style={{ margin: "0 0 10px" }}>{v.bio}</p>}
+          {nonEmpty(v.bio) !== null && <p style={{ margin: "0 0 10px" }}>{v.bio}</p>}
           <div className="stats-row" style={{ marginTop: 0 }}>
             <span>
               <PeopleIcon size={14} /> <strong>{compactNumber(v.followers.totalCount)}</strong> followers ·{" "}
               <strong>{compactNumber(v.following.totalCount)}</strong> following
             </span>
-            {v.company && (
+            {nonEmpty(v.company) !== null && (
               <span>
                 <OrganizationIcon size={14} /> {v.company}
               </span>
             )}
-            {v.location && (
+            {nonEmpty(v.location) !== null && (
               <span>
                 <LocationIcon size={14} /> {v.location}
               </span>
@@ -105,8 +108,8 @@ function AccountProfileScreen() {
             <Link key={org.login} {...to.user(org.login)} preload="viewport" className="row" style={{ alignItems: "center" }}>
               <Avatar src={org.avatarUrl} size={32} square />
               <span className="row-body">
-                <span className="bold">{org.name || org.login}</span>
-                {org.name && <span className="muted small" style={{ display: "block" }}>{org.login}</span>}
+                <span className="bold">{nonEmpty(org.name) ?? org.login}</span>
+                {nonEmpty(org.name) !== null && <span className="muted small" style={{ display: "block" }}>{org.login}</span>}
               </span>
               <ChevronRightIcon size={16} className="c-muted" />
             </Link>
@@ -115,7 +118,7 @@ function AccountProfileScreen() {
       )}
 
       <div className="pad">
-        <button className="btn btn-block btn-danger" onClick={() => void signOut()}>
+        <button className="btn btn-block btn-danger" onClick={() => void sessionApi.signOut()}>
           <SignOutIcon size={16} /> Sign out
         </button>
       </div>

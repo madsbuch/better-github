@@ -16,10 +16,10 @@ export const DraftComment = z.object({
 });
 export type DraftComment = z.infer<typeof DraftComment>;
 
-/** A stored draft; a missing or unreadable part starts empty. */
+/** A stored draft. One that doesn't match (say, from an older version) is ignored and starts empty. */
 const ReviewDraft = z.object({
-  body: z.string().catch(""),
-  comments: z.array(DraftComment).catch([]),
+  body: z.string(),
+  comments: z.array(DraftComment),
 });
 export type ReviewDraft = z.infer<typeof ReviewDraft>;
 

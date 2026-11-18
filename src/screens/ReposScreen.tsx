@@ -24,9 +24,11 @@ function AccountReposScreen() {
 
   const repos = list.data?.pages.flatMap((p) => p.nodes) ?? [];
   const needle = filter.trim().toLowerCase();
-  const visible = needle
-    ? repos.filter((r) => r.nameWithOwner.toLowerCase().includes(needle) || r.description?.toLowerCase().includes(needle))
-    : repos;
+  const visible =
+    needle !== ""
+      ? repos.filter((r) => r.nameWithOwner.toLowerCase().includes(needle) || r.description?.toLowerCase().includes(needle) === true)
+      : repos;
+  const total = list.data?.pages[0]?.totalCount;
 
   return (
     <Screen
@@ -37,8 +39,8 @@ function AccountReposScreen() {
             value={tab}
             onChange={(value) => nav.replace(to.repos(value === "starred" ? "starred" : undefined))}
             options={[
-              { value: "yours", label: "Yours", count: list.data && tab === "yours" ? list.data.pages[0].totalCount : undefined },
-              { value: "starred", label: "Starred", count: list.data && tab === "starred" ? list.data.pages[0].totalCount : undefined },
+              { value: "yours", label: "Yours", count: tab === "yours" ? total : undefined },
+              { value: "starred", label: "Starred", count: tab === "starred" ? total : undefined },
             ]}
           />
           <div className="search-bar">
@@ -52,7 +54,7 @@ function AccountReposScreen() {
               autoCorrect="off"
               enterKeyHint="search"
             />
-            {filter && (
+            {filter !== "" && (
               <button className="icon-btn sm" aria-label="Clear" onClick={() => setFilter("")}>
                 <XIcon size={14} />
               </button>
@@ -66,14 +68,14 @@ function AccountReposScreen() {
         <SkeletonList />
       ) : list.isError ? (
         <ErrorView error={list.error} onRetry={() => void list.refetch()} />
-      ) : visible.length === 0 && !needle ? (
+      ) : visible.length === 0 && needle === "" ? (
         <EmptyState icon={<RepoIcon size={32} />} title={tab === "yours" ? "No repositories yet" : "No stars yet"} />
       ) : (
         <>
           {visible.map((repo) => (
             <RepoRow key={repo.id} repo={repo} />
           ))}
-          {needle && (
+          {needle !== "" && (
             <Link {...to.search(filter.trim(), "repos")} className="row">
               <span className="row-icon c-muted">
                 <SearchIcon size={16} />

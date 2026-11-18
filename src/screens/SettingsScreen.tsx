@@ -58,6 +58,7 @@ function Account() {
   const session = useViewer();
   const sessionApi = useSessionApi();
   const rate = useQuery(viewerQueries.rateLimit());
+  const rateLimit = rate.data?.rateLimit ?? null;
 
   return (
     <>
@@ -71,13 +72,13 @@ function Account() {
           </span>
         </span>
       </div>
-      {rate.data && (
+      {rateLimit && (
         <div className="kv">
           <span className="grow">
             API rate limit
             <span className="muted small" style={{ display: "block" }}>
-              {rate.data.rateLimit.remaining.toLocaleString()} of {rate.data.rateLimit.limit.toLocaleString()} points left ·
-              resets {fullDate(rate.data.rateLimit.resetAt)}
+              {rateLimit.remaining.toLocaleString()} of {rateLimit.limit.toLocaleString()} points left ·
+              resets {fullDate(rateLimit.resetAt)}
             </span>
           </span>
         </div>

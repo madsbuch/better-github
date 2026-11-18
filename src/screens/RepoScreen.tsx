@@ -47,6 +47,8 @@ import { Avatar, CenterSpinner, EmptyState, ErrorView, LoadMore, ScreenTabs, Seg
 
 const route = getRouteApi("/$owner/$repo/");
 
+const ISSUES_TAB: RepoTab = "issues";
+
 export function RepoScreen() {
   const { owner, repo } = route.useParams();
   const search = route.useSearch();
@@ -76,15 +78,16 @@ export function RepoScreen() {
     void queryClient.prefetchInfiniteQuery(branchQueries.list(owner, repo));
   }, [queryClient, owner, repo, guest]);
   useEffect(() => {
-    if (!gitRef || guest) return;
+    if (gitRef === "" || guest) return;
     void queryClient.prefetchQuery(repoQueries.contents(owner, repo, gitRef, ""));
     void queryClient.prefetchInfiniteQuery(repoQueries.commits(owner, repo, gitRef));
   }, [queryClient, owner, repo, gitRef, guest]);
   // So "Copy review rules prompt" can include the current rules right away.
   const defaultBranch = data?.defaultBranchRef?.name;
+  const hasDefaultBranch = defaultBranch !== undefined && defaultBranch !== "";
   useEffect(() => {
-    if (defaultBranch && !guest) void queryClient.prefetchQuery(reviewQueries.rules(owner, repo, defaultBranch));
-  }, [queryClient, owner, repo, defaultBranch, guest]);
+    if (hasDefaultBranch && !guest) void queryClient.prefetchQuery(reviewQueries.rules(owner, repo, defaultBranch));
+  }, [queryClient, owner, repo, defaultBranch, hasDefaultBranch, guest]);
   const copyRulesPrompt = useCopyRulesPrompt();
 
   const setTab = (next: RepoTab) => nav.replace(to.repo(owner, repo, { tab: next, ref: search.ref }));
@@ -129,7 +132,7 @@ export function RepoScreen() {
                   { value: "code", label: "Code", icon: <CodeIcon size={16} /> },
                   ...(data?.hasIssuesEnabled === false
                     ? []
-                    : [{ value: "issues" as RepoTab, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
+                    : [{ value: ISSUES_TAB, label: "Issues", icon: <IssueOpenedIcon size={16} />, count: data?.issues.totalCount }]),
                   { value: "commits", label: "Commits", icon: <GitCommitIcon size={16} /> },
                 ]
           }
@@ -146,7 +149,7 @@ export function RepoScreen() {
       ) : tab === "about" ? (
         <About repo={data} onSelect={setTab} guest={guest} />
       ) : tab === "code" ? (
-        gitRef ? (
+        gitRef !== "" ? (
           <>
             <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={setRef} />
             <TreeView owner={owner} repo={repo} gitRef={gitRef} path="" />
@@ -164,7 +167,7 @@ export function RepoScreen() {
         <ActionsTab owner={owner} repo={repo} workflow={search.workflow} status={search.status} />
       ) : tab === "releases" ? (
         <ReleasesTab owner={owner} repo={repo} latestTag={data.latestRelease?.tagName} />
-      ) : gitRef ? (
+      ) : gitRef !== "" ? (
         <>
           <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={setRef} />
           <CommitList owner={owner} repo={repo} gitRef={gitRef} />
@@ -197,8 +200,10 @@ export function RepoScreen() {
           {
             label: "Copy review rules prompt",
             icon: <CopyIcon size={18} />,
-            hidden: !defaultBranch || guest,
-            onSelect: () => defaultBranch && void copyRulesPrompt(owner, repo, defaultBranch),
+            hidden: !hasDefaultBranch || guest,
+            onSelect: () => {
+              if (hasDefaultBranch) void copyRulesPrompt(owner, repo, defaultBranch);
+            },
           },
         ]}
       />
@@ -209,8 +214,10 @@ export function RepoScreen() {
 function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: RepoTab) => void; guest: boolean }) {
   const [owner, name] = [repo.owner.login, repo.name];
   const branch = repo.defaultBranchRef?.name;
-  const readme = useQuery({ ...repoQueries.readme(owner, name), enabled: !!branch });
-  const base: MarkdownBase | null = branch ? { owner, repo: name, ref: branch, dir: "" } : null;
+  const hasBranch = branch !== undefined && branch !== "";
+  const homepage = repo.homepageUrl;
+  const readme = useQuery({ ...repoQueries.readme(owner, name), enabled: hasBranch });
+  const base: MarkdownBase | null = hasBranch ? { owner, repo: name, ref: branch, dir: "" } : null;
 
   return (
     <>
@@ -263,10 +270,10 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
             <Link {...to.repo(...splitRepo(repo.parent.nameWithOwner))}>{repo.parent.nameWithOwner}</Link>
           </div>
         )}
-        {repo.description && <p style={{ margin: "4px 0 8px" }}>{repo.description}</p>}
-        {repo.homepageUrl && (
-          <button className="link-btn row-flex" style={{ marginBottom: 6 }} onClick={() => void backend.openUrl(repo.homepageUrl!)}>
-            <LinkIcon size={14} /> <span className="ellipsis">{repo.homepageUrl.replace(/^https?:\/\//, "")}</span>
+        {repo.description !== null && repo.description !== "" && <p style={{ margin: "4px 0 8px" }}>{repo.description}</p>}
+        {homepage !== null && homepage !== "" && (
+          <button className="link-btn row-flex" style={{ marginBottom: 6 }} onClick={() => void backend.openUrl(homepage)}>
+            <LinkIcon size={14} /> <span className="ellipsis">{homepage.replace(/^https?:\/\//, "")}</span>
           </button>
         )}
         {repo.repositoryTopics.nodes.length > 0 && (
@@ -303,7 +310,7 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
           )}
           {repo.licenseInfo && (
             <span>
-              <LawIcon size={14} /> {repo.licenseInfo.spdxId && repo.licenseInfo.spdxId !== "NOASSERTION" ? repo.licenseInfo.spdxId : repo.licenseInfo.name}
+              <LawIcon size={14} /> {repo.licenseInfo.spdxId !== null && repo.licenseInfo.spdxId !== "" && repo.licenseInfo.spdxId !== "NOASSERTION" ? repo.licenseInfo.spdxId : repo.licenseInfo.name}
             </span>
           )}
         </div>
@@ -312,11 +319,11 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
             <TagIcon size={16} className="c-success" />
             <span className="grow" style={{ minWidth: 0 }}>
               <span className="bold ellipsis" style={{ display: "block" }}>
-                {repo.latestRelease.name || repo.latestRelease.tagName}
+                {repo.latestRelease.name !== null && repo.latestRelease.name !== "" ? repo.latestRelease.name : repo.latestRelease.tagName}
               </span>
               <span className="muted small">
                 {repo.latestRelease.isPrerelease ? "Pre-release" : "Latest release"}
-                {repo.latestRelease.publishedAt && (
+                {repo.latestRelease.publishedAt !== null && repo.latestRelease.publishedAt !== "" && (
                   <>
                     {" · "}
                     <Time iso={repo.latestRelease.publishedAt} />
@@ -329,11 +336,11 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
         )}
       </div>
       <div className="pad">
-        {readme.isPending && branch ? (
+        {readme.isPending && hasBranch ? (
           <CenterSpinner />
         ) : readme.isError ? (
           <ErrorView error={readme.error} onRetry={() => void readme.refetch()} />
-        ) : readme.data ? (
+        ) : (readme.data ?? "") !== "" ? (
           <Markdown html={readme.data} base={base} />
         ) : (
           <p className="muted">This repository has no README.</p>
@@ -343,7 +350,7 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
   );
 }
 
-function RepoIssues({ owner, repo, kind, parent }: { owner: string; repo: string; kind: "pulls" | "issues"; parent?: string }) {
+function RepoIssues({ owner, repo, kind, parent }: { owner: string; repo: string; kind: "pulls" | "issues"; parent: string | undefined }) {
   const [state, setState] = useState<"open" | "closed">("open");
   const search = useIssueSearch(repoListQuery(owner, repo, kind, state));
   return (
@@ -366,7 +373,7 @@ function RepoIssues({ owner, repo, kind, parent }: { owner: string; repo: string
       ) : (
         <>
           {search.nodes.map((node, i) => (
-            <SearchIssueRow key={"id" in node ? (node as { id: string }).id : i} node={node} showRepo={false} />
+            <SearchIssueRow key={"id" in node ? node.id : i} node={node} showRepo={false} />
           ))}
           <LoadMore hasMore={search.hasNextPage} loading={search.isFetchingNextPage} onLoadMore={() => void search.fetchNextPage()} />
         </>
@@ -377,10 +384,10 @@ function RepoIssues({ owner, repo, kind, parent }: { owner: string; repo: string
 
 /** A fork's pull requests go to its parent, as on github.com. */
 function newPullTarget(owner: string, repo: string, parent: string | undefined) {
-  return parent ? to.compare(...splitRepo(parent), { from: `${owner}/${repo}` }) : to.compare(owner, repo);
+  return parent !== undefined && parent !== "" ? to.compare(...splitRepo(parent), { from: `${owner}/${repo}` }) : to.compare(owner, repo);
 }
 
-function NewPullBar({ owner, repo, parent }: { owner: string; repo: string; parent?: string }) {
+function NewPullBar({ owner, repo, parent }: { owner: string; repo: string; parent: string | undefined }) {
   const viewer = useViewer();
   const branches = useQuery(newPullQueries.repoBranches(owner, repo));
   return (
@@ -390,7 +397,7 @@ function NewPullBar({ owner, repo, parent }: { owner: string; repo: string; pare
           <GitPullRequestIcon size={14} /> New pull request
         </Link>
       </div>
-      <RecentBranchPrompts branches={recentBranches(branches.data ? [branches.data] : [], viewer.login)} showRepo={!!parent} />
+      <RecentBranchPrompts branches={recentBranches(branches.data ? [branches.data] : [], viewer.login)} showRepo={parent !== undefined && parent !== ""} />
     </>
   );
 }
