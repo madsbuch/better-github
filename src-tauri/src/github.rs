@@ -7,47 +7,78 @@
 //! `https://api.github.com`, so a compromised page cannot exfiltrate the
 //! token by pointing a request at another host.
 
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use reqwest::header::{
     HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK, LOCATION,
 };
 use reqwest::{redirect, Client, Method, StatusCode};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde::de::IgnoredAny;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::value::RawValue;
 use url::Url;
 
-use crate::error::{Error, Result};
+use crate::error::{ApiErrors, Error, Result};
 
 pub const API_BASE: &str = "https://api.github.com";
 const API_HOST: &str = "api.github.com";
 const API_VERSION: &str = "2022-11-28";
 const DEFAULT_ACCEPT: &str = "application/vnd.github+json";
 
-pub fn build_client() -> Client {
+pub fn build_client() -> Result<Client> {
     client_with(redirect::Policy::default())
 }
 
 /// For resolving download links: the redirect itself is the answer.
-pub fn build_no_redirect_client() -> Client {
+pub fn build_no_redirect_client() -> Result<Client> {
     client_with(redirect::Policy::none())
 }
 
-fn client_with(policy: redirect::Policy) -> Client {
+fn client_with(policy: redirect::Policy) -> Result<Client> {
     let mut headers = HeaderMap::new();
     headers.insert(
         "X-GitHub-Api-Version",
         HeaderValue::from_static(API_VERSION),
     );
-    Client::builder()
+    Ok(Client::builder()
         .user_agent(concat!("better-github/", env!("CARGO_PKG_VERSION")))
         .default_headers(headers)
         .redirect(policy)
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(45))
-        .build()
-        .expect("failed to build HTTP client")
+        .build()?)
 }
+
+/// A query parameter value, as the frontend sends it
+/// (`string | number | boolean | null`; `undefined` never arrives).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum QueryValue {
+    /// Skipped, like `undefined`.
+    Null,
+    Bool(bool),
+    Int(i64),
+    UInt(u64),
+    Float(f64),
+    Text(String),
+}
+
+impl QueryValue {
+    /// The value as it goes into the URL; `None` leaves the parameter out.
+    fn as_param(&self) -> Option<String> {
+        match self {
+            QueryValue::Null => None,
+            QueryValue::Bool(b) => Some(b.to_string()),
+            QueryValue::Int(n) => Some(n.to_string()),
+            QueryValue::UInt(n) => Some(n.to_string()),
+            QueryValue::Float(n) => Some(n.to_string()),
+            QueryValue::Text(s) => Some(s.clone()),
+        }
+    }
+}
+
+pub type Query = BTreeMap<String, QueryValue>;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,9 +89,10 @@ pub struct RestRequest {
     /// `https://api.github.com/...` URL (e.g. from a `Link` header).
     pub path: String,
     #[serde(default)]
-    pub query: Option<Map<String, Value>>,
+    pub query: Option<Query>,
+    /// Sent to GitHub as is; never interpreted here.
     #[serde(default)]
-    pub body: Option<Value>,
+    pub body: Option<Box<RawValue>>,
     /// Overrides the `Accept` header, e.g. `application/vnd.github.raw+json`.
     #[serde(default)]
     pub accept: Option<String>,
@@ -70,15 +102,39 @@ pub struct RestRequest {
 #[serde(rename_all = "camelCase")]
 pub struct RestResponse {
     pub status: u16,
-    /// Parsed JSON, or a string for non-JSON bodies (raw files, diffs).
-    pub body: Value,
+    pub body: ResponseBody,
     /// The raw `Link` header, used for pagination.
     pub link: Option<String>,
 }
 
+/// A response body, handed to the frontend without being interpreted:
+/// JSON as is, other text (raw files, diffs) as a JSON string, and an empty
+/// body as `null`.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum ResponseBody {
+    Empty,
+    Json(Box<RawValue>),
+    Text(String),
+}
+
+impl ResponseBody {
+    fn new(text: String, is_json: bool) -> Self {
+        if text.is_empty() {
+            return ResponseBody::Empty;
+        }
+        if is_json {
+            if let Ok(json) = serde_json::from_str::<Box<RawValue>>(&text) {
+                return ResponseBody::Json(json);
+            }
+        }
+        ResponseBody::Text(text)
+    }
+}
+
 /// Resolves a request path to an absolute api.github.com URL, rejecting
 /// anything that would leave that host.
-pub fn resolve_url(path: &str, query: Option<&Map<String, Value>>) -> Result<Url> {
+pub fn resolve_url(path: &str, query: Option<&Query>) -> Result<Url> {
     let mut url = if path.starts_with("https://") {
         Url::parse(path).map_err(|e| Error::Invalid(format!("Invalid URL: {e}")))?
     } else if path.starts_with('/') && !path.starts_with("//") {
@@ -102,14 +158,8 @@ pub fn resolve_url(path: &str, query: Option<&Map<String, Value>>) -> Result<Url
     if let Some(query) = query {
         let mut pairs = url.query_pairs_mut();
         for (key, value) in query {
-            match value {
-                Value::Null => {}
-                Value::String(s) => {
-                    pairs.append_pair(key, s);
-                }
-                other => {
-                    pairs.append_pair(key, &other.to_string());
-                }
+            if let Some(value) = value.as_param() {
+                pairs.append_pair(key, &value);
             }
         }
     }
@@ -131,47 +181,110 @@ fn parse_method(method: Option<&str>) -> Result<Method> {
     }
 }
 
+/// One entry of `errors` in a REST error body: a plain message, or a
+/// validation failure such as `{ resource, field, code }`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RestErrorItem {
+    Text(String),
+    Detail(RestErrorDetail),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestErrorDetail {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+}
+
+impl RestErrorItem {
+    fn detail(&self) -> Option<String> {
+        match self {
+            RestErrorItem::Text(text) => Some(text.clone()),
+            RestErrorItem::Detail(detail) => detail.message.clone().or_else(|| {
+                let field = detail.field.as_deref()?;
+                let code = detail.code.as_deref()?;
+                Some(format!("{field} {code}"))
+            }),
+        }
+    }
+}
+
+/// GitHub's REST error body. Anything that does not parse counts as empty.
+#[derive(Debug, Default, Deserialize)]
+struct RestErrorBody {
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default, deserialize_with = "known_error_items")]
+    errors: Option<Vec<RestErrorItem>>,
+}
+
+/// `errors`, keeping the entries we understand and dropping the rest, so an
+/// odd entry never costs us the main message.
+fn known_error_items<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Vec<RestErrorItem>>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Item {
+        Known(RestErrorItem),
+        Unknown(IgnoredAny),
+    }
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Items {
+        List(Vec<Item>),
+        Other(IgnoredAny),
+    }
+    Ok(match Option::<Items>::deserialize(deserializer)? {
+        Some(Items::List(items)) => Some(
+            items
+                .into_iter()
+                .filter_map(|item| match item {
+                    Item::Known(item) => Some(item),
+                    Item::Unknown(_) => None,
+                })
+                .collect(),
+        ),
+        Some(Items::Other(_)) | None => None,
+    })
+}
+
+/// The message shown for a failed REST call: GitHub's own, plus the
+/// validation details, which is where the useful part usually is.
+fn rest_error_message(status: StatusCode, body: &RestErrorBody) -> String {
+    let message = body.message.clone().unwrap_or_else(|| {
+        status
+            .canonical_reason()
+            .unwrap_or("Request failed")
+            .to_owned()
+    });
+    let details: Vec<String> = body
+        .errors
+        .iter()
+        .flatten()
+        .filter_map(RestErrorItem::detail)
+        .collect();
+    if details.is_empty() {
+        message
+    } else {
+        format!("{message}: {}", details.join("; "))
+    }
+}
+
 /// Converts a non-success response into an `Error::Api` with GitHub's message.
 async fn api_error(status: StatusCode, response: reqwest::Response) -> Error {
     let text = response.text().await.unwrap_or_default();
-    let parsed: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-    let mut message = parsed
-        .get("message")
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-        .unwrap_or_else(|| {
-            status
-                .canonical_reason()
-                .unwrap_or("Request failed")
-                .to_owned()
-        });
-    let errors = parsed.get("errors").cloned().filter(|e| !e.is_null());
-    // Validation failures carry the useful detail in `errors`.
-    if let Some(Value::Array(items)) = &errors {
-        let details: Vec<String> = items
-            .iter()
-            .filter_map(|item| match item {
-                Value::String(s) => Some(s.clone()),
-                Value::Object(o) => o
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned)
-                    .or_else(|| {
-                        let field = o.get("field").and_then(Value::as_str)?;
-                        let code = o.get("code").and_then(Value::as_str)?;
-                        Some(format!("{field} {code}"))
-                    }),
-                _ => None,
-            })
-            .collect();
-        if !details.is_empty() {
-            message = format!("{message}: {}", details.join("; "));
-        }
-    }
+    let body: RestErrorBody = serde_json::from_str(&text).unwrap_or_default();
     Error::Api {
         status: status.as_u16(),
-        message,
-        errors,
+        message: rest_error_message(status, &body),
+        errors: body.errors.map(ApiErrors::Rest),
     }
 }
 
@@ -204,7 +317,7 @@ pub async fn rest(
 
     let mut builder = authorize(client.request(method, url), token).header(ACCEPT, accept);
     if let Some(body) = &request.body {
-        builder = builder.json(body);
+        builder = builder.json(body.as_ref());
     }
 
     let response = builder.send().await?;
@@ -225,20 +338,79 @@ pub async fn rest(
         .map(|ct| ct.contains("json"))
         .unwrap_or(false);
 
-    let text = response.text().await?;
-    let body = if text.is_empty() {
-        Value::Null
-    } else if is_json {
-        serde_json::from_str(&text).unwrap_or(Value::String(text))
-    } else {
-        Value::String(text)
-    };
-
+    let body = ResponseBody::new(response.text().await?, is_json);
     Ok(RestResponse {
         status: status.as_u16(),
         body,
         link,
     })
+}
+
+/// GraphQL variables: names to JSON values, passed through untouched.
+pub type GraphQlVariables = BTreeMap<String, Box<RawValue>>;
+
+#[derive(Serialize)]
+struct GraphQlRequest<'a> {
+    query: &'a str,
+    variables: &'a GraphQlVariables,
+}
+
+/// A step in a GraphQL error's `path`: a field name or a list index.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PathSegment {
+    Field(String),
+    Index(u64),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GraphQlError {
+    pub message: String,
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<Vec<PathSegment>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphQlReply {
+    #[serde(default)]
+    data: Option<Box<RawValue>>,
+    #[serde(default)]
+    errors: Option<Vec<GraphQlError>>,
+}
+
+/// What the frontend gets: `{ data, errors? }`, `data` untouched.
+#[derive(Debug, Serialize)]
+pub struct GraphQlEnvelope {
+    pub data: Box<RawValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub errors: Option<Vec<GraphQlError>>,
+}
+
+impl GraphQlReply {
+    /// Data, with any errors as partial failures; without data, the first
+    /// error is the failure.
+    fn into_envelope(self, status: StatusCode) -> Result<GraphQlEnvelope> {
+        match self.data {
+            Some(data) => Ok(GraphQlEnvelope {
+                data,
+                errors: self.errors,
+            }),
+            None => Err(Error::Api {
+                status: status.as_u16(),
+                message: self
+                    .errors
+                    .as_deref()
+                    .and_then(<[GraphQlError]>::first)
+                    .map_or_else(
+                        || "GraphQL request failed".to_owned(),
+                        |e| e.message.clone(),
+                    ),
+                errors: self.errors.map(ApiErrors::GraphQl),
+            }),
+        }
+    }
 }
 
 /// Runs a GraphQL query. Returns the whole `{ data, errors }` envelope:
@@ -248,40 +420,25 @@ pub async fn graphql(
     client: &Client,
     token: &str,
     query: &str,
-    variables: Option<Value>,
-) -> Result<Value> {
-    let body = serde_json::json!({
-        "query": query,
-        "variables": variables.unwrap_or_else(|| Value::Object(Map::new())),
-    });
+    variables: Option<GraphQlVariables>,
+) -> Result<GraphQlEnvelope> {
+    let variables = variables.unwrap_or_default();
     let response = client
         .post(format!("{API_BASE}/graphql"))
         .header(AUTHORIZATION, format!("Bearer {token}"))
         .header(ACCEPT, "application/json")
-        .json(&body)
+        .json(&GraphQlRequest {
+            query,
+            variables: &variables,
+        })
         .send()
         .await?;
     let status = response.status();
     if !status.is_success() {
         return Err(api_error(status, response).await);
     }
-    let envelope: Value = response.json().await?;
-    let has_data = envelope.get("data").map(|d| !d.is_null()).unwrap_or(false);
-    if !has_data {
-        let message = envelope
-            .get("errors")
-            .and_then(|e| e.get(0))
-            .and_then(|e| e.get("message"))
-            .and_then(Value::as_str)
-            .unwrap_or("GraphQL request failed")
-            .to_owned();
-        return Err(Error::Api {
-            status: status.as_u16(),
-            message,
-            errors: envelope.get("errors").cloned(),
-        });
-    }
-    Ok(envelope)
+    let reply: GraphQlReply = response.json().await?;
+    reply.into_envelope(status)
 }
 
 /// Hosts GitHub redirects job log downloads to (short-lived signed URLs).
@@ -548,10 +705,10 @@ mod tests {
 
     #[test]
     fn appends_query_and_skips_nulls() {
-        let mut query = Map::new();
-        query.insert("per_page".into(), Value::from(50));
-        query.insert("state".into(), Value::from("open"));
-        query.insert("ignored".into(), Value::Null);
+        let mut query = Query::new();
+        query.insert("per_page".into(), QueryValue::Int(50));
+        query.insert("state".into(), QueryValue::Text("open".into()));
+        query.insert("ignored".into(), QueryValue::Null);
         let url = resolve_url("/repos/o/r/pulls", Some(&query)).unwrap();
         assert_eq!(
             url.as_str(),
@@ -560,8 +717,180 @@ mod tests {
     }
 
     #[test]
+    fn parses_query_values_from_the_frontend() {
+        let query: Query = serde_json::from_str(
+            r#"{"page":2,"all":false,"q":"is:open a&b","since":null,"big":18446744073709551615,"neg":-1,"ratio":1.5}"#,
+        )
+        .unwrap();
+        assert_eq!(query["page"], QueryValue::Int(2));
+        assert_eq!(query["big"], QueryValue::UInt(u64::MAX));
+        assert_eq!(query["since"], QueryValue::Null);
+        let url = resolve_url("/search/issues", Some(&query)).unwrap();
+        assert_eq!(
+            url.query(),
+            Some("all=false&big=18446744073709551615&neg=-1&page=2&q=is%3Aopen+a%26b&ratio=1.5")
+        );
+        // Nested values are not query parameters.
+        assert!(serde_json::from_str::<Query>(r#"{"a":[1]}"#).is_err());
+        assert!(serde_json::from_str::<Query>(r#"{"a":{"b":1}}"#).is_err());
+    }
+
+    #[test]
+    fn response_bodies_keep_their_shape() {
+        let json = |text: &str, is_json| {
+            serde_json::to_string(&ResponseBody::new(text.into(), is_json)).unwrap()
+        };
+        assert_eq!(json("", true), "null");
+        assert_eq!(json("", false), "null");
+        assert_eq!(json(r#"{"a":[1,2.50,"x"]}"#, true), r#"{"a":[1,2.50,"x"]}"#);
+        // Not JSON after all, or not meant to be read as JSON: a string.
+        assert_eq!(json("not json", true), r#""not json""#);
+        assert_eq!(json("{\"a\":1}", false), r#""{\"a\":1}""#);
+        assert_eq!(json("diff --git a b\n", false), r#""diff --git a b\n""#);
+
+        let response = RestResponse {
+            status: 200,
+            body: ResponseBody::new("[1]".into(), true),
+            link: None,
+        };
+        assert_eq!(
+            serde_json::to_string(&response).unwrap(),
+            r#"{"status":200,"body":[1],"link":null}"#
+        );
+    }
+
+    #[test]
+    fn rest_request_bodies_pass_through_untouched() {
+        let request: RestRequest = serde_json::from_str(
+            r#"{"method":"POST","path":"/x","body":{"body":"hi","n":1.0,"list":[true,null]}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            request.body.unwrap().get(),
+            r#"{"body":"hi","n":1.0,"list":[true,null]}"#
+        );
+    }
+
+    fn rest_message(status: u16, body: &str) -> String {
+        let body: RestErrorBody = serde_json::from_str(body).unwrap_or_default();
+        rest_error_message(StatusCode::from_u16(status).unwrap(), &body)
+    }
+
+    #[test]
+    fn rest_error_messages() {
+        assert_eq!(rest_message(404, r#"{"message":"Not Found"}"#), "Not Found");
+        assert_eq!(rest_message(502, "<html>bad gateway</html>"), "Bad Gateway");
+        assert_eq!(rest_message(500, ""), "Internal Server Error");
+        assert_eq!(
+            rest_message(
+                422,
+                r#"{"message":"Validation Failed","errors":[
+                    {"resource":"PullRequest","field":"head","code":"invalid"},
+                    {"resource":"Issue","code":"custom","message":"A pull request already exists"},
+                    "plain text",
+                    {"resource":"Label","code":"missing"},
+                    42
+                ],"documentation_url":"https://docs.github.com"}"#
+            ),
+            "Validation Failed: head invalid; A pull request already exists; plain text"
+        );
+        // `errors` that is not a list keeps the main message.
+        assert_eq!(
+            rest_message(422, r#"{"message":"Nope","errors":{"odd":true}}"#),
+            "Nope"
+        );
+        assert_eq!(
+            rest_message(422, r#"{"message":"Nope","errors":[]}"#),
+            "Nope"
+        );
+    }
+
+    #[test]
+    fn rest_errors_reach_the_frontend_typed() {
+        let body: RestErrorBody = serde_json::from_str(
+            r#"{"message":"Validation Failed","errors":[{"field":"head","code":"invalid","value":3},"x",7]}"#,
+        )
+        .unwrap();
+        let errors = body.errors.map(ApiErrors::Rest);
+        assert_eq!(
+            serde_json::to_string(&errors).unwrap(),
+            r#"[{"field":"head","code":"invalid"},"x"]"#
+        );
+    }
+
+    #[test]
+    fn graphql_partial_data_keeps_errors() {
+        let reply: GraphQlReply = serde_json::from_str(
+            r#"{"data":{"viewer":{"login":"octocat"}},"errors":[{"type":"FORBIDDEN","path":["organization",0,"repos"],"message":"SAML","locations":[{"line":1,"column":2}]}]}"#,
+        )
+        .unwrap();
+        let envelope = reply.into_envelope(StatusCode::OK).unwrap();
+        assert_eq!(
+            serde_json::to_string(&envelope).unwrap(),
+            r#"{"data":{"viewer":{"login":"octocat"}},"errors":[{"message":"SAML","type":"FORBIDDEN","path":["organization",0,"repos"]}]}"#
+        );
+
+        let clean: GraphQlReply = serde_json::from_str(r#"{"data":{"a":1}}"#).unwrap();
+        assert_eq!(
+            serde_json::to_string(&clean.into_envelope(StatusCode::OK).unwrap()).unwrap(),
+            r#"{"data":{"a":1}}"#
+        );
+    }
+
+    #[test]
+    fn graphql_without_data_fails_with_the_first_error() {
+        let reply: GraphQlReply = serde_json::from_str(
+            r#"{"data":null,"errors":[{"message":"Could not resolve"},{"message":"second"}]}"#,
+        )
+        .unwrap();
+        match reply.into_envelope(StatusCode::OK) {
+            Err(Error::Api {
+                status,
+                message,
+                errors: Some(ApiErrors::GraphQl(errors)),
+            }) => {
+                assert_eq!(status, 200);
+                assert_eq!(message, "Could not resolve");
+                assert_eq!(errors.len(), 2);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+
+        let empty: GraphQlReply = serde_json::from_str("{}").unwrap();
+        assert!(matches!(
+            empty.into_envelope(StatusCode::OK),
+            Err(Error::Api { message, errors: None, .. }) if message == "GraphQL request failed"
+        ));
+    }
+
+    #[test]
+    fn graphql_variables_pass_through_untouched() {
+        let variables: GraphQlVariables =
+            serde_json::from_str(r#"{"owner":"o","first":50,"after":null,"labels":["a"]}"#)
+                .unwrap();
+        let request = GraphQlRequest {
+            query: "query { viewer { login } }",
+            variables: &variables,
+        };
+        assert_eq!(
+            serde_json::to_string(&request).unwrap(),
+            r#"{"query":"query { viewer { login } }","variables":{"after":null,"first":50,"labels":["a"],"owner":"o"}}"#
+        );
+        let none = GraphQlRequest {
+            query: "q",
+            variables: &GraphQlVariables::new(),
+        };
+        assert_eq!(
+            serde_json::to_string(&none).unwrap(),
+            r#"{"query":"q","variables":{}}"#
+        );
+        // Variables are always an object.
+        assert!(serde_json::from_str::<GraphQlVariables>("[1]").is_err());
+    }
+
+    #[test]
     fn empty_query_leaves_no_question_mark() {
-        let url = resolve_url("/user", Some(&Map::new())).unwrap();
+        let url = resolve_url("/user", Some(&Query::new())).unwrap();
         assert_eq!(url.as_str(), "https://api.github.com/user");
     }
 

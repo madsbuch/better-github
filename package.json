@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "tauri": "tauri",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "lint": "oxlint --type-aware --deny-warnings"
   },
   "dependencies": {
     "@primer/octicons-react": "^19.40.0",
@@ -28,7 +29,8 @@
     "highlight.js": "^11.12.0",
     "idb-keyval": "^6.3.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@octokit/graphql-schema": "^15.26.1",
@@ -41,6 +43,8 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "graphql": "^17.0.2",
+    "oxlint": "^1.91.0",
+    "oxlint-tsgolint": "^7.0.2005",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.3"

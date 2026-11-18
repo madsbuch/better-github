@@ -1,5 +1,41 @@
-// GraphQL documents. Every query here is validated against GitHub's public
-// schema in queries.test.ts.
+// GraphQL documents, each with the schema its result is parsed with. Every
+// document is validated against GitHub's schema in queries.test.ts, and its
+// schema against what the document selects in schemaCheck.test.ts.
+
+import type { z } from "zod";
+import { gql, type GraphQLDocument } from "./schema";
+import {
+  Acknowledged,
+  AddCommentResult,
+  AssignableUsersResult,
+  IssueResult,
+  NewPullResult,
+  OwnerResult,
+  PullChecksResult,
+  PullCommitsResult,
+  PullFilesResult,
+  PullResult,
+  PullThreadsResult,
+  PullTimelineResult,
+  RateLimitResult,
+  RecentBranchesResult,
+  ReplyToThreadResult,
+  RepoBranchesResult,
+  RepoRecentBranchesResult,
+  RepoResult,
+  ResolveThreadResult,
+  ReviewRulesResult,
+  SearchBranchesResult,
+  SearchCountsResult,
+  SearchIssuesResult,
+  SearchReposResult,
+  SearchUsersResult,
+  UnresolveThreadResult,
+  UpdatePullBranchResult,
+  ViewerReposResult,
+  ViewerResult,
+  ViewerStarredResult,
+} from "./types";
 
 const ACTOR = "login avatarUrl";
 
@@ -58,7 +94,9 @@ export const REPO_LIST_ITEM = /* GraphQL */ `
 `;
 
 /** Issue/PR search used by the inbox and repository lists. */
-export const SEARCH_ISSUES = /* GraphQL */ `
+export const SEARCH_ISSUES = gql(
+  SearchIssuesResult,
+  /* GraphQL */ `
   query SearchIssues($query: String!, $first: Int!, $after: String) {
     search(query: $query, type: ISSUE, first: $first, after: $after) {
       issueCount
@@ -72,9 +110,12 @@ export const SEARCH_ISSUES = /* GraphQL */ `
   }
   ${PULL_LIST_ITEM}
   ${ISSUE_LIST_ITEM}
-`;
+`,
+);
 
-export const SEARCH_COUNTS = /* GraphQL */ `
+export const SEARCH_COUNTS = gql(
+  SearchCountsResult,
+  /* GraphQL */ `
   query SearchCounts($q0: String!, $q1: String!, $q2: String!, $q3: String!, $q4: String!) {
     c0: search(query: $q0, type: ISSUE, first: 1) { issueCount }
     c1: search(query: $q1, type: ISSUE, first: 1) { issueCount }
@@ -82,9 +123,12 @@ export const SEARCH_COUNTS = /* GraphQL */ `
     c3: search(query: $q3, type: ISSUE, first: 1) { issueCount }
     c4: search(query: $q4, type: ISSUE, first: 1) { issueCount }
   }
-`;
+`,
+);
 
-export const SEARCH_REPOS = /* GraphQL */ `
+export const SEARCH_REPOS = gql(
+  SearchReposResult,
+  /* GraphQL */ `
   query SearchRepos($query: String!, $after: String) {
     search(query: $query, type: REPOSITORY, first: 25, after: $after) {
       repositoryCount
@@ -93,9 +137,12 @@ export const SEARCH_REPOS = /* GraphQL */ `
     }
   }
   ${REPO_LIST_ITEM}
-`;
+`,
+);
 
-export const SEARCH_USERS = /* GraphQL */ `
+export const SEARCH_USERS = gql(
+  SearchUsersResult,
+  /* GraphQL */ `
   query SearchUsers($query: String!, $after: String) {
     search(query: $query, type: USER, first: 25, after: $after) {
       userCount
@@ -107,9 +154,12 @@ export const SEARCH_USERS = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
-export const VIEWER_REPOS = /* GraphQL */ `
+export const VIEWER_REPOS = gql(
+  ViewerReposResult,
+  /* GraphQL */ `
   query ViewerRepos($after: String) {
     viewer {
       repositories(
@@ -125,9 +175,12 @@ export const VIEWER_REPOS = /* GraphQL */ `
     }
   }
   ${REPO_LIST_ITEM}
-`;
+`,
+);
 
-export const VIEWER_STARRED = /* GraphQL */ `
+export const VIEWER_STARRED = gql(
+  ViewerStarredResult,
+  /* GraphQL */ `
   query ViewerStarred($after: String) {
     viewer {
       starredRepositories(first: 30, after: $after, orderBy: { field: STARRED_AT, direction: DESC }) {
@@ -138,9 +191,12 @@ export const VIEWER_STARRED = /* GraphQL */ `
     }
   }
   ${REPO_LIST_ITEM}
-`;
+`,
+);
 
-export const VIEWER = /* GraphQL */ `
+export const VIEWER = gql(
+  ViewerResult,
+  /* GraphQL */ `
   query Viewer {
     viewer {
       login
@@ -158,9 +214,12 @@ export const VIEWER = /* GraphQL */ `
     }
     rateLimit { limit remaining resetAt }
   }
-`;
+`,
+);
 
-export const OWNER = /* GraphQL */ `
+export const OWNER = gql(
+  OwnerResult,
+  /* GraphQL */ `
   query Owner($login: String!, $after: String) {
     repositoryOwner(login: $login) {
       __typename
@@ -188,9 +247,12 @@ export const OWNER = /* GraphQL */ `
     }
   }
   ${REPO_LIST_ITEM}
-`;
+`,
+);
 
-export const REPO = /* GraphQL */ `
+export const REPO = gql(
+  RepoResult,
+  /* GraphQL */ `
   query Repo($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
       id
@@ -220,18 +282,24 @@ export const REPO = /* GraphQL */ `
       repositoryTopics(first: 12) { nodes { topic { name } } }
     }
   }
-`;
+`,
+);
 
-export const RATE_LIMIT = /* GraphQL */ `
+export const RATE_LIMIT = gql(
+  RateLimitResult,
+  /* GraphQL */ `
   query RateLimit {
     rateLimit { limit remaining resetAt }
   }
-`;
+`,
+);
 
 // ---------------------------------------------------------------------------
 // Pull requests
 
-export const PULL = /* GraphQL */ `
+export const PULL = gql(
+  PullResult,
+  /* GraphQL */ `
   query Pull($owner: String!, $name: String!, $number: Int!) {
     repository(owner: $owner, name: $name) {
       id
@@ -310,11 +378,14 @@ export const PULL = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
 const TIMELINE_ACTOR = `actor { ${ACTOR} }`;
 
-export const PULL_TIMELINE = /* GraphQL */ `
+export const PULL_TIMELINE = gql(
+  PullTimelineResult,
+  /* GraphQL */ `
   query PullTimeline($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
@@ -436,7 +507,8 @@ export const PULL_TIMELINE = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
 export const REVIEW_THREAD_FIELDS = /* GraphQL */ `
   fragment ReviewThreadFields on PullRequestReviewThread {
@@ -472,7 +544,9 @@ export const REVIEW_THREAD_FIELDS = /* GraphQL */ `
   }
 `;
 
-export const PULL_THREADS = /* GraphQL */ `
+export const PULL_THREADS = gql(
+  PullThreadsResult,
+  /* GraphQL */ `
   query PullThreads($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
@@ -485,9 +559,12 @@ export const PULL_THREADS = /* GraphQL */ `
     }
   }
   ${REVIEW_THREAD_FIELDS}
-`;
+`,
+);
 
-export const PULL_FILES = /* GraphQL */ `
+export const PULL_FILES = gql(
+  PullFilesResult,
+  /* GraphQL */ `
   query PullFiles($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
@@ -499,9 +576,12 @@ export const PULL_FILES = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
-export const PULL_COMMITS = /* GraphQL */ `
+export const PULL_COMMITS = gql(
+  PullCommitsResult,
+  /* GraphQL */ `
   query PullCommits($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
@@ -525,9 +605,12 @@ export const PULL_COMMITS = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
-export const PULL_CHECKS = /* GraphQL */ `
+export const PULL_CHECKS = gql(
+  PullChecksResult,
+  /* GraphQL */ `
   query PullChecks($owner: String!, $name: String!, $number: Int!) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
@@ -576,12 +659,15 @@ export const PULL_CHECKS = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
 // ---------------------------------------------------------------------------
 // Issues
 
-export const ISSUE = /* GraphQL */ `
+export const ISSUE = gql(
+  IssueResult,
+  /* GraphQL */ `
   query IssueDetail($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       id
@@ -669,109 +755,155 @@ export const ISSUE = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
 // ---------------------------------------------------------------------------
 // Mutations
 
-export const ADD_COMMENT = /* GraphQL */ `
+export const ADD_COMMENT = gql(
+  AddCommentResult,
+  /* GraphQL */ `
   mutation AddComment($subjectId: ID!, $body: String!) {
     addComment(input: { subjectId: $subjectId, body: $body }) {
       commentEdge { node { id } }
     }
   }
-`;
+`,
+);
 
-export const REPLY_TO_THREAD = /* GraphQL */ `
+export const REPLY_TO_THREAD = gql(
+  ReplyToThreadResult,
+  /* GraphQL */ `
   mutation ReplyToThread($threadId: ID!, $body: String!) {
     addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {
       comment { id }
     }
   }
-`;
+`,
+);
 
-export const RESOLVE_THREAD = /* GraphQL */ `
+export const RESOLVE_THREAD = gql(
+  ResolveThreadResult,
+  /* GraphQL */ `
   mutation ResolveThread($threadId: ID!) {
     resolveReviewThread(input: { threadId: $threadId }) { thread { id isResolved } }
   }
-`;
+`,
+);
 
-export const UNRESOLVE_THREAD = /* GraphQL */ `
+export const UNRESOLVE_THREAD = gql(
+  UnresolveThreadResult,
+  /* GraphQL */ `
   mutation UnresolveThread($threadId: ID!) {
     unresolveReviewThread(input: { threadId: $threadId }) { thread { id isResolved } }
   }
-`;
+`,
+);
 
 /** Brings the base branch into a pull request's branch, with a merge commit or a rebase. */
-export const UPDATE_PULL_BRANCH = /* GraphQL */ `
+export const UPDATE_PULL_BRANCH = gql(
+  UpdatePullBranchResult,
+  /* GraphQL */ `
   mutation UpdatePullBranch($pullRequestId: ID!, $expectedHeadOid: GitObjectID, $updateMethod: PullRequestBranchUpdateMethod) {
     updatePullRequestBranch(input: { pullRequestId: $pullRequestId, expectedHeadOid: $expectedHeadOid, updateMethod: $updateMethod }) {
       pullRequest { id headRefOid }
     }
   }
-`;
+`,
+);
 
-export const MARK_FILE_VIEWED = /* GraphQL */ `
+export const MARK_FILE_VIEWED = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation MarkFileViewed($pullRequestId: ID!, $path: String!) {
     markFileAsViewed(input: { pullRequestId: $pullRequestId, path: $path }) { clientMutationId }
   }
-`;
+`,
+);
 
-export const UNMARK_FILE_VIEWED = /* GraphQL */ `
+export const UNMARK_FILE_VIEWED = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation UnmarkFileViewed($pullRequestId: ID!, $path: String!) {
     unmarkFileAsViewed(input: { pullRequestId: $pullRequestId, path: $path }) { clientMutationId }
   }
-`;
+`,
+);
 
-export const READY_FOR_REVIEW = /* GraphQL */ `
+export const READY_FOR_REVIEW = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation ReadyForReview($pullRequestId: ID!) {
     markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) { pullRequest { id isDraft } }
   }
-`;
+`,
+);
 
-export const CONVERT_TO_DRAFT = /* GraphQL */ `
+export const CONVERT_TO_DRAFT = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation ConvertToDraft($pullRequestId: ID!) {
     convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) { pullRequest { id isDraft } }
   }
-`;
+`,
+);
 
-export const CLOSE_PULL = /* GraphQL */ `
+export const CLOSE_PULL = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation ClosePull($pullRequestId: ID!) {
     closePullRequest(input: { pullRequestId: $pullRequestId }) { pullRequest { id state } }
   }
-`;
+`,
+);
 
-export const REOPEN_PULL = /* GraphQL */ `
+export const REOPEN_PULL = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation ReopenPull($pullRequestId: ID!) {
     reopenPullRequest(input: { pullRequestId: $pullRequestId }) { pullRequest { id state } }
   }
-`;
+`,
+);
 
-export const ENABLE_AUTO_MERGE = /* GraphQL */ `
+export const ENABLE_AUTO_MERGE = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation EnableAutoMerge($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {
     enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId, mergeMethod: $mergeMethod }) {
       pullRequest { id }
     }
   }
-`;
+`,
+);
 
-export const DISABLE_AUTO_MERGE = /* GraphQL */ `
+export const DISABLE_AUTO_MERGE = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation DisableAutoMerge($pullRequestId: ID!) {
     disablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId }) { pullRequest { id } }
   }
-`;
+`,
+);
 
-export const CLOSE_ISSUE = /* GraphQL */ `
+export const CLOSE_ISSUE = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation CloseIssue($issueId: ID!, $stateReason: IssueClosedStateReason) {
     closeIssue(input: { issueId: $issueId, stateReason: $stateReason }) { issue { id state } }
   }
-`;
+`,
+);
 
-export const REOPEN_ISSUE = /* GraphQL */ `
+export const REOPEN_ISSUE = gql(
+  Acknowledged,
+  /* GraphQL */ `
   mutation ReopenIssue($issueId: ID!) {
     reopenIssue(input: { issueId: $issueId }) { issue { id state } }
   }
-`;
+`,
+);
 
 // ------------------------------------------------------- new pull requests
 
@@ -794,7 +926,9 @@ const BRANCH_TIP = /* GraphQL */ `
 `;
 
 /** Recently updated branches in the repositories the viewer pushed to last. */
-export const RECENT_BRANCHES = /* GraphQL */ `
+export const RECENT_BRANCHES = gql(
+  RecentBranchesResult,
+  /* GraphQL */ `
   query RecentBranches {
     viewer {
       repositories(
@@ -815,9 +949,12 @@ export const RECENT_BRANCHES = /* GraphQL */ `
     }
   }
   ${BRANCH_TIP}
-`;
+`,
+);
 
-export const REPO_RECENT_BRANCHES = /* GraphQL */ `
+export const REPO_RECENT_BRANCHES = gql(
+  RepoRecentBranchesResult,
+  /* GraphQL */ `
   query RepoRecentBranches($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
       nameWithOwner
@@ -829,7 +966,8 @@ export const REPO_RECENT_BRANCHES = /* GraphQL */ `
     }
   }
   ${BRANCH_TIP}
-`;
+`,
+);
 
 const BRANCH_NAME = /* GraphQL */ `
   fragment BranchName on Ref {
@@ -841,7 +979,9 @@ const BRANCH_NAME = /* GraphQL */ `
 `;
 
 /** Every branch for the branch picker, a page at a time, most recently committed first. */
-export const REPO_BRANCHES = /* GraphQL */ `
+export const REPO_BRANCHES = gql(
+  RepoBranchesResult,
+  /* GraphQL */ `
   query RepoBranches($owner: String!, $name: String!, $after: String) {
     repository(owner: $owner, name: $name) {
       defaultBranchRef { name }
@@ -853,10 +993,13 @@ export const REPO_BRANCHES = /* GraphQL */ `
     }
   }
   ${BRANCH_NAME}
-`;
+`,
+);
 
 /** GitHub's own branch search, for repositories with more branches than the picker loads. */
-export const SEARCH_BRANCHES = /* GraphQL */ `
+export const SEARCH_BRANCHES = gql(
+  SearchBranchesResult,
+  /* GraphQL */ `
   query SearchBranches($owner: String!, $name: String!, $query: String!) {
     repository(owner: $owner, name: $name) {
       refs(refPrefix: "refs/heads/", first: 50, query: $query, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
@@ -865,10 +1008,13 @@ export const SEARCH_BRANCHES = /* GraphQL */ `
     }
   }
   ${BRANCH_NAME}
-`;
+`,
+);
 
 /** A repository's .review-rules (src/lib/reviewRules.ts), as "<branch>:.review-rules". */
-export const REVIEW_RULES = /* GraphQL */ `
+export const REVIEW_RULES = gql(
+  ReviewRulesResult,
+  /* GraphQL */ `
   query ReviewRules($owner: String!, $name: String!, $expression: String!) {
     repository(owner: $owner, name: $name) {
       object(expression: $expression) {
@@ -876,10 +1022,13 @@ export const REVIEW_RULES = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
 /** What the "open a pull request" screen needs to know about the base repository. */
-export const NEW_PULL = /* GraphQL */ `
+export const NEW_PULL = gql(
+  NewPullResult,
+  /* GraphQL */ `
   query NewPull($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
       id
@@ -892,9 +1041,12 @@ export const NEW_PULL = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
-export const ASSIGNABLE_USERS = /* GraphQL */ `
+export const ASSIGNABLE_USERS = gql(
+  AssignableUsersResult,
+  /* GraphQL */ `
   query AssignableUsers($owner: String!, $name: String!, $query: String) {
     repository(owner: $owner, name: $name) {
       assignableUsers(first: 30, query: $query) {
@@ -902,9 +1054,10 @@ export const ASSIGNABLE_USERS = /* GraphQL */ `
       }
     }
   }
-`;
+`,
+);
 
-export const ALL_DOCUMENTS: Record<string, string> = {
+export const ALL_DOCUMENTS: Record<string, GraphQLDocument<z.ZodType>> = {
   SEARCH_ISSUES,
   SEARCH_COUNTS,
   SEARCH_REPOS,

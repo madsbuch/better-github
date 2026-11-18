@@ -6,15 +6,16 @@ mod ipc_tests;
 mod store;
 
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use serde::Serialize;
-use serde_json::Value;
 use tauri::{Manager, Runtime, State};
 
 use crate::auth::DeviceCode;
 use crate::error::{Error, Result};
-use crate::github::{ArchiveFormat, JobLog, RestRequest, RestResponse};
+use crate::github::{
+    ArchiveFormat, GraphQlEnvelope, GraphQlVariables, JobLog, RestRequest, RestResponse,
+};
 use crate::store::{AuthMethod, Config, SessionInfo, Store, StoredSession};
 
 struct AppState {
@@ -26,24 +27,32 @@ struct AppState {
     config: RwLock<Config>,
 }
 
+/// Locks are only held for plain reads and assignments, so the data behind a
+/// lock poisoned by a panic elsewhere is still whole: carry on with it.
+fn read<T>(lock: &RwLock<T>) -> RwLockReadGuard<'_, T> {
+    lock.read().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn write<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
+    lock.write().unwrap_or_else(PoisonError::into_inner)
+}
+
 impl AppState {
-    fn new(data_dir: PathBuf) -> Self {
+    fn new(data_dir: PathBuf) -> Result<Self> {
         let store = Store::new(data_dir);
         let session = store.load_session();
         let config = store.load_config();
-        AppState {
-            http: github::build_client(),
-            downloads: github::build_no_redirect_client(),
+        Ok(AppState {
+            http: github::build_client()?,
+            downloads: github::build_no_redirect_client()?,
             store,
             session: RwLock::new(session),
             config: RwLock::new(config),
-        }
+        })
     }
 
     fn token(&self) -> Result<String> {
-        self.session
-            .read()
-            .expect("session lock poisoned")
+        read(&self.session)
             .as_ref()
             .map(|s| s.token.clone())
             .ok_or(Error::NotAuthenticated)
@@ -51,17 +60,11 @@ impl AppState {
 
     /// The token if signed in; `None` in guest mode (public reads only).
     fn optional_token(&self) -> Option<String> {
-        self.session
-            .read()
-            .expect("session lock poisoned")
-            .as_ref()
-            .map(|s| s.token.clone())
+        read(&self.session).as_ref().map(|s| s.token.clone())
     }
 
     fn client_id(&self) -> Option<String> {
-        self.config
-            .read()
-            .expect("config lock poisoned")
+        read(&self.config)
             .client_id
             .clone()
             .or_else(|| auth::build_time_client_id().map(str::to_owned))
@@ -80,7 +83,7 @@ impl AppState {
         };
         self.store.save_session(&session)?;
         let info = SessionInfo::from(&session);
-        *self.session.write().expect("session lock poisoned") = Some(session);
+        *write(&self.session) = Some(session);
         Ok(info)
     }
 }
@@ -106,22 +109,12 @@ enum PollResult {
 
 #[tauri::command]
 fn session_get(state: State<'_, AppState>) -> Option<SessionInfo> {
-    state
-        .session
-        .read()
-        .expect("session lock poisoned")
-        .as_ref()
-        .map(SessionInfo::from)
+    read(&state.session).as_ref().map(SessionInfo::from)
 }
 
 #[tauri::command]
 fn auth_config(state: State<'_, AppState>) -> AuthConfig {
-    let user = state
-        .config
-        .read()
-        .expect("config lock poisoned")
-        .client_id
-        .clone();
+    let user = read(&state.config).client_id.clone();
     let (client_id, source) = match user {
         Some(id) => (Some(id), Some("user")),
         None => match auth::build_time_client_id() {
@@ -152,7 +145,7 @@ fn auth_set_client_id(state: State<'_, AppState>, client_id: Option<String>) -> 
         }
     }
     {
-        let mut config = state.config.write().expect("config lock poisoned");
+        let mut config = write(&state.config);
         config.client_id = client_id;
         state.store.save_config(&config)?;
     }
@@ -196,7 +189,7 @@ async fn auth_with_token(state: State<'_, AppState>, token: String) -> Result<Se
 
 #[tauri::command]
 fn auth_logout(state: State<'_, AppState>) -> Result<()> {
-    *state.session.write().expect("session lock poisoned") = None;
+    *write(&state.session) = None;
     state.store.clear_session()
 }
 
@@ -210,8 +203,8 @@ async fn gh_rest(state: State<'_, AppState>, request: RestRequest) -> Result<Res
 async fn gh_graphql(
     state: State<'_, AppState>,
     query: String,
-    variables: Option<Value>,
-) -> Result<Value> {
+    variables: Option<GraphQlVariables>,
+) -> Result<GraphQlEnvelope> {
     let token = state.token()?;
     github::graphql(&state.http, &token, &query, variables).await
 }
@@ -280,13 +273,15 @@ fn with_commands<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    with_commands(tauri::Builder::default())
+    let app = with_commands(tauri::Builder::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
-            app.manage(AppState::new(app.path().app_data_dir()?));
+            app.manage(AppState::new(app.path().app_data_dir()?)?);
             Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running Better GitHub");
+        });
+    if let Err(error) = app.run(tauri::generate_context!()) {
+        eprintln!("error while running Better GitHub: {error}");
+        std::process::exit(1);
+    }
 }

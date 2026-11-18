@@ -1,6 +1,8 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
+use crate::github::{GraphQlError, RestErrorItem};
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors surfaced to the frontend. They are serialized as
@@ -13,7 +15,7 @@ pub enum Error {
     Api {
         status: u16,
         message: String,
-        errors: Option<serde_json::Value>,
+        errors: Option<ApiErrors>,
     },
     #[error("{0}")]
     Auth(String),
@@ -25,6 +27,16 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("Unexpected response: {0}")]
     Json(#[from] serde_json::Error),
+}
+
+/// The details GitHub sent with a failure, passed on to the frontend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
+pub enum ApiErrors {
+    /// REST validation errors (`errors` in a 4xx body).
+    Rest(Vec<RestErrorItem>),
+    /// GraphQL errors from a response without data.
+    GraphQl(Vec<GraphQlError>),
 }
 
 impl Error {

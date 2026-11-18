@@ -1,5 +1,7 @@
-import { ApiError, backend, type QueryValue, type RestRequest } from "./backend";
+import { z } from "zod";
+import { ApiError, backend, type RestRequest } from "./backend";
 import { isGuest } from "./guest";
+import type { GraphQLDocument } from "./schema";
 
 export { ApiError };
 
@@ -22,16 +24,29 @@ async function guard<T>(promise: Promise<T>): Promise<T> {
   }
 }
 
-export interface RestOptions {
-  method?: RestRequest["method"];
-  query?: Record<string, QueryValue>;
-  body?: unknown;
-  accept?: string;
+export type RestOptions = Omit<RestRequest, "path">;
+
+/** The single place responses are checked: anything that doesn't match `schema` fails like a request error. */
+function parseBody<S extends z.ZodType>(schema: S, body: unknown, what: string): z.infer<S> {
+  const parsed = schema.safeParse(body);
+  if (parsed.success) return parsed.data;
+  throw new ApiError(`GitHub sent an unexpected response for ${what}.\n${z.prettifyError(parsed.error)}`, "invalid_response");
 }
 
-export async function rest<T>(path: string, options: RestOptions = {}): Promise<T> {
-  const response = await guard(backend.rest<T>({ path, ...options }));
-  return response.body;
+/** Path without the origin and query, for error messages. */
+function describe(path: string): string {
+  return path.replace(/^https:\/\/api\.github\.com/, "").replace(/\?.*$/, "");
+}
+
+/** A REST call whose response is parsed with `schema`. */
+export async function rest<S extends z.ZodType>(schema: S, path: string, options: RestOptions = {}): Promise<z.infer<S>> {
+  const response = await guard(backend.rest({ path, ...options }));
+  return parseBody(schema, response.body, describe(path));
+}
+
+/** A REST call made for its effect; the response body isn't read. */
+export async function restSend(path: string, options: RestOptions = {}): Promise<void> {
+  await guard(backend.rest({ path, ...options }));
 }
 
 export interface Page<T> {
@@ -42,61 +57,56 @@ export interface Page<T> {
 /**
  * Fetches one page of a paginated REST list; `next` is the URL of the next
  * page. `listKey` names the array in wrapped responses: "items" for search,
- * "workflow_runs" for Actions.
+ * "workflow_runs" for Actions; plain lists are arrays.
  */
-export async function restPage<T>(path: string, options: RestOptions = {}, listKey = "items"): Promise<Page<T>> {
-  const response = await guard(backend.rest<T[] | Record<string, T[] | undefined>>({ path, ...options }));
-  const body = response.body;
-  const items = Array.isArray(body) ? body : (body?.[listKey] ?? []);
-  return { items, next: parseLink(response.link).next ?? null };
+export async function restPage<S extends z.ZodType>(
+  item: S,
+  path: string,
+  options: RestOptions = {},
+  listKey?: string,
+): Promise<Page<z.infer<S>>> {
+  const response = await guard(backend.rest({ path, ...options }));
+  const list = z.array(item);
+  const items =
+    listKey === undefined
+      ? parseBody(list, response.body, describe(path))
+      : parseBody(z.object({ [listKey]: list }).transform((page) => page[listKey]), response.body, describe(path));
+  return { items: items ?? [], next: parseLink(response.link).next ?? null };
 }
 
 /** Follows `Link` headers until exhausted or `limit` items are collected. */
-export async function restAll<T>(path: string, options: RestOptions = {}, limit = 3000): Promise<T[]> {
-  const all: T[] = [];
-  let page = await restPage<T>(path, options);
+export async function restAll<S extends z.ZodType>(item: S, path: string, options: RestOptions = {}, limit = 3000): Promise<z.infer<S>[]> {
+  const all: z.infer<S>[] = [];
+  let page = await restPage(item, path, options);
   all.push(...page.items);
-  while (page.next && all.length < limit) {
-    page = await restPage<T>(page.next, { accept: options.accept });
+  while (page.next !== null && all.length < limit) {
+    page = await restPage(item, page.next, options.accept === undefined ? {} : { accept: options.accept });
     all.push(...page.items);
   }
   return all;
 }
 
-export async function graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+export async function graphql<S extends z.ZodType>(document: GraphQLDocument<S>, variables?: Record<string, unknown>): Promise<z.infer<S>> {
   // GitHub's GraphQL API always needs a token; guest screens use REST.
   if (isGuest()) throw new ApiError("Sign in to GitHub to see this.", "not_authenticated", 401);
-  const envelope = await guard(backend.graphql<T>(query, variables));
-  return dropNullNodes(envelope.data) as T;
+  const envelope = await guard(backend.graphql(document.source, variables));
+  return parseBody(document.result, envelope.data, operationName(document.source));
 }
 
-/**
- * GitHub puts `null` into connection `nodes` for items the viewer can't see
- * (e.g. from SAML-protected organizations) and reports them as partial
- * errors. Drop those entries so lists can assume every node is real.
- */
-export function dropNullNodes(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    value.forEach(dropNullNodes);
-  } else if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    for (const key of Object.keys(record)) {
-      const child = record[key];
-      if (key === "nodes" && Array.isArray(child)) record[key] = child.filter((node) => node !== null && node !== undefined);
-      dropNullNodes(record[key]);
-    }
-  }
-  return value;
+function operationName(source: string): string {
+  return /(?:query|mutation)\s+(\w+)/.exec(source)?.[1] ?? "a GraphQL query";
 }
 
 /** Parses an RFC 8288 `Link` header into `{ next, prev, last, first }`. */
 export function parseLink(header: string | null | undefined): Record<string, string> {
   const links: Record<string, string> = {};
-  if (!header) return links;
+  if (header === null || header === undefined || header === "") return links;
   for (const part of header.split(",")) {
     const match = part.match(/<([^>]+)>\s*;\s*rel="?([^";]+)"?/);
-    if (match) {
-      for (const rel of match[2].split(/\s+/)) links[rel] = match[1];
+    const url = match?.[1];
+    const rels = match?.[2];
+    if (url !== undefined && rels !== undefined) {
+      for (const rel of rels.split(/\s+/)) links[rel] = url;
     }
   }
   return links;

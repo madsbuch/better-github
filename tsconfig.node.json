@@ -12,7 +12,14 @@
     "noEmit": true,
     "types": [
       "node"
-    ]
+    ],
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": [
     "vite.config.ts",

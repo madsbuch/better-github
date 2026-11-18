@@ -22,7 +22,7 @@ fn harness(name: &str) -> Harness {
     let dir = std::env::temp_dir().join(format!("ghc-ipc-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let app = with_commands(mock_builder())
-        .manage(AppState::new(dir))
+        .manage(AppState::new(dir).expect("failed to set up state"))
         .build(mock_context(noop_assets()))
         .expect("failed to build app");
     let window = WebviewWindowBuilder::new(&app, "main", Default::default())
@@ -140,6 +140,56 @@ fn guests_can_read_but_not_write() {
         )
         .unwrap_err();
     assert_eq!(err["kind"], "not_authenticated");
+}
+
+#[test]
+fn rest_requests_take_the_frontends_query_and_body() {
+    let h = harness("rest-shapes");
+    // The arguments parse (query values, an opaque JSON body); the call then
+    // stops at the guest check, before any network traffic.
+    let err = h
+        .invoke(
+            "gh_rest",
+            json!({ "request": {
+                "method": "POST",
+                "path": "/repos/o/r/issues",
+                "query": { "per_page": 50, "state": "open", "draft": false, "since": null },
+                "body": { "title": "t", "labels": ["bug"], "milestone": null, "n": 1.5 },
+                "accept": "application/vnd.github+json",
+            } }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "not_authenticated");
+
+    // Query values are scalars only.
+    let err = h
+        .invoke(
+            "gh_rest",
+            json!({ "request": { "method": "POST", "path": "/x", "query": { "a": [1] } } }),
+        )
+        .unwrap_err();
+    assert!(err.get("kind").is_none(), "rejected while parsing: {err}");
+}
+
+#[test]
+fn graphql_takes_the_frontends_variables() {
+    let h = harness("graphql-shapes");
+    let err = h
+        .invoke(
+            "gh_graphql",
+            json!({
+                "query": "query($o: String!) { repository(owner: $o) { id } }",
+                "variables": { "o": "octo", "first": 50, "after": null, "nested": { "a": [1, "b"] } },
+            }),
+        )
+        .unwrap_err();
+    assert_eq!(err["kind"], "not_authenticated");
+
+    // Variables are an object.
+    let err = h
+        .invoke("gh_graphql", json!({ "query": "{ a }", "variables": [1] }))
+        .unwrap_err();
+    assert!(err.get("kind").is_none(), "rejected while parsing: {err}");
 }
 
 #[test]

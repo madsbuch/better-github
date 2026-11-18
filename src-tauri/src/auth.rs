@@ -166,10 +166,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(code.user_code, "ABCD-1234");
+        assert_eq!(code.expires_in, 899);
         // Serialized for the frontend in camelCase.
-        let json = serde_json::to_value(&code).unwrap();
-        assert_eq!(json["userCode"], "ABCD-1234");
-        assert_eq!(json["verificationUri"], "https://github.com/login/device");
+        assert_eq!(
+            serde_json::to_string(&code).unwrap(),
+            r#"{"deviceCode":"dc","userCode":"ABCD-1234","verificationUri":"https://github.com/login/device","expiresIn":899,"interval":5}"#
+        );
     }
 
     #[test]

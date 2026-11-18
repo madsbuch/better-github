@@ -1,670 +1,815 @@
-// Shapes of the GraphQL results in queries.ts and the REST payloads we use.
+// Schemas for the GraphQL results in queries.ts and the REST payloads we use.
+// Every response is parsed with one of these before the app reads it; the
+// TypeScript types are inferred from the schemas, so the two can't drift.
+//
+// GraphQL schemas are checked against GitHub's published schema and the
+// documents that select them (schemaCheck.test.ts). REST schemas are checked
+// against GitHub's OpenAPI types (restSchemas.check.ts).
 
-import type { components } from "@octokit/openapi-types";
+import { z } from "zod";
+import { byTypename, nodes } from "./schema";
 
-export interface Actor {
-  login: string;
-  avatarUrl: string;
-}
+export const Actor = z.object({ login: z.string(), avatarUrl: z.string() });
+export type Actor = z.infer<typeof Actor>;
 
-export interface Label {
-  name: string;
-  color: string;
-}
+export const Label = z.object({ name: z.string(), color: z.string() });
+export type Label = z.infer<typeof Label>;
 
-export interface PageInfo {
-  hasNextPage: boolean;
-  endCursor: string | null;
-}
+export const PageInfo = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() });
+export type PageInfo = z.infer<typeof PageInfo>;
 
-export interface Connection<T> {
-  totalCount?: number;
-  pageInfo: PageInfo;
-  nodes: T[];
-}
+const TotalCount = z.object({ totalCount: z.number() });
+const Labels = z.object({ nodes: nodes(Label) }).nullable();
+const RepoName = z.object({ nameWithOwner: z.string() });
+const BranchRef = z.object({ name: z.string() });
 
-export type StatusState = "EXPECTED" | "ERROR" | "FAILURE" | "PENDING" | "SUCCESS";
-export type PullState = "OPEN" | "CLOSED" | "MERGED";
-export type IssueState = "OPEN" | "CLOSED";
-export type IssueStateReason = "COMPLETED" | "NOT_PLANNED" | "REOPENED" | "DUPLICATE" | null;
-export type ReviewDecision = "CHANGES_REQUESTED" | "APPROVED" | "REVIEW_REQUIRED" | null;
-export type ReviewState = "PENDING" | "COMMENTED" | "APPROVED" | "CHANGES_REQUESTED" | "DISMISSED";
-export type MergeMethod = "MERGE" | "SQUASH" | "REBASE";
+export const StatusState = z.enum(["EXPECTED", "ERROR", "FAILURE", "PENDING", "SUCCESS"]);
+export type StatusState = z.infer<typeof StatusState>;
+export const PullState = z.enum(["OPEN", "CLOSED", "MERGED"]);
+export type PullState = z.infer<typeof PullState>;
+export const IssueState = z.enum(["OPEN", "CLOSED"]);
+export type IssueState = z.infer<typeof IssueState>;
+export const IssueStateReason = z.enum(["COMPLETED", "NOT_PLANNED", "REOPENED", "DUPLICATE"]).nullable();
+export type IssueStateReason = z.infer<typeof IssueStateReason>;
+export const ReviewDecision = z.enum(["CHANGES_REQUESTED", "APPROVED", "REVIEW_REQUIRED"]).nullable();
+export type ReviewDecision = z.infer<typeof ReviewDecision>;
+export const ReviewState = z.enum(["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
+export type ReviewState = z.infer<typeof ReviewState>;
+export const MergeMethod = z.enum(["MERGE", "SQUASH", "REBASE"]);
+export type MergeMethod = z.infer<typeof MergeMethod>;
 /** How the base branch is brought into a pull request's branch. */
-export type UpdateBranchMethod = "MERGE" | "REBASE";
-export type Permission = "ADMIN" | "MAINTAIN" | "WRITE" | "TRIAGE" | "READ" | null;
-export type MergeStateStatus = "DIRTY" | "UNKNOWN" | "BLOCKED" | "BEHIND" | "DRAFT" | "UNSTABLE" | "HAS_HOOKS" | "CLEAN";
-export type Mergeable = "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
-export type FileViewedState = "DISMISSED" | "VIEWED" | "UNVIEWED";
-export type PatchStatus = "ADDED" | "DELETED" | "RENAMED" | "COPIED" | "MODIFIED" | "CHANGED";
+export const UpdateBranchMethod = z.enum(["MERGE", "REBASE"]);
+export type UpdateBranchMethod = z.infer<typeof UpdateBranchMethod>;
+export const Permission = z.enum(["ADMIN", "MAINTAIN", "WRITE", "TRIAGE", "READ"]).nullable();
+export type Permission = z.infer<typeof Permission>;
+export const MergeStateStatus = z.enum(["DIRTY", "UNKNOWN", "BLOCKED", "BEHIND", "DRAFT", "UNSTABLE", "HAS_HOOKS", "CLEAN"]);
+export type MergeStateStatus = z.infer<typeof MergeStateStatus>;
+export const Mergeable = z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]);
+export type Mergeable = z.infer<typeof Mergeable>;
+export const FileViewedState = z.enum(["DISMISSED", "VIEWED", "UNVIEWED"]);
+export type FileViewedState = z.infer<typeof FileViewedState>;
+export const PatchStatus = z.enum(["ADDED", "DELETED", "RENAMED", "COPIED", "MODIFIED", "CHANGED"]);
+export type PatchStatus = z.infer<typeof PatchStatus>;
 
-export interface PullListItem {
-  __typename: "PullRequest";
-  id: string;
-  number: number;
-  title: string;
-  url: string;
-  state: PullState;
-  isDraft: boolean;
-  createdAt: string;
-  updatedAt: string;
-  additions: number;
-  deletions: number;
-  totalCommentsCount: number | null;
-  reviewDecision: ReviewDecision;
-  author: Actor | null;
-  repository: { nameWithOwner: string };
-  labels: { nodes: Label[] } | null;
-  commits: { nodes: { commit: { statusCheckRollup: { state: StatusState } | null } }[] };
-}
+const StatusRollup = z.object({ state: StatusState }).nullable();
 
-export interface IssueListItem {
-  __typename: "Issue";
-  id: string;
-  number: number;
-  title: string;
-  url: string;
-  issueState: IssueState;
-  stateReason: IssueStateReason;
-  createdAt: string;
-  updatedAt: string;
-  author: Actor | null;
-  repository: { nameWithOwner: string };
-  comments: { totalCount: number };
-  labels: { nodes: Label[] } | null;
-}
+export const PullListItem = z.object({
+  __typename: z.literal("PullRequest"),
+  id: z.string(),
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  state: PullState,
+  isDraft: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  additions: z.number(),
+  deletions: z.number(),
+  totalCommentsCount: z.number().nullable(),
+  reviewDecision: ReviewDecision,
+  author: Actor.nullable(),
+  repository: RepoName,
+  labels: Labels,
+  commits: z.object({ nodes: nodes(z.object({ commit: z.object({ statusCheckRollup: StatusRollup }) })) }),
+});
+export type PullListItem = z.infer<typeof PullListItem>;
 
-export type SearchIssueNode = PullListItem | IssueListItem | { __typename: string };
+export const IssueListItem = z.object({
+  __typename: z.literal("Issue"),
+  id: z.string(),
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  issueState: IssueState,
+  stateReason: IssueStateReason,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  author: Actor.nullable(),
+  repository: RepoName,
+  comments: TotalCount,
+  labels: Labels,
+});
+export type IssueListItem = z.infer<typeof IssueListItem>;
 
-export interface SearchIssuesResult {
-  search: {
-    issueCount: number;
-    pageInfo: PageInfo;
-    nodes: SearchIssueNode[];
-  };
-}
+export const SearchIssueNode = byTypename([PullListItem, IssueListItem]);
+export type SearchIssueNode = z.infer<typeof SearchIssueNode>;
 
-export interface RepoListItem {
-  __typename?: "Repository";
-  id: string;
-  name: string;
-  nameWithOwner: string;
-  description: string | null;
-  isPrivate: boolean;
-  isFork: boolean;
-  isArchived: boolean;
-  stargazerCount: number;
-  pushedAt: string | null;
-  owner: Actor;
-  primaryLanguage: { name: string; color: string | null } | null;
-}
+export const SearchIssuesResult = z.object({
+  search: z.object({ issueCount: z.number(), pageInfo: PageInfo, nodes: nodes(SearchIssueNode) }),
+});
+export type SearchIssuesResult = z.infer<typeof SearchIssuesResult>;
 
-export interface SearchReposResult {
-  search: { repositoryCount: number; pageInfo: PageInfo; nodes: (RepoListItem | { __typename: string })[] };
-}
+const IssueCount = z.object({ issueCount: z.number() });
+export const SearchCountsResult = z.object({ c0: IssueCount, c1: IssueCount, c2: IssueCount, c3: IssueCount, c4: IssueCount });
+export type SearchCountsResult = z.infer<typeof SearchCountsResult>;
 
-export interface UserListItem {
-  __typename: "User" | "Organization";
-  id: string;
-  login: string;
-  name: string | null;
-  avatarUrl: string;
-  bio?: string | null;
-  description?: string | null;
-}
+const Language = z.object({ name: z.string(), color: z.string().nullable() }).nullable();
 
-export interface SearchUsersResult {
-  search: { userCount: number; pageInfo: PageInfo; nodes: (UserListItem | { __typename: string })[] };
-}
+export const RepoListItem = z.object({
+  id: z.string(),
+  name: z.string(),
+  nameWithOwner: z.string(),
+  description: z.string().nullable(),
+  isPrivate: z.boolean(),
+  isFork: z.boolean(),
+  isArchived: z.boolean(),
+  stargazerCount: z.number(),
+  pushedAt: z.string().nullable(),
+  owner: Actor,
+  primaryLanguage: Language,
+});
+export type RepoListItem = z.infer<typeof RepoListItem>;
 
-export interface ViewerResult {
-  viewer: {
-    login: string;
-    name: string | null;
-    avatarUrl: string;
-    bio: string | null;
-    company: string | null;
-    location: string | null;
-    url: string;
-    followers: { totalCount: number };
-    following: { totalCount: number };
-    repositories: { totalCount: number };
-    starredRepositories: { totalCount: number };
-    organizations: { nodes: { login: string; name: string | null; avatarUrl: string }[] };
-  };
-  rateLimit: { limit: number; remaining: number; resetAt: string } | null;
-}
+export const SearchReposResult = z.object({
+  search: z.object({
+    repositoryCount: z.number(),
+    pageInfo: PageInfo,
+    nodes: nodes(byTypename([RepoListItem.extend({ __typename: z.literal("Repository") })])),
+  }),
+});
+export type SearchReposResult = z.infer<typeof SearchReposResult>;
 
-export interface OwnerResult {
-  repositoryOwner: {
-    __typename: "User" | "Organization";
-    login: string;
-    avatarUrl: string;
-    url: string;
-    name?: string | null;
-    bio?: string | null;
-    description?: string | null;
-    company?: string | null;
-    location?: string | null;
-    followers?: { totalCount: number };
-    following?: { totalCount: number };
-    repositories: Connection<RepoListItem>;
-  } | null;
-}
+export const UserListItem = z.object({
+  __typename: z.enum(["User", "Organization"]),
+  id: z.string(),
+  login: z.string(),
+  name: z.string().nullable(),
+  avatarUrl: z.string(),
+  bio: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+});
+export type UserListItem = z.infer<typeof UserListItem>;
 
-export interface RepoDetail {
-  id: string;
-  name: string;
-  nameWithOwner: string;
-  description: string | null;
-  url: string;
-  homepageUrl: string | null;
-  isPrivate: boolean;
-  isFork: boolean;
-  isArchived: boolean;
-  stargazerCount: number;
-  forkCount: number;
-  viewerHasStarred: boolean;
-  viewerPermission: Permission;
-  hasIssuesEnabled: boolean;
-  owner: Actor;
-  defaultBranchRef: { name: string } | null;
-  primaryLanguage: { name: string; color: string | null } | null;
-  licenseInfo: { spdxId: string | null; name: string } | null;
-  parent: { nameWithOwner: string } | null;
-  latestRelease: { name: string | null; tagName: string; publishedAt: string | null; isPrerelease: boolean } | null;
-  releases: { totalCount: number };
-  watchers: { totalCount: number };
-  pullRequests: { totalCount: number };
-  issues: { totalCount: number };
-  repositoryTopics: { nodes: { topic: { name: string } }[] };
-}
+export const SearchUsersResult = z.object({
+  search: z.object({ userCount: z.number(), pageInfo: PageInfo, nodes: nodes(byTypename([UserListItem])) }),
+});
+export type SearchUsersResult = z.infer<typeof SearchUsersResult>;
 
-export interface RepoResult {
-  repository: RepoDetail | null;
-}
+const RepoConnection = z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(RepoListItem) });
+
+export const ViewerReposResult = z.object({ viewer: z.object({ repositories: RepoConnection }) });
+export type ViewerReposResult = z.infer<typeof ViewerReposResult>;
+
+export const ViewerStarredResult = z.object({ viewer: z.object({ starredRepositories: RepoConnection }) });
+export type ViewerStarredResult = z.infer<typeof ViewerStarredResult>;
+
+export const RateLimit = z.object({ limit: z.number(), remaining: z.number(), resetAt: z.string() }).nullable();
+export type RateLimit = z.infer<typeof RateLimit>;
+
+export const RateLimitResult = z.object({ rateLimit: RateLimit });
+export type RateLimitResult = z.infer<typeof RateLimitResult>;
+
+export const ViewerResult = z.object({
+  viewer: z.object({
+    login: z.string(),
+    name: z.string().nullable(),
+    avatarUrl: z.string(),
+    bio: z.string().nullable(),
+    company: z.string().nullable(),
+    location: z.string().nullable(),
+    url: z.string(),
+    followers: TotalCount,
+    following: TotalCount,
+    repositories: TotalCount,
+    starredRepositories: TotalCount,
+    organizations: z.object({ nodes: nodes(z.object({ login: z.string(), name: z.string().nullable(), avatarUrl: z.string() })) }),
+  }),
+  rateLimit: RateLimit,
+});
+export type ViewerResult = z.infer<typeof ViewerResult>;
+
+export const OwnerResult = z.object({
+  repositoryOwner: z
+    .object({
+      __typename: z.enum(["User", "Organization"]),
+      login: z.string(),
+      avatarUrl: z.string(),
+      url: z.string(),
+      name: z.string().nullable().optional(),
+      bio: z.string().nullable().optional(),
+      description: z.string().nullable().optional(),
+      company: z.string().nullable().optional(),
+      location: z.string().nullable().optional(),
+      followers: TotalCount.optional(),
+      following: TotalCount.optional(),
+      repositories: RepoConnection,
+    })
+    .nullable(),
+});
+export type OwnerResult = z.infer<typeof OwnerResult>;
+
+export const RepoDetail = z.object({
+  id: z.string(),
+  name: z.string(),
+  nameWithOwner: z.string(),
+  description: z.string().nullable(),
+  url: z.string(),
+  homepageUrl: z.string().nullable(),
+  isPrivate: z.boolean(),
+  isFork: z.boolean(),
+  isArchived: z.boolean(),
+  stargazerCount: z.number(),
+  forkCount: z.number(),
+  viewerHasStarred: z.boolean(),
+  viewerPermission: Permission,
+  hasIssuesEnabled: z.boolean(),
+  owner: Actor,
+  defaultBranchRef: BranchRef.nullable(),
+  primaryLanguage: Language,
+  licenseInfo: z.object({ spdxId: z.string().nullable(), name: z.string() }).nullable(),
+  parent: RepoName.nullable(),
+  latestRelease: z
+    .object({ name: z.string().nullable(), tagName: z.string(), publishedAt: z.string().nullable(), isPrerelease: z.boolean() })
+    .nullable(),
+  releases: TotalCount,
+  watchers: TotalCount,
+  pullRequests: TotalCount,
+  issues: TotalCount,
+  repositoryTopics: z.object({ nodes: nodes(z.object({ topic: z.object({ name: z.string() }) })) }),
+});
+export type RepoDetail = z.infer<typeof RepoDetail>;
+
+export const RepoResult = z.object({ repository: RepoDetail.nullable() });
+export type RepoResult = z.infer<typeof RepoResult>;
 
 // ---------------------------------------------------------------------------
 // Pull request detail
 
-export type RequestedReviewer =
-  | { __typename: "User" | "Bot" | "Mannequin"; login: string; avatarUrl: string }
-  | { __typename: "Team"; name: string; slug: string };
+export const RequestedReviewer = byTypename([
+  z.object({ __typename: z.enum(["User", "Bot", "Mannequin"]), login: z.string(), avatarUrl: z.string() }),
+  z.object({ __typename: z.literal("Team"), name: z.string(), slug: z.string() }),
+]);
+export type RequestedReviewer = z.infer<typeof RequestedReviewer>;
 
-export interface PullDetail {
-  id: string;
-  number: number;
-  title: string;
-  url: string;
-  state: PullState;
-  isDraft: boolean;
-  merged: boolean;
-  closed: boolean;
-  locked: boolean;
-  body: string;
-  bodyHTML: string;
-  createdAt: string;
-  updatedAt: string;
-  mergedAt: string | null;
-  mergedBy: Actor | null;
-  author: Actor | null;
-  authorAssociation: string;
-  baseRefName: string;
-  headRefName: string;
-  headRefOid: string;
-  isCrossRepository: boolean;
-  headRepository: { nameWithOwner: string } | null;
-  additions: number;
-  deletions: number;
-  changedFiles: number;
-  commits: { totalCount: number };
-  mergeable: Mergeable;
-  mergeStateStatus: MergeStateStatus;
-  reviewDecision: ReviewDecision;
-  isInMergeQueue: boolean;
-  autoMergeRequest: { mergeMethod: MergeMethod; enabledBy: { login: string } | null } | null;
-  viewerDidAuthor: boolean;
-  viewerCanUpdate: boolean;
-  viewerCanClose: boolean;
-  viewerCanReopen: boolean;
-  viewerCanDeleteHeadRef: boolean;
-  viewerCanEnableAutoMerge: boolean;
-  viewerCanDisableAutoMerge: boolean;
-  viewerCanMergeAsAdmin: boolean;
-  viewerCanUpdateBranch: boolean;
-  viewerLatestReview: { state: ReviewState } | null;
-  statusCheckRollup: { state: StatusState } | null;
-  labels: { nodes: Label[] } | null;
-  assignees: { nodes: Actor[] };
-  milestone: { title: string } | null;
-  reviewRequests: { nodes: { requestedReviewer: RequestedReviewer | null }[] } | null;
-  latestOpinionatedReviews: { nodes: { state: ReviewState; author: Actor | null }[] } | null;
-  squashTitle: string;
-  squashBody: string;
-  mergeTitle: string;
-  mergeBody: string;
-}
+export const PullDetail = z.object({
+  id: z.string(),
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  state: PullState,
+  isDraft: z.boolean(),
+  merged: z.boolean(),
+  closed: z.boolean(),
+  locked: z.boolean(),
+  body: z.string(),
+  bodyHTML: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  mergedAt: z.string().nullable(),
+  mergedBy: Actor.nullable(),
+  author: Actor.nullable(),
+  authorAssociation: z.string(),
+  baseRefName: z.string(),
+  headRefName: z.string(),
+  headRefOid: z.string(),
+  isCrossRepository: z.boolean(),
+  headRepository: RepoName.nullable(),
+  additions: z.number(),
+  deletions: z.number(),
+  changedFiles: z.number(),
+  commits: TotalCount,
+  mergeable: Mergeable,
+  mergeStateStatus: MergeStateStatus,
+  reviewDecision: ReviewDecision,
+  isInMergeQueue: z.boolean(),
+  autoMergeRequest: z.object({ mergeMethod: MergeMethod, enabledBy: z.object({ login: z.string() }).nullable() }).nullable(),
+  viewerDidAuthor: z.boolean(),
+  viewerCanUpdate: z.boolean(),
+  viewerCanClose: z.boolean(),
+  viewerCanReopen: z.boolean(),
+  viewerCanDeleteHeadRef: z.boolean(),
+  viewerCanEnableAutoMerge: z.boolean(),
+  viewerCanDisableAutoMerge: z.boolean(),
+  viewerCanMergeAsAdmin: z.boolean(),
+  viewerCanUpdateBranch: z.boolean(),
+  viewerLatestReview: z.object({ state: ReviewState }).nullable(),
+  statusCheckRollup: StatusRollup,
+  labels: Labels,
+  assignees: z.object({ nodes: nodes(Actor) }),
+  milestone: z.object({ title: z.string() }).nullable(),
+  reviewRequests: z.object({ nodes: nodes(z.object({ requestedReviewer: RequestedReviewer.nullable() })) }).nullable(),
+  latestOpinionatedReviews: z.object({ nodes: nodes(z.object({ state: ReviewState, author: Actor.nullable() })) }).nullable(),
+  squashTitle: z.string(),
+  squashBody: z.string(),
+  mergeTitle: z.string(),
+  mergeBody: z.string(),
+});
+export type PullDetail = z.infer<typeof PullDetail>;
 
-export interface PullResult {
-  repository: {
-    id: string;
-    nameWithOwner: string;
-    viewerPermission: Permission;
-    mergeCommitAllowed: boolean;
-    squashMergeAllowed: boolean;
-    rebaseMergeAllowed: boolean;
-    autoMergeAllowed: boolean;
-    deleteBranchOnMerge: boolean;
-    viewerDefaultMergeMethod: MergeMethod;
-    pullRequest: PullDetail | null;
-  } | null;
-}
+export const PullResult = z.object({
+  repository: z
+    .object({
+      id: z.string(),
+      nameWithOwner: z.string(),
+      viewerPermission: Permission,
+      mergeCommitAllowed: z.boolean(),
+      squashMergeAllowed: z.boolean(),
+      rebaseMergeAllowed: z.boolean(),
+      autoMergeAllowed: z.boolean(),
+      deleteBranchOnMerge: z.boolean(),
+      viewerDefaultMergeMethod: MergeMethod,
+      pullRequest: PullDetail.nullable(),
+    })
+    .nullable(),
+});
+export type PullResult = z.infer<typeof PullResult>;
 
-interface EventBase {
-  id: string;
-  actor: Actor | null;
-  createdAt: string;
-}
+const EventBase = z.object({ id: z.string(), actor: Actor.nullable(), createdAt: z.string() });
 
-export interface IssueCommentItem {
-  __typename: "IssueComment";
-  id: string;
-  author: Actor | null;
-  authorAssociation: string;
-  body: string;
-  bodyHTML: string;
-  createdAt: string;
-  url: string;
-}
+export const IssueCommentItem = z.object({
+  __typename: z.literal("IssueComment"),
+  id: z.string(),
+  author: Actor.nullable(),
+  authorAssociation: z.string(),
+  body: z.string(),
+  bodyHTML: z.string(),
+  createdAt: z.string(),
+  url: z.string(),
+});
+export type IssueCommentItem = z.infer<typeof IssueCommentItem>;
 
-export interface ReviewItem {
-  __typename: "PullRequestReview";
-  id: string;
-  author: Actor | null;
-  authorAssociation: string;
-  state: ReviewState;
-  body: string;
-  bodyHTML: string;
-  submittedAt: string | null;
-  createdAt: string;
-  url: string;
-  comments: { totalCount: number; nodes: { id: string; replyTo: { id: string } | null }[] };
-}
+export const ReviewItem = z.object({
+  __typename: z.literal("PullRequestReview"),
+  id: z.string(),
+  author: Actor.nullable(),
+  authorAssociation: z.string(),
+  state: ReviewState,
+  body: z.string(),
+  bodyHTML: z.string(),
+  submittedAt: z.string().nullable(),
+  createdAt: z.string(),
+  url: z.string(),
+  comments: z.object({
+    totalCount: z.number(),
+    nodes: nodes(z.object({ id: z.string(), replyTo: z.object({ id: z.string() }).nullable() })),
+  }),
+});
+export type ReviewItem = z.infer<typeof ReviewItem>;
 
-export interface CommitItem {
-  __typename: "PullRequestCommit";
-  id: string;
-  commit: {
-    oid: string;
-    abbreviatedOid: string;
-    messageHeadline: string;
-    committedDate: string;
-    author: { name: string | null; avatarUrl: string; user: { login: string } | null } | null;
-    statusCheckRollup: { state: StatusState } | null;
-  };
-}
+const CommitAuthor = z
+  .object({ name: z.string().nullable(), avatarUrl: z.string(), user: z.object({ login: z.string() }).nullable() })
+  .nullable();
 
-export type ReferencedSubject =
-  | { __typename: "Issue"; number: number; title: string; url: string; state: IssueState; repository: { nameWithOwner: string } }
-  | { __typename: "PullRequest"; number: number; title: string; url: string; prState: PullState; repository: { nameWithOwner: string } };
+export const CommitItem = z.object({
+  __typename: z.literal("PullRequestCommit"),
+  id: z.string(),
+  commit: z.object({
+    oid: z.string(),
+    abbreviatedOid: z.string(),
+    messageHeadline: z.string(),
+    committedDate: z.string(),
+    author: CommitAuthor,
+    statusCheckRollup: StatusRollup,
+  }),
+});
+export type CommitItem = z.infer<typeof CommitItem>;
 
-export type TimelineEvent =
-  | (EventBase & { __typename: "MergedEvent"; mergeRefName: string; mergeCommit: { abbreviatedOid: string } | null })
-  | (EventBase & { __typename: "ClosedEvent"; stateReason?: IssueStateReason })
-  | (EventBase & { __typename: "ReopenedEvent" })
-  | (EventBase & { __typename: "HeadRefForcePushedEvent"; beforeCommit: { abbreviatedOid: string } | null; afterCommit: { abbreviatedOid: string } | null })
-  | (EventBase & { __typename: "HeadRefDeletedEvent"; headRefName: string })
-  | (EventBase & { __typename: "ReviewRequestedEvent"; requestedReviewer: { __typename: string; login?: string; name?: string } | null })
-  | (EventBase & { __typename: "ReviewDismissedEvent"; previousReviewState: ReviewState })
-  | (EventBase & { __typename: "ReadyForReviewEvent" })
-  | (EventBase & { __typename: "ConvertToDraftEvent" })
-  | (EventBase & { __typename: "LabeledEvent"; label: Label })
-  | (EventBase & { __typename: "UnlabeledEvent"; label: Label })
-  | (EventBase & { __typename: "AssignedEvent"; assignee: { __typename: string; login?: string } | null })
-  | (EventBase & { __typename: "RenamedTitleEvent"; previousTitle: string; currentTitle: string })
-  | (EventBase & { __typename: "CrossReferencedEvent"; source: ReferencedSubject });
+export const ReferencedSubject = byTypename([
+  z.object({ __typename: z.literal("Issue"), number: z.number(), title: z.string(), url: z.string(), state: IssueState, repository: RepoName }),
+  z.object({ __typename: z.literal("PullRequest"), number: z.number(), title: z.string(), url: z.string(), prState: PullState, repository: RepoName }),
+]);
+export type ReferencedSubject = z.infer<typeof ReferencedSubject>;
 
-export type TimelineItem = IssueCommentItem | ReviewItem | CommitItem | TimelineEvent;
+const ShortCommit = z.object({ abbreviatedOid: z.string() }).nullable();
+const NamedActor = z.object({ __typename: z.string(), login: z.string().optional(), name: z.string().optional() }).nullable();
 
-export interface PullTimelineResult {
-  repository: {
-    pullRequest: {
-      timelineItems: Connection<TimelineItem> & { totalCount: number };
-    } | null;
-  } | null;
-}
+const TIMELINE_EVENTS = [
+  EventBase.extend({ __typename: z.literal("MergedEvent"), mergeRefName: z.string(), mergeCommit: ShortCommit }),
+  EventBase.extend({ __typename: z.literal("ClosedEvent"), stateReason: IssueStateReason.optional() }),
+  EventBase.extend({ __typename: z.literal("ReopenedEvent") }),
+  EventBase.extend({ __typename: z.literal("HeadRefForcePushedEvent"), beforeCommit: ShortCommit, afterCommit: ShortCommit }),
+  EventBase.extend({ __typename: z.literal("HeadRefDeletedEvent"), headRefName: z.string() }),
+  EventBase.extend({ __typename: z.literal("ReviewRequestedEvent"), requestedReviewer: NamedActor }),
+  EventBase.extend({ __typename: z.literal("ReviewDismissedEvent"), previousReviewState: ReviewState }),
+  EventBase.extend({ __typename: z.literal("ReadyForReviewEvent") }),
+  EventBase.extend({ __typename: z.literal("ConvertToDraftEvent") }),
+  EventBase.extend({ __typename: z.literal("LabeledEvent"), label: Label }),
+  EventBase.extend({ __typename: z.literal("UnlabeledEvent"), label: Label }),
+  EventBase.extend({ __typename: z.literal("AssignedEvent"), assignee: NamedActor }),
+  EventBase.extend({ __typename: z.literal("RenamedTitleEvent"), previousTitle: z.string(), currentTitle: z.string() }),
+  EventBase.extend({ __typename: z.literal("CrossReferencedEvent"), source: ReferencedSubject }),
+] as const;
 
-export interface ThreadComment {
-  id: string;
-  databaseId: number | null;
-  author: Actor | null;
-  authorAssociation: string;
-  body: string;
-  bodyHTML: string;
-  createdAt: string;
-  diffHunk: string;
-  url: string;
-  outdated: boolean;
-  pullRequestReview: { id: string } | null;
-}
+export const TimelineEvent = z.discriminatedUnion("__typename", TIMELINE_EVENTS);
+export type TimelineEvent = z.infer<typeof TimelineEvent>;
 
-export interface ReviewThread {
-  id: string;
-  path: string;
-  line: number | null;
-  originalLine: number | null;
-  startLine: number | null;
-  diffSide: "LEFT" | "RIGHT";
-  isResolved: boolean;
-  isOutdated: boolean;
-  subjectType: "LINE" | "FILE";
-  viewerCanReply: boolean;
-  viewerCanResolve: boolean;
-  viewerCanUnresolve: boolean;
-  resolvedBy: { login: string } | null;
-  comments: { totalCount: number; nodes: ThreadComment[] };
-}
+export const TimelineItem = byTypename([IssueCommentItem, ReviewItem, CommitItem, ...TIMELINE_EVENTS]);
+export type TimelineItem = z.infer<typeof TimelineItem>;
 
-export interface PullThreadsResult {
-  repository: { pullRequest: { reviewThreads: Connection<ReviewThread> } | null } | null;
-}
+export const PullTimelineResult = z.object({
+  repository: z
+    .object({
+      pullRequest: z
+        .object({ timelineItems: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(TimelineItem) }) })
+        .nullable(),
+    })
+    .nullable(),
+});
+export type PullTimelineResult = z.infer<typeof PullTimelineResult>;
 
-export interface ChangedFileState {
-  path: string;
-  additions: number;
-  deletions: number;
-  changeType: PatchStatus;
-  viewerViewedState: FileViewedState;
-}
+export const ThreadComment = z.object({
+  id: z.string(),
+  databaseId: z.number().nullable(),
+  author: Actor.nullable(),
+  authorAssociation: z.string(),
+  body: z.string(),
+  bodyHTML: z.string(),
+  createdAt: z.string(),
+  diffHunk: z.string(),
+  url: z.string(),
+  outdated: z.boolean(),
+  pullRequestReview: z.object({ id: z.string() }).nullable(),
+});
+export type ThreadComment = z.infer<typeof ThreadComment>;
 
-export interface PullFilesResult {
-  repository: { pullRequest: { files: Connection<ChangedFileState> | null } | null } | null;
-}
+export const DiffSide = z.enum(["LEFT", "RIGHT"]);
+export type DiffSide = z.infer<typeof DiffSide>;
 
-export interface PullCommitNode {
-  id: string;
-  commit: {
-    oid: string;
-    abbreviatedOid: string;
-    messageHeadline: string;
-    committedDate: string;
-    additions: number;
-    deletions: number;
-    author: { name: string | null; avatarUrl: string; user: { login: string } | null } | null;
-    statusCheckRollup: { state: StatusState } | null;
-  };
-}
+export const ReviewThread = z.object({
+  id: z.string(),
+  path: z.string(),
+  line: z.number().nullable(),
+  originalLine: z.number().nullable(),
+  startLine: z.number().nullable(),
+  diffSide: DiffSide,
+  isResolved: z.boolean(),
+  isOutdated: z.boolean(),
+  subjectType: z.enum(["LINE", "FILE"]),
+  viewerCanReply: z.boolean(),
+  viewerCanResolve: z.boolean(),
+  viewerCanUnresolve: z.boolean(),
+  resolvedBy: z.object({ login: z.string() }).nullable(),
+  comments: z.object({ totalCount: z.number(), nodes: nodes(ThreadComment) }),
+});
+export type ReviewThread = z.infer<typeof ReviewThread>;
 
-export interface PullCommitsResult {
-  repository: { pullRequest: { commits: Connection<PullCommitNode> } | null } | null;
-}
+export const PullThreadsResult = z.object({
+  repository: z
+    .object({
+      pullRequest: z
+        .object({ reviewThreads: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(ReviewThread) }) })
+        .nullable(),
+    })
+    .nullable(),
+});
+export type PullThreadsResult = z.infer<typeof PullThreadsResult>;
 
-export type CheckStatus = "REQUESTED" | "QUEUED" | "IN_PROGRESS" | "COMPLETED" | "WAITING" | "PENDING";
-export type CheckConclusion =
-  | "ACTION_REQUIRED" | "TIMED_OUT" | "CANCELLED" | "FAILURE" | "SUCCESS" | "NEUTRAL" | "SKIPPED" | "STARTUP_FAILURE" | "STALE";
+export const ChangedFileState = z.object({
+  path: z.string(),
+  additions: z.number(),
+  deletions: z.number(),
+  changeType: PatchStatus,
+  viewerViewedState: FileViewedState,
+});
+export type ChangedFileState = z.infer<typeof ChangedFileState>;
 
-export interface CheckRunNode {
-  __typename: "CheckRun";
-  id: string;
-  name: string;
-  status: CheckStatus;
-  conclusion: CheckConclusion | null;
-  title: string | null;
-  detailsUrl: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  isRequired: boolean;
-  checkSuite: {
-    app: { name: string } | null;
-    workflowRun: { databaseId: number | null; runNumber: number; workflow: { name: string } } | null;
-  };
-}
+export const PullFilesResult = z.object({
+  repository: z
+    .object({
+      pullRequest: z
+        .object({ files: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(ChangedFileState) }).nullable() })
+        .nullable(),
+    })
+    .nullable(),
+});
+export type PullFilesResult = z.infer<typeof PullFilesResult>;
 
-export interface StatusContextNode {
-  __typename: "StatusContext";
-  id: string;
-  context: string;
-  state: StatusState;
-  description: string | null;
-  targetUrl: string | null;
-  avatarUrl: string | null;
-  createdAt: string;
-  isRequired: boolean;
-}
+export const PullCommitNode = z.object({
+  id: z.string(),
+  commit: z.object({
+    oid: z.string(),
+    abbreviatedOid: z.string(),
+    messageHeadline: z.string(),
+    committedDate: z.string(),
+    additions: z.number(),
+    deletions: z.number(),
+    author: CommitAuthor,
+    statusCheckRollup: StatusRollup,
+  }),
+});
+export type PullCommitNode = z.infer<typeof PullCommitNode>;
 
-export interface PullChecksResult {
-  repository: {
-    pullRequest: {
-      headRefOid: string;
-      commits: {
-        nodes: {
-          commit: {
-            oid: string;
-            statusCheckRollup: {
-              state: StatusState;
-              contexts: { totalCount: number; nodes: (CheckRunNode | StatusContextNode)[] };
-            } | null;
-          };
-        }[];
-      };
-    } | null;
-  } | null;
-}
+export const PullCommitsResult = z.object({
+  repository: z
+    .object({
+      pullRequest: z
+        .object({ commits: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(PullCommitNode) }) })
+        .nullable(),
+    })
+    .nullable(),
+});
+export type PullCommitsResult = z.infer<typeof PullCommitsResult>;
+
+export const CheckStatus = z.enum(["REQUESTED", "QUEUED", "IN_PROGRESS", "COMPLETED", "WAITING", "PENDING"]);
+export type CheckStatus = z.infer<typeof CheckStatus>;
+export const CheckConclusion = z.enum([
+  "ACTION_REQUIRED",
+  "TIMED_OUT",
+  "CANCELLED",
+  "FAILURE",
+  "SUCCESS",
+  "NEUTRAL",
+  "SKIPPED",
+  "STARTUP_FAILURE",
+  "STALE",
+]);
+export type CheckConclusion = z.infer<typeof CheckConclusion>;
+
+export const CheckRunNode = z.object({
+  __typename: z.literal("CheckRun"),
+  id: z.string(),
+  name: z.string(),
+  status: CheckStatus,
+  conclusion: CheckConclusion.nullable(),
+  title: z.string().nullable(),
+  detailsUrl: z.string().nullable(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  isRequired: z.boolean(),
+  checkSuite: z.object({
+    app: z.object({ name: z.string() }).nullable(),
+    workflowRun: z
+      .object({ databaseId: z.number().nullable(), runNumber: z.number(), workflow: z.object({ name: z.string() }) })
+      .nullable(),
+  }),
+});
+export type CheckRunNode = z.infer<typeof CheckRunNode>;
+
+export const StatusContextNode = z.object({
+  __typename: z.literal("StatusContext"),
+  id: z.string(),
+  context: z.string(),
+  state: StatusState,
+  description: z.string().nullable(),
+  targetUrl: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  createdAt: z.string(),
+  isRequired: z.boolean(),
+});
+export type StatusContextNode = z.infer<typeof StatusContextNode>;
+
+export const CheckContext = byTypename([CheckRunNode, StatusContextNode]);
+export type CheckContext = z.infer<typeof CheckContext>;
+
+export const PullChecksResult = z.object({
+  repository: z
+    .object({
+      pullRequest: z
+        .object({
+          headRefOid: z.string(),
+          commits: z.object({
+            nodes: nodes(
+              z.object({
+                commit: z.object({
+                  oid: z.string(),
+                  statusCheckRollup: z
+                    .object({ state: StatusState, contexts: z.object({ totalCount: z.number(), nodes: nodes(CheckContext) }) })
+                    .nullable(),
+                }),
+              }),
+            ),
+          }),
+        })
+        .nullable(),
+    })
+    .nullable(),
+});
+export type PullChecksResult = z.infer<typeof PullChecksResult>;
 
 // ---------------------------------------------------------------------------
 // Issue detail
 
-export type IssueTimelineItem = IssueCommentItem | TimelineEvent;
+const ISSUE_TIMELINE_EVENTS = [
+  IssueCommentItem,
+  EventBase.extend({ __typename: z.literal("ClosedEvent"), stateReason: IssueStateReason.optional() }),
+  EventBase.extend({ __typename: z.literal("ReopenedEvent") }),
+  EventBase.extend({ __typename: z.literal("LabeledEvent"), label: Label }),
+  EventBase.extend({ __typename: z.literal("UnlabeledEvent"), label: Label }),
+  EventBase.extend({ __typename: z.literal("AssignedEvent"), assignee: NamedActor }),
+  EventBase.extend({ __typename: z.literal("RenamedTitleEvent"), previousTitle: z.string(), currentTitle: z.string() }),
+  EventBase.extend({ __typename: z.literal("CrossReferencedEvent"), source: ReferencedSubject }),
+] as const;
 
-export interface IssueDetail {
-  __typename: "Issue";
-  id: string;
-  number: number;
-  title: string;
-  url: string;
-  state: IssueState;
-  stateReason: IssueStateReason;
-  locked: boolean;
-  body: string;
-  bodyHTML: string;
-  createdAt: string;
-  author: Actor | null;
-  authorAssociation: string;
-  viewerCanUpdate: boolean;
-  viewerCanClose: boolean;
-  viewerCanReopen: boolean;
-  labels: { nodes: Label[] } | null;
-  assignees: { nodes: Actor[] };
-  milestone: { title: string } | null;
-  timelineItems: Connection<IssueTimelineItem> & { totalCount: number };
-}
+export const IssueTimelineItem = byTypename(ISSUE_TIMELINE_EVENTS);
+export type IssueTimelineItem = z.infer<typeof IssueTimelineItem>;
 
-export interface IssueResult {
-  repository: {
-    id: string;
-    nameWithOwner: string;
-    viewerPermission: Permission;
-    issueOrPullRequest: IssueDetail | { __typename: "PullRequest"; number: number } | null;
-  } | null;
-}
+export const IssueDetail = z.object({
+  __typename: z.literal("Issue"),
+  id: z.string(),
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  state: IssueState,
+  stateReason: IssueStateReason,
+  locked: z.boolean(),
+  body: z.string(),
+  bodyHTML: z.string(),
+  createdAt: z.string(),
+  author: Actor.nullable(),
+  authorAssociation: z.string(),
+  viewerCanUpdate: z.boolean(),
+  viewerCanClose: z.boolean(),
+  viewerCanReopen: z.boolean(),
+  labels: Labels,
+  assignees: z.object({ nodes: nodes(Actor) }),
+  milestone: z.object({ title: z.string() }).nullable(),
+  timelineItems: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(IssueTimelineItem) }),
+});
+export type IssueDetail = z.infer<typeof IssueDetail>;
+
+export const IssueResult = z.object({
+  repository: z
+    .object({
+      id: z.string(),
+      nameWithOwner: z.string(),
+      viewerPermission: Permission,
+      issueOrPullRequest: byTypename([IssueDetail, z.object({ __typename: z.literal("PullRequest"), number: z.number() })]).nullable(),
+    })
+    .nullable(),
+});
+export type IssueResult = z.infer<typeof IssueResult>;
 
 // ---------------------------------------------------------------------------
-// REST payloads
+// Mutations: only what the app reads back.
 
-export type RestPullFile = components["schemas"]["diff-entry"];
-export type RestCommit = components["schemas"]["commit"];
-export type RestContentItem = components["schemas"]["content-directory"][number];
-export type RestContentFile = components["schemas"]["content-file"];
-export type RestNotification = components["schemas"]["thread"];
-export type RestUser = components["schemas"]["public-user"];
-export type RestCommitListItem = components["schemas"]["commit"];
-
-// ---------------------------------------------------------------------------
-// GitHub Actions (REST). Hand-written: Octokit types ids as `number | bigint`.
-
-export interface ActionsActor {
-  login: string;
-  avatar_url: string;
-}
-
-/** `status` is queued, in_progress, completed, waiting, requested or pending. */
-export interface WorkflowRun {
-  id: number;
-  /** The workflow's name. */
-  name: string | null;
-  display_title: string;
-  run_number: number;
-  run_attempt?: number;
-  event: string;
-  status: string | null;
-  conclusion: string | null;
-  workflow_id: number;
-  path: string;
-  head_branch: string | null;
-  head_sha: string;
-  html_url: string;
-  created_at: string;
-  updated_at: string;
-  run_started_at?: string;
-  actor?: ActionsActor;
-  triggering_actor?: ActionsActor;
-  head_commit: { message: string } | null;
-  pull_requests: { number: number }[] | null;
-}
-
-export interface WorkflowStep {
-  name: string;
-  status: string;
-  conclusion: string | null;
-  number: number;
-  started_at?: string | null;
-  completed_at?: string | null;
-}
-
-export interface WorkflowJob {
-  id: number;
-  run_id: number;
-  run_attempt?: number;
-  name: string;
-  status: string;
-  conclusion: string | null;
-  created_at: string;
-  started_at: string;
-  completed_at: string | null;
-  html_url: string | null;
-  head_sha: string;
-  head_branch?: string | null;
-  workflow_name?: string | null;
-  runner_name: string | null;
-  labels: string[];
-  steps?: WorkflowStep[];
-}
-
-export interface WorkflowJobsPage {
-  total_count: number;
-  jobs: WorkflowJob[];
-}
-
-export interface Workflow {
-  id: number;
-  name: string;
-  path: string;
-  state: string;
-  html_url: string;
-}
-
-export interface WorkflowsPage {
-  total_count: number;
-  workflows: Workflow[];
-}
-
-export interface CheckAnnotation {
-  path: string;
-  start_line: number;
-  end_line: number;
-  annotation_level: string | null;
-  title: string | null;
-  message: string | null;
-}
+export const AddCommentResult = z.object({
+  addComment: z.object({ commentEdge: z.object({ node: z.object({ id: z.string() }).nullable() }).nullable() }).nullable(),
+});
+export const ReplyToThreadResult = z.object({
+  addPullRequestReviewThreadReply: z.object({ comment: z.object({ id: z.string() }).nullable() }).nullable(),
+});
+const ThreadState = z.object({ thread: z.object({ id: z.string(), isResolved: z.boolean() }).nullable() }).nullable();
+export const ResolveThreadResult = z.object({ resolveReviewThread: ThreadState });
+export const UnresolveThreadResult = z.object({ unresolveReviewThread: ThreadState });
+export const UpdatePullBranchResult = z.object({
+  updatePullRequestBranch: z.object({ pullRequest: z.object({ id: z.string(), headRefOid: z.string() }).nullable() }).nullable(),
+});
+/** For mutations whose result the app doesn't read: only that GitHub answered. */
+export const Acknowledged = z.object({});
 
 // ---------------------------------------------------------------------------
 // Opening pull requests
 
 /** A branch's tip commit, and whether it already has an open pull request. */
-export interface BranchTip {
-  name: string;
-  associatedPullRequests: { totalCount: number };
-  target: {
-    oid?: string;
-    committedDate?: string;
-    messageHeadline?: string;
-    author?: { user: { login: string } | null } | null;
-  } | null;
-}
+export const BranchTip = z.object({
+  name: z.string(),
+  associatedPullRequests: TotalCount,
+  target: z
+    .object({
+      oid: z.string().optional(),
+      committedDate: z.string().optional(),
+      messageHeadline: z.string().optional(),
+      author: z.object({ user: z.object({ login: z.string() }).nullable() }).nullable().optional(),
+    })
+    .nullable(),
+});
+export type BranchTip = z.infer<typeof BranchTip>;
 
-export interface BranchesRepo {
-  nameWithOwner: string;
-  defaultBranchRef: { name: string } | null;
-  parent: { nameWithOwner: string; defaultBranchRef: { name: string } | null } | null;
-  refs: { nodes: BranchTip[] } | null;
-}
+export const BranchesRepo = z.object({
+  nameWithOwner: z.string(),
+  defaultBranchRef: BranchRef.nullable(),
+  parent: z.object({ nameWithOwner: z.string(), defaultBranchRef: BranchRef.nullable() }).nullable(),
+  refs: z.object({ nodes: nodes(BranchTip) }).nullable(),
+});
+export type BranchesRepo = z.infer<typeof BranchesRepo>;
 
-export interface RecentBranchesResult {
-  viewer: { repositories: { nodes: BranchesRepo[] } };
-}
+export const RecentBranchesResult = z.object({ viewer: z.object({ repositories: z.object({ nodes: nodes(BranchesRepo) }) }) });
+export type RecentBranchesResult = z.infer<typeof RecentBranchesResult>;
 
-export interface RepoRecentBranchesResult {
-  repository: BranchesRepo | null;
-}
+export const RepoRecentBranchesResult = z.object({ repository: BranchesRepo.nullable() });
+export type RepoRecentBranchesResult = z.infer<typeof RepoRecentBranchesResult>;
 
 /** A branch for the branch picker (fragment BranchName). */
-export interface BranchNameNode {
-  name: string;
-  target: { committedDate?: string } | null;
-}
+export const BranchNameNode = z.object({
+  name: z.string(),
+  target: z.object({ committedDate: z.string().optional() }).nullable(),
+});
+export type BranchNameNode = z.infer<typeof BranchNameNode>;
 
-export interface RepoBranchesResult {
-  repository: {
-    defaultBranchRef: { name: string } | null;
-    refs: (Connection<BranchNameNode> & { totalCount: number }) | null;
-  } | null;
-}
+export const RepoBranchesResult = z.object({
+  repository: z
+    .object({
+      defaultBranchRef: BranchRef.nullable(),
+      refs: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(BranchNameNode) }).nullable(),
+    })
+    .nullable(),
+});
+export type RepoBranchesResult = z.infer<typeof RepoBranchesResult>;
 
 /** A blob has text; a folder (or nothing) at that path doesn't. */
-export interface ReviewRulesResult {
-  repository: { object: { text?: string | null; isTruncated?: boolean } | null } | null;
-}
+export const ReviewRulesResult = z.object({
+  repository: z
+    .object({ object: z.object({ text: z.string().nullable().optional(), isTruncated: z.boolean().optional() }).nullable() })
+    .nullable(),
+});
+export type ReviewRulesResult = z.infer<typeof ReviewRulesResult>;
 
-export interface SearchBranchesResult {
-  repository: { refs: { nodes: BranchNameNode[] } | null } | null;
-}
+export const SearchBranchesResult = z.object({
+  repository: z.object({ refs: z.object({ nodes: nodes(BranchNameNode) }).nullable() }).nullable(),
+});
+export type SearchBranchesResult = z.infer<typeof SearchBranchesResult>;
 
-export interface NewPullResult {
-  repository: {
-    id: string;
-    nameWithOwner: string;
-    defaultBranchRef: { name: string } | null;
-    parent: { nameWithOwner: string } | null;
-    pullRequestTemplates: { filename: string; body: string | null }[] | null;
-    forks: { nodes: { nameWithOwner: string }[] };
-  } | null;
-}
+export const NewPullResult = z.object({
+  repository: z
+    .object({
+      id: z.string(),
+      nameWithOwner: z.string(),
+      defaultBranchRef: BranchRef.nullable(),
+      parent: RepoName.nullable(),
+      pullRequestTemplates: z.array(z.object({ filename: z.string().nullable(), body: z.string().nullable() })).nullable(),
+      forks: z.object({ nodes: nodes(RepoName) }),
+    })
+    .nullable(),
+});
+export type NewPullResult = z.infer<typeof NewPullResult>;
 
-export interface AssignableUser {
-  login: string;
-  name: string | null;
-  avatarUrl: string;
-}
+export const AssignableUser = z.object({ login: z.string(), name: z.string().nullable(), avatarUrl: z.string() });
+export type AssignableUser = z.infer<typeof AssignableUser>;
 
-export interface AssignableUsersResult {
-  repository: { assignableUsers: { nodes: AssignableUser[] } } | null;
-}
-
-export type RestComparison = components["schemas"]["commit-comparison"];
-export type RestPullSimple = components["schemas"]["pull-request-simple"];
+export const AssignableUsersResult = z.object({
+  repository: z.object({ assignableUsers: z.object({ nodes: nodes(AssignableUser) }) }).nullable(),
+});
+export type AssignableUsersResult = z.infer<typeof AssignableUsersResult>;
 
 // ---------------------------------------------------------------------------
-// Releases
+// GitHub Actions (REST)
 
-export type Release = components["schemas"]["release"];
-export type ReleaseAsset = components["schemas"]["release-asset"];
+export const ActionsActor = z.object({ login: z.string(), avatar_url: z.string() });
+export type ActionsActor = z.infer<typeof ActionsActor>;
+
+/** `status` is queued, in_progress, completed, waiting, requested or pending. */
+export const WorkflowRun = z.object({
+  id: z.number(),
+  /** The workflow's name. */
+  name: z.string().nullable(),
+  display_title: z.string(),
+  run_number: z.number(),
+  run_attempt: z.number().optional(),
+  event: z.string(),
+  status: z.string().nullable(),
+  conclusion: z.string().nullable(),
+  workflow_id: z.number(),
+  path: z.string(),
+  head_branch: z.string().nullable(),
+  head_sha: z.string(),
+  html_url: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  run_started_at: z.string().optional(),
+  actor: ActionsActor.optional(),
+  triggering_actor: ActionsActor.optional(),
+  head_commit: z.object({ message: z.string() }).nullable(),
+  pull_requests: z.array(z.object({ number: z.number() })).nullable(),
+});
+export type WorkflowRun = z.infer<typeof WorkflowRun>;
+
+export const WorkflowRunsPage = z.object({ total_count: z.number(), workflow_runs: z.array(WorkflowRun) });
+
+export const WorkflowStep = z.object({
+  name: z.string(),
+  status: z.string(),
+  conclusion: z.string().nullable(),
+  number: z.number(),
+  started_at: z.string().nullable().optional(),
+  completed_at: z.string().nullable().optional(),
+});
+export type WorkflowStep = z.infer<typeof WorkflowStep>;
+
+export const WorkflowJob = z.object({
+  id: z.number(),
+  run_id: z.number(),
+  run_attempt: z.number().optional(),
+  name: z.string(),
+  status: z.string(),
+  conclusion: z.string().nullable(),
+  created_at: z.string(),
+  started_at: z.string(),
+  completed_at: z.string().nullable(),
+  html_url: z.string().nullable(),
+  head_sha: z.string(),
+  head_branch: z.string().nullable().optional(),
+  workflow_name: z.string().nullable().optional(),
+  runner_name: z.string().nullable(),
+  labels: z.array(z.string()),
+  steps: z.array(WorkflowStep).optional(),
+});
+export type WorkflowJob = z.infer<typeof WorkflowJob>;
+
+export const WorkflowJobsPage = z.object({ total_count: z.number(), jobs: z.array(WorkflowJob) });
+export type WorkflowJobsPage = z.infer<typeof WorkflowJobsPage>;
+
+export const Workflow = z.object({ id: z.number(), name: z.string(), path: z.string(), state: z.string(), html_url: z.string() });
+export type Workflow = z.infer<typeof Workflow>;
+
+export const WorkflowsPage = z.object({ total_count: z.number(), workflows: z.array(Workflow) });
+export type WorkflowsPage = z.infer<typeof WorkflowsPage>;
+
+export const CheckAnnotation = z.object({
+  path: z.string(),
+  start_line: z.number(),
+  end_line: z.number(),
+  annotation_level: z.string().nullable(),
+  title: z.string().nullable(),
+  message: z.string().nullable(),
+});
+export type CheckAnnotation = z.infer<typeof CheckAnnotation>;

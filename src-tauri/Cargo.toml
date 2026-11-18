@@ -18,7 +18,8 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-clipboard-manager = "2"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# `raw_value`: request and response bodies pass through as opaque JSON.
+serde_json = { version = "1", features = ["raw_value"] }
 # rustls + bundled webpki roots: no OpenSSL to cross-compile and no reliance
 # on the platform trust store, which rustls cannot read on Android.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2", "charset"] }
@@ -27,6 +28,25 @@ url = "2"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+# Strict types: no `as` coercions, no panicking shortcuts. Tests may still
+# unwrap/expect/panic/index (see clippy.toml).
+[lints.clippy]
+as_conversions = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "deny"
+cast_precision_loss = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
 
 [profile.release]
 codegen-units = 1
