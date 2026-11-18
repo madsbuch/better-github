@@ -516,7 +516,10 @@ function actionsBody(path: string): unknown {
   const jobs = /\/actions\/runs\/(\d+)\/jobs$/.exec(path);
   if (jobs) {
     const list = JOBS.filter((j) => j.run_id === Number(jobs[1]));
-    return { total_count: list.length, jobs: list.length ? list : [{ ...JOBS[0], id: Number(jobs[1]) + 100, run_id: Number(jobs[1]) }] };
+    if (list.length) return { total_count: list.length, jobs: list };
+    // Runs without their own jobs get one that ended like the run did.
+    const conclusion = RUNS.find((r) => r.id === Number(jobs[1]))?.conclusion ?? JOBS[0].conclusion;
+    return { total_count: 1, jobs: [{ ...JOBS[0], id: Number(jobs[1]) + 100, run_id: Number(jobs[1]), conclusion }] };
   }
   const run = /\/actions\/runs\/(\d+)$/.exec(path);
   if (run) return RUNS.find((r) => r.id === Number(run[1])) ?? workflowRun(Number(run[1]), "Fix clippy warnings", "completed", "failure", 50);

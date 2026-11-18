@@ -62,6 +62,11 @@ export function isFailure(conclusion: string | null): boolean {
   return conclusion === "failure" || conclusion === "timed_out" || conclusion === "startup_failure";
 }
 
+/** Jobs GitHub's "re-run failed jobs" picks up: failed ones and cancelled ones. */
+export function needsRerun(conclusion: string | null): boolean {
+  return isFailure(conclusion) || conclusion === "cancelled";
+}
+
 /** How long something ran; ticks every second while it is still running. */
 export function Elapsed({ start, end, running }: { start: string | null | undefined; end: string | null | undefined; running: boolean }) {
   const [now, setNow] = useState(() => new Date().toISOString());

@@ -11,7 +11,7 @@ import { keys } from "../../queries/keys";
 import { Screen } from "../../components/Screen";
 import { ActionSheet } from "../../components/Sheet";
 import { Avatar, CenterSpinner, EmptyState, ErrorView, Spinner, Time } from "../../components/ui";
-import { Elapsed, RunStatusIcon, isFailure, runStatusLabel } from "./status";
+import { Elapsed, RunStatusIcon, isFailure, needsRerun, runStatusLabel } from "./status";
 
 const route = getRouteApi("/$owner/$repo/actions/runs/$runId/");
 
@@ -26,6 +26,9 @@ export function RunScreen() {
 
   const data = run.data;
   const running = isRunning(data?.status);
+  // GitHub re-runs failed and cancelled jobs, and a run can end "cancelled" while some jobs failed,
+  // so look at the jobs too, not just the run's own conclusion.
+  const canRerunFailed = needsRerun(data?.conclusion ?? null) || (jobs.data ?? []).some((j) => needsRerun(j.conclusion));
   const url = data?.html_url ?? `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
   const refresh = () => queryClient.refetchQueries({ queryKey: keys.actions.run(owner, repo, runId), type: "active" });
 
@@ -47,7 +50,7 @@ export function RunScreen() {
               </button>
             ) : (
               <>
-                {isFailure(data.conclusion) && (
+                {canRerunFailed && (
                   <button className="btn btn-primary" disabled={rerunFailed.isPending} onClick={() => rerunFailed.mutate([runId])}>
                     {rerunFailed.isPending ? <Spinner small /> : <SyncIcon size={16} />} Re-run failed
                   </button>

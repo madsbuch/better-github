@@ -67,3 +67,22 @@ test("pull request checks open their job in the app", async ({ page }) => {
   await expect(screenTitle(page)).toHaveText("clippy");
   expect(errors).toEqual([]);
 });
+
+test("failed and cancelled runs offer re-running just the failed jobs", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/acme/rocket/actions/runs/9002");
+  await expect(screenTitle(page)).toHaveText("Fix clippy warnings");
+  await expect(activeScreen(page).locator(".bottom-bar")).toContainText("Re-run failed");
+
+  await open(page, "/acme/rocket/actions/runs/9003");
+  await expect(screenTitle(page)).toHaveText("Release v2.0.0");
+  const bar = activeScreen(page).locator(".bottom-bar");
+  await expect(bar).toContainText("Re-run all");
+  await expect(bar).toContainText("Re-run failed");
+
+  await open(page, "/acme/rocket/actions/runs/9000");
+  await expect(screenTitle(page)).toHaveText("Bump tokio");
+  await expect(activeScreen(page).locator(".bottom-bar")).toContainText("Re-run all");
+  await expect(activeScreen(page).locator(".bottom-bar")).not.toContainText("Re-run failed");
+  expect(errors).toEqual([]);
+});
