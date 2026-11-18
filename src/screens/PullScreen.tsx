@@ -85,7 +85,7 @@ export function PullScreen() {
     void queryClient.prefetchQuery(tabs.checks);
   }, [queryClient, owner, repo, number]);
   useEffect(() => {
-    if (headSha) void queryClient.prefetchQuery(pullQueries.patches(owner, repo, number, headSha));
+    if (headSha !== undefined && headSha !== "") void queryClient.prefetchQuery(pullQueries.patches(owner, repo, number, headSha));
   }, [queryClient, owner, repo, number, headSha]);
 
   // Verdicts from the review rules of the branch this merges into.
@@ -113,7 +113,7 @@ export function PullScreen() {
   };
 
   const updateBranch = (method: UpdateBranchMethod) => {
-    if (!pr || !headSha) return;
+    if (!pr || headSha === undefined || headSha === "") return;
     mutations.updateBranch.mutate(
       { pullRequestId: pr.id, headSha, method, base: pr.baseRefName },
       // GitHub finishes the update in the background; look again in a moment.

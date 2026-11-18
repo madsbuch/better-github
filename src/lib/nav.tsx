@@ -23,18 +23,18 @@ export type RunStatusFilter = "in_progress" | "failure";
 
 /** The "open a pull request" screen: `head` from `from` ("owner/name", default: this repository) into `base`. */
 export interface CompareSearch {
-  base?: string;
-  head?: string;
-  from?: string;
-  tab?: "commits" | "files";
+  base?: string | undefined;
+  head?: string | undefined;
+  from?: string | undefined;
+  tab?: "commits" | "files" | undefined;
 }
 
 export interface RepoSearch {
-  tab?: RepoTab;
-  ref?: string;
+  tab?: RepoTab | undefined;
+  ref?: string | undefined;
   /** Actions tab: a workflow's id. */
-  workflow?: number;
-  status?: RunStatusFilter;
+  workflow?: number | undefined;
+  status?: RunStatusFilter | undefined;
 }
 
 // ------------------------------------------------------------------ links
@@ -45,12 +45,12 @@ export const to = {
   repos: (tab?: "starred") => linkOptions({ to: "/repos", search: { tab } }),
   profile: () => linkOptions({ to: "/profile" }),
   settings: () => linkOptions({ to: "/settings" }),
-  search: (q?: string, type?: SearchType) => linkOptions({ to: "/search", search: { q: q || undefined, type } }),
+  search: (q?: string, type?: SearchType) => linkOptions({ to: "/search", search: { q: q === "" ? undefined : q, type } }),
   user: (login: string) => linkOptions({ to: "/$owner", params: { owner: login } }),
   repo: (owner: string, repo: string, search: RepoSearch = {}) =>
     linkOptions({ to: "/$owner/$repo", params: { owner, repo }, search: { ...search, tab: search.tab === "about" ? undefined : search.tab } }),
   tree: (owner: string, repo: string, ref?: string, path?: string) =>
-    linkOptions({ to: "/$owner/$repo/tree", params: { owner, repo }, search: { ref, path: path || undefined } }),
+    linkOptions({ to: "/$owner/$repo/tree", params: { owner, repo }, search: { ref, path: path === "" ? undefined : path } }),
   blob: (owner: string, repo: string, ref: string | undefined, path: string) =>
     linkOptions({ to: "/$owner/$repo/blob", params: { owner, repo }, search: { ref, path } }),
   pull: (owner: string, repo: string, number: number, tab?: PullTab) =>
@@ -132,7 +132,10 @@ class Controller {
 
   private pruneOverlays() {
     const depth = this.depth();
-    while (this.overlays.length && this.overlays[this.overlays.length - 1].depth > depth) this.overlays.pop()!.close();
+    for (let top = this.overlays.at(-1); top !== undefined && top.depth > depth; top = this.overlays.at(-1)) {
+      this.overlays.pop();
+      top.close();
+    }
   }
 
   private pop(steps: number) {
@@ -161,7 +164,7 @@ class Controller {
   navigate(options: NavigateTarget) {
     this.whenSettled(() => {
       if (this.dropOverlays()) this.queue.push(() => this.navigate(options));
-      else void this.router.navigate(withoutOverlay(options) as never);
+      else void this.router.navigate(withoutOverlay(options));
     });
   }
 
@@ -177,12 +180,12 @@ class Controller {
       const closing = this.overlays;
       this.overlays = [];
       closing.forEach((o) => o.close());
-      const index = Number(this.router.history.location.state.__TSR_index ?? 0);
+      const index = this.router.history.location.state.__TSR_index;
       if (index > 0) {
-        this.queue.push(() => void this.router.navigate({ ...options, replace: true } as never));
+        this.queue.push(() => void this.router.navigate({ ...options, replace: true }));
         this.pop(index);
       } else {
-        void this.router.navigate({ ...options, replace: true } as never);
+        void this.router.navigate({ ...options, replace: true });
       }
     });
   }
@@ -195,7 +198,7 @@ class Controller {
       if (!this.pendingOpens.delete(id)) return;
       const depth = this.depth() + 1;
       this.overlays.push({ id, depth, close });
-      void this.router.navigate({ to: ".", search: (prev: object) => ({ ...prev, o: depth }), resetScroll: false } as never);
+      void this.router.navigate({ to: ".", search: (prev) => ({ ...prev, o: depth }), resetScroll: false });
     });
     return id;
   }
@@ -210,7 +213,9 @@ class Controller {
     removed.slice(1).forEach((o) => o.close());
     // Only unwind entries that are still the current ones: after a link inside
     // the sheet navigated away, the sheet's entry is history, not on screen.
-    const steps = this.depth() - removed[0].depth + 1;
+    const closed = removed[0];
+    if (closed === undefined) return;
+    const steps = this.depth() - closed.depth + 1;
     if (steps > 0) this.pop(steps);
   }
 }
@@ -219,11 +224,12 @@ class Controller {
  * A target built from the current search (`{ ...search, ref }`) may carry the
  * open sheet's `o`; a new screen or tab never starts with a sheet open.
  */
-function withoutOverlay(options: NavigateTarget): NavigateTarget {
-  const search = (options as { search?: unknown }).search;
-  if (!search || typeof search !== "object" || !("o" in search)) return options;
+function withoutOverlay(options: NavigateTarget) {
+  if (!("search" in options)) return options;
+  const search: unknown = options.search;
+  if (typeof search !== "object" || search === null || !("o" in search)) return options;
   const { o: _sheet, ...rest } = search;
-  return { ...options, search: rest } as NavigateTarget;
+  return { ...options, search: rest };
 }
 
 const controllers = new WeakMap<RegisteredRouter, Controller>();

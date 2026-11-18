@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { optionalString } from "../../../lib/search-params";
 import { repoQueries } from "../../../queries/repos";
-import { warm } from "../../../queries/warm";
+import { query, warm } from "../../../queries/warm";
 import { BlobScreen } from "../../../screens/BlobScreen";
 
 export const Route = createFileRoute("/$owner/$repo/blob")({
-  validateSearch: (search: Record<string, unknown>): { ref?: string; path?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { ref?: string | undefined; path?: string | undefined } => ({
     ref: optionalString(search.ref),
     path: optionalString(search.path),
   }),
   loaderDeps: ({ search }) => ({ ref: search.ref, path: search.path ?? "" }),
   loader: ({ context: { queryClient }, params: { owner, repo }, deps, preload }) =>
-    warm(queryClient, [deps.ref ? repoQueries.blob(owner, repo, deps.ref, deps.path) : repoQueries.detail(owner, repo)], { preload }),
+    warm(queryClient, [deps.ref !== undefined ? query(repoQueries.blob(owner, repo, deps.ref, deps.path)) : query(repoQueries.detail(owner, repo))], { preload }),
   component: BlobScreen,
 });

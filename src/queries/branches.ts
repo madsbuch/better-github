@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { graphql } from "../lib/api";
 import type { Branch } from "../lib/branchSearch";
 import { REPO_BRANCHES, SEARCH_BRANCHES } from "../lib/queries";
-import type { BranchNameNode, RepoBranchesResult, SearchBranchesResult } from "../lib/types";
+import type { BranchNameNode } from "../lib/types";
 import { isGuest } from "../lib/guest";
 import { guestBranchPage } from "./guest";
 import { keys } from "./keys";
@@ -26,22 +26,22 @@ export const branchQueries = {
   list: (owner: string, repo: string) =>
     infiniteQueryOptions({
       queryKey: keys.repo.branchList(owner, repo),
-      queryFn: async ({ pageParam }): Promise<BranchPage> => {
+      queryFn: async ({ pageParam }: { pageParam: string | null }): Promise<BranchPage> => {
         if (isGuest()) {
           // REST lists branches by name, without a total or commit dates.
           const page = await guestBranchPage(owner, repo, pageParam);
           return { defaultBranch: null, total: page.branches.length, ...page };
         }
-        const { repository } = await graphql<RepoBranchesResult>(REPO_BRANCHES, { owner, name: repo, after: pageParam });
+        const { repository } = await graphql(REPO_BRANCHES, { owner, name: repo, after: pageParam });
         const refs = repository?.refs;
         return {
           defaultBranch: repository?.defaultBranchRef?.name ?? null,
           total: refs?.totalCount ?? 0,
           branches: (refs?.nodes ?? []).map(toBranch),
-          next: refs?.pageInfo.hasNextPage ? refs.pageInfo.endCursor : null,
+          next: refs?.pageInfo.hasNextPage === true ? refs.pageInfo.endCursor : null,
         };
       },
-      initialPageParam: null as string | null,
+      initialPageParam: null,
       getNextPageParam: (last, pages) => (pages.length < MAX_PAGES ? (last.next ?? undefined) : undefined),
       staleTime: 2 * 60_000,
       // A reload fetches every page again; opening a screen with a branch picker is soon enough.
@@ -54,7 +54,7 @@ export const branchQueries = {
       queryFn: async () =>
         isGuest()
           ? [] // No branch search without a token; the loaded list is filtered instead.
-          : ((await graphql<SearchBranchesResult>(SEARCH_BRANCHES, { owner, name: repo, query })).repository?.refs?.nodes ?? []).map(toBranch),
+          : ((await graphql(SEARCH_BRANCHES, { owner, name: repo, query })).repository?.refs?.nodes ?? []).map(toBranch),
       staleTime: 2 * 60_000,
       meta: { persist: false },
     }),
@@ -78,7 +78,7 @@ function useDebounced<T>(value: T, ms: number): T {
 export function useBranches(owner: string, repo: string, { loadAll = false, query = "" }: { loadAll?: boolean; query?: string } = {}) {
   const list = useInfiniteQuery(branchQueries.list(owner, repo));
   const pages = list.data?.pages ?? [];
-  const complete = pages.length > 0 && pages[pages.length - 1].next === null;
+  const complete = pages.length > 0 && pages[pages.length - 1]?.next === null;
 
   const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } = list;
   useEffect(() => {

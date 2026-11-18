@@ -25,8 +25,13 @@ export type Side = "LEFT" | "RIGHT";
 
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$/;
 
+/** A captured run of digits; `fallback` when the group didn't match. */
+function count(digits: string | undefined, fallback: number): number {
+  return digits === undefined ? fallback : Number.parseInt(digits, 10);
+}
+
 export function parsePatch(patch: string | null | undefined): Hunk[] {
-  if (!patch) return [];
+  if (patch === null || patch === undefined || patch === "") return [];
   const hunks: Hunk[] = [];
   let hunk: Hunk | null = null;
   let oldNo = 0;
@@ -39,10 +44,10 @@ export function parsePatch(patch: string | null | undefined): Hunk[] {
     if (header) {
       hunk = {
         header: raw,
-        oldStart: Number(header[1]),
-        oldCount: header[2] === undefined ? 1 : Number(header[2]),
-        newStart: Number(header[3]),
-        newCount: header[4] === undefined ? 1 : Number(header[4]),
+        oldStart: count(header[1], 0),
+        oldCount: count(header[2], 1),
+        newStart: count(header[3], 0),
+        newCount: count(header[4], 1),
         section: header[5]?.trim() ?? "",
         lines: [],
       };
@@ -102,8 +107,9 @@ function merge(tokens: string[], changed: boolean[]): Segment[] {
   const segments: Segment[] = [];
   tokens.forEach((text, i) => {
     const last = segments[segments.length - 1];
-    if (last && last.changed === changed[i]) last.text += text;
-    else segments.push({ text, changed: changed[i] });
+    const isChanged = changed[i] ?? false;
+    if (last && last.changed === isChanged) last.text += text;
+    else segments.push({ text, changed: isChanged });
   });
   return segments;
 }
@@ -119,13 +125,16 @@ export function wordDiff(oldText: string, newText: string): [Segment[], Segment[
 
   // dp[i][j] = LCS length of a[i..] and b[j..]
   const dp: Uint16Array[] = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
+  const lcs = (i: number, j: number): number => dp[i]?.[j] ?? 0;
   for (let i = a.length - 1; i >= 0; i--) {
+    const row = dp[i];
+    if (row === undefined) continue;
     for (let j = b.length - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      row[j] = a[i] === b[j] ? lcs(i + 1, j + 1) + 1 : Math.max(lcs(i + 1, j), lcs(i, j + 1));
     }
   }
-  const aChanged = new Array<boolean>(a.length).fill(true);
-  const bChanged = new Array<boolean>(b.length).fill(true);
+  const aChanged = Array.from({ length: a.length }, () => true);
+  const bChanged = Array.from({ length: b.length }, () => true);
   let i = 0;
   let j = 0;
   let common = 0;
@@ -134,7 +143,7 @@ export function wordDiff(oldText: string, newText: string): [Segment[], Segment[
       aChanged[i++] = false;
       bChanged[j++] = false;
       common++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+    } else if (lcs(i + 1, j) >= lcs(i, j + 1)) {
       i++;
     } else {
       j++;
@@ -143,7 +152,7 @@ export function wordDiff(oldText: string, newText: string): [Segment[], Segment[
 
   // Only emphasise when a meaningful part of the line survived; otherwise the
   // whole line changed and highlighting fragments is just noise.
-  const unchangedChars = a.reduce((sum, t, k) => sum + (aChanged[k] ? 0 : t.trim().length), 0);
+  const unchangedChars = a.reduce((sum, t, k) => sum + (aChanged[k] === true ? 0 : t.trim().length), 0);
   const totalChars = Math.max(oldText.trim().length, newText.trim().length, 1);
   if (common === 0 || unchangedChars / totalChars < 0.35) return null;
 
@@ -156,18 +165,21 @@ export function intralineDiffs(hunk: Hunk): Map<number, Segment[]> {
   const lines = hunk.lines;
   let i = 0;
   while (i < lines.length) {
-    if (lines[i].kind !== "del") {
+    if (lines[i]?.kind !== "del") {
       i++;
       continue;
     }
     const delStart = i;
-    while (i < lines.length && lines[i].kind === "del") i++;
+    while (i < lines.length && lines[i]?.kind === "del") i++;
     const addStart = i;
-    while (i < lines.length && lines[i].kind === "add") i++;
+    while (i < lines.length && lines[i]?.kind === "add") i++;
     const dels = addStart - delStart;
     const adds = i - addStart;
     for (let k = 0; k < Math.min(dels, adds); k++) {
-      const diff = wordDiff(lines[delStart + k].text, lines[addStart + k].text);
+      const del = lines[delStart + k];
+      const add = lines[addStart + k];
+      if (del === undefined || add === undefined) continue;
+      const diff = wordDiff(del.text, add.text);
       if (diff) {
         result.set(delStart + k, diff[0]);
         result.set(addStart + k, diff[1]);

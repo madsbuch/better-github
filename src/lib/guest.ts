@@ -6,11 +6,21 @@
 // requests an hour, so guest screens load only what they show.
 
 import { useSyncExternalStore } from "react";
+import { z } from "zod";
+import { parseJson } from "./schema";
 
 interface GuestState {
   /** Logins, in the order they were added. */
   profiles: string[];
 }
+
+/** What's stored: anything but a list of profiles reads as none, and non-strings in it are dropped. */
+const StoredGuest = z.object({
+  profiles: z
+    .array(z.unknown())
+    .catch([])
+    .transform((list) => list.filter((p): p is string => typeof p === "string")),
+});
 
 const KEY = "ghc.guest";
 const listeners = new Set<() => void>();
@@ -19,10 +29,7 @@ let current: GuestState | null = load();
 
 function load(): GuestState | null {
   try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<GuestState>;
-    return { profiles: Array.isArray(parsed.profiles) ? parsed.profiles.filter((p) => typeof p === "string") : [] };
+    return parseJson(StoredGuest, window.localStorage.getItem(KEY));
   } catch {
     return null;
   }
@@ -31,7 +38,7 @@ function load(): GuestState | null {
 function save(next: GuestState | null) {
   current = next;
   try {
-    if (next) window.localStorage.setItem(KEY, JSON.stringify(next));
+    if (next !== null) window.localStorage.setItem(KEY, JSON.stringify(next));
     else window.localStorage.removeItem(KEY);
   } catch {
     // In-memory only.
@@ -49,7 +56,7 @@ export function guestProfiles(): string[] {
 }
 
 export function startGuest() {
-  if (!current) save({ profiles: [] });
+  if (current === null) save({ profiles: [] });
 }
 
 export function endGuest() {
@@ -70,7 +77,7 @@ export function addProfile(login: string): boolean {
 }
 
 export function removeProfile(login: string) {
-  if (!current) return;
+  if (current === null) return;
   save({ profiles: current.profiles.filter((p) => p.toLowerCase() !== login.toLowerCase()) });
 }
 

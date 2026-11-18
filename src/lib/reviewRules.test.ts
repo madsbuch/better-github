@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checksByRule, compilePattern, NO_RULES, parseReviewRules, reviewFile, reviewGuide, RULES_FILE } from "./reviewRules";
 
-const matches = (pattern: string, path: string) => compilePattern(pattern)!.test(path);
+const matches = (pattern: string, path: string) => compilePattern(pattern)?.test(path) ?? false;
 
 describe("patterns", () => {
   it.each([
@@ -83,7 +83,7 @@ describe("parseReviewRules", () => {
       ["low", ["*.lock"], 0],
     ]);
     // Indented lines without a dash continue the item above.
-    expect(rules.rules[0].instructions).toEqual(["Migrations run on production data: safe while the previous release still runs, and reversible."]);
+    expect(rules.rules[0]?.instructions).toEqual(["Migrations run on production data: safe while the previous release still runs, and reversible."]);
     expect(rules.unmatched).toEqual({ risk: "low", instructions: ["Nothing covers this yet."] });
   });
 

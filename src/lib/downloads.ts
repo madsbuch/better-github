@@ -1,8 +1,10 @@
 // Rust resolves GitHub's signed download URL; Android saves the file and opens
 // its content URI. Only download IDs are persisted, never the signed URLs.
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { backend, type DownloadTarget } from "./backend";
 import { formatBytes } from "./format";
+import { parseJson } from "./schema";
 import { toast } from "./toast";
 import { useAppMutation } from "../queries/mutation";
 
@@ -11,32 +13,48 @@ export interface DownloadFile {
   contentType: string;
 }
 
-type DownloadState = "pending" | "running" | "paused" | "successful" | "failed" | "missing";
+const STATES = ["pending", "running", "paused", "successful", "failed", "missing"] as const;
+type DownloadState = (typeof STATES)[number];
 interface DownloadStatus {
   status: DownloadState;
   downloadedBytes: number;
   totalBytes: number;
-  reason?: string;
+  reason?: string | undefined;
 }
 
-type OpenResult = "opened" | "permission_required" | "not_ready" | "missing" | "no_handler" | "failed";
+/** What the bridge's `status` returns, as JSON (Downloads.kt). */
+const BridgeStatus = z.object({
+  status: z.enum(STATES),
+  downloadedBytes: z.number(),
+  totalBytes: z.number(),
+  reason: z.string().optional(),
+});
+
+const OPEN_RESULTS = ["opened", "permission_required", "not_ready", "missing", "no_handler", "failed"] as const;
+type OpenResult = (typeof OPEN_RESULTS)[number];
+/** What the bridge's `open` returns. */
+const OpenResult = z.enum(OPEN_RESULTS);
 
 export interface AndroidDownloadManager {
   /** Kept for older installed native shells. */
   download(url: string, name: string, mime: string): boolean;
   enqueue?(url: string, name: string, mime: string): string;
   status?(id: string): string;
-  open?(id: string): OpenResult;
+  /** One of `OPEN_RESULTS`. */
+  open?(id: string): string;
 }
 
 type TrackedManager = Required<AndroidDownloadManager>;
 const PREFIX = "ghc.download.";
-const STATES: DownloadState[] = ["pending", "running", "paused", "successful", "failed", "missing"];
 let generation = 0;
+
+function isTracked(bridge: AndroidDownloadManager): bridge is TrackedManager {
+  return bridge.enqueue !== undefined && bridge.status !== undefined && bridge.open !== undefined;
+}
 
 function manager(): TrackedManager | undefined {
   const bridge = window.GhCommanderDownloads;
-  return bridge?.enqueue && bridge.status && bridge.open ? bridge as TrackedManager : undefined;
+  return bridge !== undefined && isTracked(bridge) ? bridge : undefined;
 }
 
 function storageKey(target: DownloadTarget): string {
@@ -47,7 +65,7 @@ function storageKey(target: DownloadTarget): string {
 function storedId(key: string): string | null {
   try {
     const id = localStorage.getItem(key);
-    return id && /^\d+$/.test(id) ? id : null;
+    return id !== null && /^\d+$/.test(id) ? id : null;
   } catch {
     return null;
   }
@@ -64,18 +82,22 @@ export function clearDownloads() {
 }
 
 function readStatus(bridge: TrackedManager, id: string): DownloadStatus {
-  const value = JSON.parse(bridge.status(id)) as Partial<DownloadStatus>;
-  if (!value || !STATES.includes(value.status as DownloadState)) throw new Error("Invalid download status");
+  const value = parseJson(BridgeStatus, bridge.status(id));
+  if (value === null) throw new Error("Invalid download status");
   return {
-    status: value.status as DownloadState,
-    downloadedBytes: Math.max(0, Number(value.downloadedBytes) || 0),
-    totalBytes: Math.max(0, Number(value.totalBytes) || 0),
-    reason: typeof value.reason === "string" ? value.reason : undefined,
+    status: value.status,
+    downloadedBytes: Math.max(0, value.downloadedBytes),
+    totalBytes: Math.max(0, value.totalBytes),
+    reason: value.reason,
   };
 }
 
+function nonEmpty(value: string | undefined): value is string {
+  return value !== undefined && value !== "";
+}
+
 function inProgress(status: DownloadStatus | null): boolean {
-  return !!status && ["pending", "running", "paused"].includes(status.status);
+  return status !== null && ["pending", "running", "paused"].includes(status.status);
 }
 
 /** Each asset keeps its own download, including after navigating away or restarting. */
@@ -93,7 +115,7 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
     const bridge = manager();
     setHint(null);
     setStatusError(false);
-    if (!id || !bridge) return;
+    if (id === null || bridge === undefined) return;
     let timer: number | undefined;
     const check = () => {
       window.clearTimeout(timer);
@@ -143,7 +165,7 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
         setSnapshot({ id: nextId, value: { status: "pending", downloadedBytes: 0, totalBytes: 0 } });
         return "manager" as const;
       }
-      if (window.GhCommanderDownloads?.download(url, file.name, file.contentType)) return "manager" as const;
+      if (window.GhCommanderDownloads?.download(url, file.name, file.contentType) === true) return "manager" as const;
       await backend.openUrl(url);
       return "browser" as const;
     },
@@ -152,9 +174,16 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
 
   const open = () => {
     const bridge = manager();
-    if (!id || !bridge) return;
-    let result: OpenResult;
-    try { result = bridge.open(id); } catch { result = "failed"; }
+    if (id === null || bridge === undefined) return;
+    // A throwing bridge, or an answer the app doesn't know, counts as a failure.
+    let answer: string;
+    try {
+      answer = bridge.open(id);
+    } catch {
+      answer = "failed";
+    }
+    const parsed = OpenResult.safeParse(answer);
+    const result: OpenResult = parsed.success ? parsed.data : "failed";
     const messages: Record<Exclude<OpenResult, "opened">, string> = {
       permission_required: "Allow Better GitHub to install apps in Android Settings, then return and tap Open again.",
       not_ready: "This download isn't finished yet.",
@@ -162,9 +191,9 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
       no_handler: "No installed app can open this file. It is saved in Downloads.",
       failed: "Couldn't open this file. Try again or open it from Downloads.",
     };
-    const message = result === "opened" ? null : messages[result] ?? messages.failed;
+    const message = result === "opened" ? null : messages[result];
     setHint(message);
-    if (message) toast.show(message, result === "permission_required" ? "info" : "error");
+    if (message !== null) toast.show(message, result === "permission_required" ? "info" : "error");
     if (result === "missing") setSnapshot({ id, value: { status: "missing", downloadedBytes: 0, totalBytes: 0 } });
     if (result === "not_ready") setRefresh((value) => value + 1);
   };
@@ -174,16 +203,16 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
   if (status?.status === "running") progress = status.totalBytes > 0
     ? `Downloading · ${formatBytes(status.downloadedBytes)} of ${formatBytes(status.totalBytes)}`
     : `Downloading · ${formatBytes(status.downloadedBytes)}`;
-  if (status?.status === "paused") progress = status.reason || "Download paused. Android will retry automatically.";
+  if (status?.status === "paused") progress = nonEmpty(status.reason) ? status.reason : "Download paused. Android will retry automatically.";
   if (status?.status === "successful") progress = "Downloaded · Tap to open";
-  if (status?.status === "failed") progress = status.reason || "Download failed. Tap to retry.";
+  if (status?.status === "failed") progress = nonEmpty(status.reason) ? status.reason : "Download failed. Tap to retry.";
   if (status?.status === "missing") progress = "File no longer available. Tap to download again.";
   if (statusError) progress = "Couldn't check progress. Retrying…";
 
   return {
     start: () => start.mutate(),
     open,
-    busy: start.isPending || inProgress(status) || (!!id && !status && !!manager()),
+    busy: start.isPending || inProgress(status) || (id !== null && status === null && manager() !== undefined),
     complete: status?.status === "successful",
     retry: status?.status === "failed" || status?.status === "missing",
     message: hint ?? progress,

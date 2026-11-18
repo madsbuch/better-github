@@ -18,7 +18,7 @@ export function TreeScreen() {
   const nav = useNav();
 
   // Only needed to resolve the default branch when no ref is given.
-  const detail = useQuery({ ...repoQueries.detail(owner, repo), enabled: !explicitRef });
+  const detail = useQuery({ ...repoQueries.detail(owner, repo), enabled: explicitRef === undefined || explicitRef === "" });
   const gitRef = explicitRef ?? detail.data?.repository?.defaultBranchRef?.name ?? null;
   const name = path.split("/").filter(Boolean).pop() ?? repo;
 
@@ -36,12 +36,12 @@ export function TreeScreen() {
         </button>
       }
     >
-      {!gitRef ? (
+      {gitRef === null || gitRef === "" ? (
         detail.isError ? <ErrorView error={detail.error} onRetry={() => void detail.refetch()} /> : <CenterSpinner />
       ) : (
         <>
           <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={(ref) => nav.replace(to.tree(owner, repo, ref, path))} />
-          {path && <Breadcrumbs owner={owner} repo={repo} gitRef={gitRef} path={path} />}
+          {path !== "" && <Breadcrumbs owner={owner} repo={repo} gitRef={gitRef} path={path} />}
           <TreeView owner={owner} repo={repo} gitRef={gitRef} path={path} />
         </>
       )}

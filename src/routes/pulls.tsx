@@ -3,11 +3,11 @@ import { oneOf } from "../lib/search-params";
 import type { InboxFilter } from "../queries/keys";
 import { INBOX_FILTERS, searchQueries } from "../queries/search";
 import { newPullQueries } from "../queries/newPull";
-import { warm } from "../queries/warm";
+import { query, warm } from "../queries/warm";
 import { InboxScreen } from "../screens/InboxScreen";
 
 export const Route = createFileRoute("/pulls")({
-  validateSearch: (search: Record<string, unknown>): { filter?: InboxFilter } => ({
+  validateSearch: (search: Record<string, unknown>): { filter?: InboxFilter | undefined } => ({
     filter: oneOf(
       search.filter,
       INBOX_FILTERS.map((f) => f.id),
@@ -15,6 +15,6 @@ export const Route = createFileRoute("/pulls")({
   }),
   loaderDeps: ({ search }) => ({ filter: search.filter ?? "review" }),
   loader: ({ context: { queryClient }, deps, preload }) =>
-    warm(queryClient, [searchQueries.inbox(deps.filter)], { secondary: [searchQueries.inboxCounts(), newPullQueries.recentBranches()], preload }),
+    warm(queryClient, [query(searchQueries.inbox(deps.filter))], { secondary: [query(searchQueries.inboxCounts()), query(newPullQueries.recentBranches())], preload }),
   component: InboxScreen,
 });

@@ -15,6 +15,13 @@ const PATCH = [
   "\\ No newline at end of file",
 ].join("\n");
 
+/** The item at `index`; fails the test when there is none. */
+function at<T>(list: readonly T[], index: number): T {
+  const item = list.at(index);
+  if (item === undefined) throw new Error(`no item at ${index.toString()}`);
+  return item;
+}
+
 describe("parsePatch", () => {
   const hunks = parsePatch(PATCH);
 
@@ -26,7 +33,7 @@ describe("parsePatch", () => {
   });
 
   it("numbers old and new lines", () => {
-    const lines = hunks[0].lines;
+    const lines = at(hunks, 0).lines;
     expect(lines.map((l) => [l.kind, l.oldNo, l.newNo])).toEqual([
       ["ctx", 1, 1],
       ["del", 2, null],
@@ -38,13 +45,13 @@ describe("parsePatch", () => {
   });
 
   it("keeps the no-newline marker as meta", () => {
-    expect(hunks[1].lines.at(-1)).toMatchObject({ kind: "meta", text: "No newline at end of file" });
+    expect(at(hunks, 1).lines.at(-1)).toMatchObject({ kind: "meta", text: "No newline at end of file" });
   });
 
   it("treats empty lines inside a hunk as blank context but ignores a trailing newline", () => {
     const parsed = parsePatch("@@ -1,3 +1,3 @@\n a\n\n b\n");
-    expect(parsed[0].lines.map((l) => l.kind)).toEqual(["ctx", "ctx", "ctx"]);
-    expect(parsed[0].lines[1]).toMatchObject({ text: "", oldNo: 2, newNo: 2 });
+    expect(at(parsed, 0).lines.map((l) => l.kind)).toEqual(["ctx", "ctx", "ctx"]);
+    expect(at(parsed, 0).lines[1]).toMatchObject({ text: "", oldNo: 2, newNo: 2 });
   });
 
   it("handles empty input", () => {
@@ -54,17 +61,17 @@ describe("parsePatch", () => {
 });
 
 describe("anchorOf", () => {
-  const [hunk] = parsePatch(PATCH);
+  const hunk = at(parsePatch(PATCH), 0);
   it("anchors deletions on the left and everything else on the right", () => {
-    expect(anchorOf(hunk.lines[1])).toEqual({ side: "LEFT", line: 2 });
-    expect(anchorOf(hunk.lines[2])).toEqual({ side: "RIGHT", line: 2 });
-    expect(anchorOf(hunk.lines[0])).toEqual({ side: "RIGHT", line: 1 });
+    expect(anchorOf(at(hunk.lines, 1))).toEqual({ side: "LEFT", line: 2 });
+    expect(anchorOf(at(hunk.lines, 2))).toEqual({ side: "RIGHT", line: 2 });
+    expect(anchorOf(at(hunk.lines, 0))).toEqual({ side: "RIGHT", line: 1 });
   });
 });
 
 describe("hunkSides", () => {
   it("rebuilds the old and new text of a hunk", () => {
-    const [hunk] = parsePatch(PATCH);
+    const hunk = at(parsePatch(PATCH), 0);
     const { oldText, newText } = hunkSides(hunk);
     expect(oldText).toBe("let a = 1;\nlet b = 2;\nlet d = 5;\nlet e = 6;");
     expect(newText).toBe("let a = 1;\nlet b = 3;\nlet c = 4;\nlet d = 5;\nlet e = 6;");
@@ -75,7 +82,8 @@ describe("wordDiff", () => {
   it("marks only the changed tokens", () => {
     const result = wordDiff("let b = 2;", "let b = 3;");
     expect(result).not.toBeNull();
-    const [oldSegs, newSegs] = result!;
+    if (result === null) return;
+    const [oldSegs, newSegs] = result;
     expect(oldSegs.filter((s) => s.changed).map((s) => s.text)).toEqual(["2"]);
     expect(newSegs.filter((s) => s.changed).map((s) => s.text)).toEqual(["3"]);
     expect(newSegs.map((s) => s.text).join("")).toBe("let b = 3;");
@@ -86,9 +94,8 @@ describe("wordDiff", () => {
   });
 
   it("pairs deletion and addition runs inside a hunk", () => {
-    const [hunk] = parsePatch(PATCH);
-    const map = intralineDiffs(hunk);
-    expect([...map.keys()].sort()).toEqual([1, 2]);
+    const map = intralineDiffs(at(parsePatch(PATCH), 0));
+    expect([...map.keys()].sort((x, y) => x - y)).toEqual([1, 2]);
   });
 });
 

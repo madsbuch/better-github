@@ -81,7 +81,7 @@ export function ReviewerSheet({
             <Avatar src={user.avatarUrl} size={24} />
             <span className="grow ellipsis">
               <span className="bold">{user.login}</span>
-              {user.name && <span className="muted small"> {user.name}</span>}
+              {user.name !== null && user.name !== "" && <span className="muted small"> {user.name}</span>}
             </span>
             {isSelected(user.login) && <CheckIcon size={16} className="c-accent" />}
           </button>

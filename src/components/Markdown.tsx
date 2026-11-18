@@ -23,27 +23,31 @@ function resolve(url: string, kind: "link" | "image"): string {
       ? `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/`
       : `https://github.com/${owner}/${repo}/blob/${ref}/`;
   try {
-    return new URL(url, root + (dir ? `${dir}/` : "")).toString();
+    return new URL(url, root + (dir !== "" ? `${dir}/` : "")).toString();
   } catch {
     return url;
   }
 }
 
+/** An attribute that is present and not empty. */
+function isSet(value: string | null): value is string {
+  return value !== null && value !== "";
+}
+
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   if (node.tagName === "A") {
     const href = node.getAttribute("href");
-    if (href) node.setAttribute("href", resolve(href, "link"));
+    if (isSet(href)) node.setAttribute("href", resolve(href, "link"));
     node.removeAttribute("target");
   } else if (node.tagName === "IMG") {
-    const src = node.getAttribute("data-canonical-src") && !node.getAttribute("src")
-      ? node.getAttribute("data-canonical-src")
-      : node.getAttribute("src");
-    if (src) node.setAttribute("src", resolve(src, "image"));
+    const canonical = node.getAttribute("data-canonical-src");
+    const src = isSet(canonical) && !isSet(node.getAttribute("src")) ? canonical : node.getAttribute("src");
+    if (isSet(src)) node.setAttribute("src", resolve(src, "image"));
     node.setAttribute("loading", "lazy");
     node.setAttribute("referrerpolicy", "no-referrer");
   } else if (node.tagName === "VIDEO") {
     const src = node.getAttribute("src");
-    if (src) node.setAttribute("src", resolve(src, "image"));
+    if (isSet(src)) node.setAttribute("src", resolve(src, "image"));
     node.removeAttribute("autoplay");
   } else if (node.tagName === "INPUT") {
     node.setAttribute("disabled", "");
@@ -70,26 +74,26 @@ export const Markdown = memo(function Markdown({
 }: {
   html: string | null | undefined;
   base?: MarkdownBase | null;
-  empty?: string;
+  empty?: string | undefined;
 }) {
-  const clean = useMemo(() => (html ? sanitizeHtml(html, base) : ""), [html, base]);
+  const clean = useMemo(() => (html !== null && html !== undefined && html !== "" ? sanitizeHtml(html, base) : ""), [html, base]);
   const openLink = useOpenLink();
   // Links open in the app when it has a screen for them, otherwise in a browser tab.
   const onClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
-      const target = event.target as Element;
-      if (target.closest("summary")) return;
+      const target = event.target;
+      if (!(target instanceof Element) || target.closest("summary")) return;
       const anchor = target.closest("a");
       if (!anchor) return;
       const href = anchor.getAttribute("href");
       event.preventDefault();
-      if (!href || href.startsWith("#")) return;
+      if (!isSet(href) || href.startsWith("#")) return;
       openLink(href);
     },
     [openLink],
   );
-  if (!clean.trim()) {
-    return empty ? <p className="muted small" style={{ margin: 0, fontStyle: "italic" }}>{empty}</p> : null;
+  if (clean.trim() === "") {
+    return empty !== undefined && empty !== "" ? <p className="muted small" style={{ margin: 0, fontStyle: "italic" }}>{empty}</p> : null;
   }
   return <div className="markdown" onClick={onClick} dangerouslySetInnerHTML={{ __html: clean }} />;
 });

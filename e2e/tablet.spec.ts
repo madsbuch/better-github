@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
+import { activeScreen, boxOf, open, present, screenTitle, trackErrors } from "./helpers";
 
 async function expectWithinViewport(page: Page, locator: Locator) {
   await expect(locator).toBeVisible();
-  const viewport = page.viewportSize()!;
+  const viewport = present(page.viewportSize(), "a viewport");
   // Resizing across the breakpoint changes the sheet's entrance animation.
   await expect.poll(async () => {
     const bounds = await locator.boundingBox();
@@ -26,8 +26,8 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       await open(page, "/");
       const navigation = page.getByRole("navigation", { name: "Main" });
       await expect(navigation).toBeVisible();
-      const rail = (await navigation.boundingBox())!;
-      const content = (await activeScreen(page).boundingBox())!;
+      const rail = await boxOf(navigation);
+      const content = await boxOf(activeScreen(page));
       expect(rail.height).toBeGreaterThan(rail.width);
       expect(rail.x + rail.width).toBeLessThanOrEqual(content.x + 1);
       await expectWithinViewport(page, navigation);
@@ -57,13 +57,13 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       await open(page, "/acme/rocket/pull/482?tab=files");
       const file = activeScreen(page).locator(".diff-file").first();
       await expect(file).toBeVisible();
-      expect((await file.boundingBox())!.width).toBeGreaterThan(viewport.width * 0.65);
+      expect((await boxOf(file)).width).toBeGreaterThan(viewport.width * 0.65);
       await expectNoPageOverflow(page);
 
       await activeScreen(page).locator(".dl.add").nth(2).tap();
       const dialog = page.getByRole("dialog", { name: /Comment · line/ });
       await expectWithinViewport(page, dialog);
-      const bounds = (await dialog.boundingBox())!;
+      const bounds = await boxOf(dialog);
       expect(bounds.x).toBeGreaterThan(0);
       expect(bounds.y).toBeGreaterThan(0);
       expect(bounds.width).toBeLessThan(viewport.width);
@@ -77,8 +77,8 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       for (const wrap of [true, false]) {
         if (!wrap) await activeScreen(page).getByRole("button", { name: "Toggle line wrap" }).tap();
         await expect(file.locator(".diff-body").first()).toHaveClass(wrap ? /\bwrap\b/ : /^diff-body$/);
-        const bounds = (await draft.boundingBox())!;
-        const pane = (await content.boundingBox())!;
+        const bounds = await boxOf(draft);
+        const pane = await boxOf(content);
         expect(bounds.x).toBeGreaterThanOrEqual(pane.x);
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(pane.x + pane.width + 1);
       }
@@ -126,8 +126,8 @@ test.describe("resizing and split-screen", () => {
     await page.setViewportSize({ width: 600, height: 800 });
     await expect(page.locator(".nav-rail")).toBeHidden();
     await expect(page.locator(".tabbar")).toBeVisible();
-    const screen = (await activeScreen(page).boundingBox())!;
-    const tabs = (await page.locator(".tabbar").boundingBox())!;
+    const screen = await boxOf(activeScreen(page));
+    const tabs = await boxOf(page.locator(".tabbar"));
     expect(screen.y + screen.height).toBeLessThanOrEqual(tabs.y + 1);
     await page.locator(".tabbar").getByRole("button", { name: "You", exact: true }).tap();
     await expect(screenTitle(page)).toHaveText("You");
@@ -142,7 +142,7 @@ test.describe("resizing and split-screen", () => {
     await expectWithinViewport(page, menu);
     const scroller = menu.locator(".sheet-menu");
     expect(await scroller.evaluate((element) => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
-    const bounds = (await scroller.boundingBox())!;
+    const bounds = await boxOf(scroller);
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     await page.mouse.wheel(0, 400);
     await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);

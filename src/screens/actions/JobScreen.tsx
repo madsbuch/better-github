@@ -4,7 +4,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ApiError } from "../../lib/api";
 import { backend } from "../../lib/backend";
-import { parseLog, splitBySteps } from "../../lib/logs";
+import { parseLog, splitBySteps, type LogLine } from "../../lib/logs";
 import { useToast } from "../../lib/toast";
 import type { WorkflowStep } from "../../lib/types";
 import { actionsQueries, isRunning, useRunMutations } from "../../queries/actions";
@@ -14,6 +14,11 @@ import { Screen } from "../../components/Screen";
 import { ActionSheet } from "../../components/Sheet";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
 import { Elapsed, RunStatusIcon, isFailure, runStatusLabel } from "./status";
+
+/** A string that is present and not empty (what `if (str)` checked). */
+function nonEmpty(value: string | null | undefined): value is string {
+  return value !== null && value !== undefined && value !== "";
+}
 
 const route = getRouteApi("/$owner/$repo/actions/runs/$runId/job/$jobId");
 
@@ -29,11 +34,11 @@ export function JobScreen() {
   const { rerunJob, cancel } = useRunMutations(owner, repo);
 
   const data = job.data;
-  const running = !data || isRunning(data.status);
+  const running = data === undefined || isRunning(data.status);
   // GitHub's API only serves a job's log once the job has finished.
-  const log = useQuery({ ...actionsQueries.jobLog(owner, repo, jobId), enabled: !!data && !running });
+  const log = useQuery({ ...actionsQueries.jobLog(owner, repo, jobId), enabled: data !== undefined && !running });
   const lines = useMemo(() => (log.data ? parseLog(log.data.text) : []), [log.data]);
-  const byStep = useMemo(() => (data?.steps ? splitBySteps(lines, data.steps) : new Map()), [lines, data?.steps]);
+  const byStep = useMemo(() => (data?.steps ? splitBySteps(lines, data.steps) : new Map<number, LogLine[]>()), [lines, data?.steps]);
   const url = data?.html_url ?? `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}`;
   const problems = (annotations.data ?? []).filter((a) => a.annotation_level === "failure" || a.annotation_level === "warning");
 
@@ -44,7 +49,7 @@ export function JobScreen() {
     <Screen
       wide
       title={data?.name ?? `Job ${jobId}`}
-      subtitle={data?.workflow_name ? `${data.workflow_name}${data.head_branch ? ` · ${data.head_branch}` : ""}` : `${owner}/${repo}`}
+      subtitle={nonEmpty(data?.workflow_name) ? `${data.workflow_name}${nonEmpty(data.head_branch) ? ` · ${data.head_branch}` : ""}` : `${owner}/${repo}`}
       actions={
         <button className="icon-btn" aria-label="More" onClick={() => setMenu(true)}>
           <KebabHorizontalIcon size={20} />
@@ -75,23 +80,23 @@ export function JobScreen() {
         <>
           <div className="detail-header">
             <div className="row-flex" style={{ gap: 8 }}>
-              <RunStatusIcon status={data!.status} conclusion={data!.conclusion} size={20} />
-              <strong>{runStatusLabel(data!.status, data!.conclusion)}</strong>
+              <RunStatusIcon status={job.data.status} conclusion={job.data.conclusion} size={20} />
+              <strong>{runStatusLabel(job.data.status, job.data.conclusion)}</strong>
               <span className="muted">
-                · <Elapsed start={data!.started_at} end={data!.completed_at} running={running} />
+                · <Elapsed start={job.data.started_at} end={job.data.completed_at} running={running} />
               </span>
             </div>
-            {data!.runner_name && <div className="muted small" style={{ marginTop: 6 }}>Runner: {data!.runner_name}</div>}
+            {job.data.runner_name !== null && job.data.runner_name !== "" && <div className="muted small" style={{ marginTop: 6 }}>Runner: {job.data.runner_name}</div>}
           </div>
           {problems.length > 0 && (
             <div className="annotations">
               {problems.slice(0, 5).map((a, i) => (
                 <div key={i} className={`annotation-card ${a.annotation_level === "failure" ? "danger" : "attention"}`}>
-                  {a.title && <div className="bold small">{a.title}</div>}
+                  {a.title !== null && a.title !== "" && <div className="bold small">{a.title}</div>}
                   <div className="small" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                     {a.message}
                   </div>
-                  {a.path && a.path !== ".github" && (
+                  {a.path !== "" && a.path !== ".github" && (
                     <div className="mono tiny muted">
                       {a.path}:{a.start_line}
                     </div>
@@ -116,14 +121,14 @@ export function JobScreen() {
               </button>
             </div>
           )}
-          {log.data?.truncated && <div className="banner">This log is very long; only its end is shown.</div>}
+          {log.data?.truncated === true && <div className="banner">This log is very long; only its end is shown.</div>}
           {fullLog ? (
             <LogView lines={lines} />
           ) : (
-            (data!.steps ?? []).map((step) => {
+            (job.data.steps ?? []).map((step) => {
               const open = isExpanded(step);
               const stepLines = byStep.get(step.number);
-              const canOpen = !running && log.isSuccess && !!stepLines;
+              const canOpen = !running && log.isSuccess && stepLines !== undefined;
               return (
                 <div key={step.number} className="step">
                   <button
@@ -142,7 +147,7 @@ export function JobScreen() {
                       <Elapsed start={step.started_at} end={step.completed_at} running={step.status === "in_progress"} />
                     </span>
                     {canOpen ? open ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} /> : null}
-                    {!running && log.isPending && step.started_at && <Spinner small />}
+                    {!running && log.isPending && nonEmpty(step.started_at) && <Spinner small />}
                   </button>
                   {canOpen && open && <LogView lines={stepLines} />}
                 </div>

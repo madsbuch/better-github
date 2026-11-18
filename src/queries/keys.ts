@@ -23,10 +23,10 @@ export type NotificationFilter = "unread" | "participating" | "all";
 export type ViewerRepoTab = "yours" | "starred";
 
 export interface RunFilter {
-  workflow?: number;
+  workflow?: number | undefined;
   /** "in_progress" or "failure"; anything GitHub's `status` parameter takes. */
-  status?: string;
-  branch?: string;
+  status?: string | undefined;
+  branch?: string | undefined;
 }
 
 const repoBase = (owner: string, repo: string) => ["repo", owner.toLowerCase(), repo.toLowerCase()] as const;
@@ -148,7 +148,7 @@ export const affects = {
   ],
   /** A new pull request from `headRepo` ("owner/name") into owner/repo. */
   newPull: (owner: string, repo: string, headRepo: string): QueryKey[] => {
-    const [headOwner, headName] = headRepo.split("/");
+    const [headOwner = "", headName = ""] = headRepo.split("/");
     return [
       keys.search.all(),
       keys.repo.detail(owner, repo),

@@ -6,7 +6,7 @@ import hljs from "highlight.js/lib/common";
 
 export interface Token {
   text: string;
-  cls?: string;
+  cls?: string | undefined;
 }
 
 export type TokenLine = Token[];
@@ -63,11 +63,12 @@ const BY_EXTENSION: Record<string, string> = {
 /** Guesses a highlight.js language from a file path. */
 export function languageForPath(path: string): string | undefined {
   const name = path.split("/").pop()?.toLowerCase() ?? "";
-  if (BY_FILENAME[name]) return BY_FILENAME[name];
+  const byName = BY_FILENAME[name];
+  if (byName !== undefined && byName !== "") return byName;
   if (name.startsWith("dockerfile")) return "dockerfile";
-  const ext = name.includes(".") ? name.split(".").pop()! : "";
+  const ext = name.includes(".") ? (name.split(".").pop() ?? "") : "";
   const candidate = BY_EXTENSION[ext] ?? ext;
-  return candidate && hljs.getLanguage(candidate) ? candidate : undefined;
+  return candidate !== "" && hljs.getLanguage(candidate) !== undefined ? candidate : undefined;
 }
 
 const ENTITIES: Record<string, string> = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&#x27;": "'", "&#39;": "'" };
@@ -85,17 +86,17 @@ export function htmlToTokenLines(html: string): TokenLine[] {
   const stack: string[] = [];
   const pattern = /<span class="([^"]*)">|<\/span>|([^<]+)/g;
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html))) {
+  while ((match = pattern.exec(html)) !== null) {
     if (match[1] !== undefined) {
       stack.push(match[1].replace(/hljs-/g, "hl-"));
     } else if (match[0] === "</span>") {
       stack.pop();
     } else if (match[2] !== undefined) {
-      const cls = stack.length ? stack.join(" ") : undefined;
+      const cls = stack.length > 0 ? stack.join(" ") : undefined;
       const parts = decode(match[2]).split("\n");
       parts.forEach((part, index) => {
         if (index > 0) lines.push([]);
-        if (part) lines[lines.length - 1].push({ text: part, cls });
+        if (part !== "") lines.at(-1)?.push({ text: part, cls });
       });
     }
   }
@@ -106,14 +107,14 @@ const MAX_HIGHLIGHT_CHARS = 250_000;
 
 /** Highlights `code` and returns one token array per line. */
 export function highlightLines(code: string, language?: string): TokenLine[] {
-  if (!language || code.length > MAX_HIGHLIGHT_CHARS) {
-    return code.split("\n").map((line) => (line ? [{ text: line }] : []));
+  if (language === undefined || language === "" || code.length > MAX_HIGHLIGHT_CHARS) {
+    return code.split("\n").map((line) => (line !== "" ? [{ text: line }] : []));
   }
   try {
     const { value } = hljs.highlight(code, { language, ignoreIllegals: true });
     return htmlToTokenLines(value);
   } catch {
-    return code.split("\n").map((line) => (line ? [{ text: line }] : []));
+    return code.split("\n").map((line) => (line !== "" ? [{ text: line }] : []));
   }
 }
 
@@ -129,7 +130,7 @@ export function overlaySegments(tokens: TokenLine, segments: { text: string; cha
     let rest = token.text;
     while (rest.length > 0) {
       const segment = segments[segIndex];
-      if (!segment) {
+      if (segment === undefined) {
         out.push({ ...token, text: rest });
         break;
       }

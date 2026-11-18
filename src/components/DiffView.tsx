@@ -5,11 +5,11 @@ import { highlightLines, languageForPath, overlaySegments, type Token } from "..
 
 export interface DiffFileData {
   filename: string;
-  previousFilename?: string | null;
+  previousFilename?: string | null | undefined;
   status: string;
   additions: number;
   deletions: number;
-  patch?: string | null;
+  patch?: string | null | undefined;
 }
 
 export interface LineTarget {
@@ -52,11 +52,11 @@ export const DiffFile = memo(function DiffFile(props: DiffFileProps) {
   const status = STATUS_LABEL[file.status];
 
   return (
-    <div className={`diff-file${viewed ? " viewed" : ""}`} data-path={file.filename}>
+    <div className={`diff-file${viewed === true ? " viewed" : ""}`} data-path={file.filename}>
       <div className="diff-file-header">
         <button className="path" onClick={onToggleCollapsed} aria-expanded={!collapsed}>
           {collapsed ? <ChevronRightIcon size={14} /> : <ChevronDownIcon size={14} />}{" "}
-          {file.previousFilename && file.previousFilename !== file.filename && (
+          {(file.previousFilename ?? "") !== "" && file.previousFilename !== file.filename && (
             <span className="dir">{file.previousFilename} → </span>
           )}
           <span className="dir">{dir}</span>
@@ -67,12 +67,12 @@ export const DiffFile = memo(function DiffFile(props: DiffFileProps) {
               <span className="add">+{file.additions}</span>
               <span className="del">−{file.deletions}</span>
             </span>
-            {status && <span className="muted tiny">{status}</span>}
+            {status !== undefined && status !== "" && <span className="muted tiny">{status}</span>}
           </span>
         </button>
         {onToggleViewed && (
-          <button className={`viewed-toggle${viewed ? " on" : ""}`} onClick={onToggleViewed} aria-pressed={viewed}>
-            {viewed && <CheckIcon size={12} />} Viewed
+          <button className={`viewed-toggle${viewed === true ? " on" : ""}`} onClick={onToggleViewed} aria-pressed={viewed}>
+            {viewed === true && <CheckIcon size={12} />} Viewed
           </button>
         )}
         {onMenu && (
@@ -93,7 +93,8 @@ export const DiffFile = memo(function DiffFile(props: DiffFileProps) {
 
 /** Defers rendering big diffs until they scroll near the viewport. */
 function LazyBody(props: DiffFileProps) {
-  const lines = props.file.patch ? props.file.patch.split("\n").length : 0;
+  const patch = props.file.patch ?? "";
+  const lines = patch !== "" ? patch.split("\n").length : 0;
   const [visible, setVisible] = useState(lines < 80);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -119,7 +120,7 @@ function LazyBody(props: DiffFileProps) {
 }
 
 function tokenClass(token: Token & { changed?: boolean }): string | undefined {
-  if (token.changed) return token.cls ? `${token.cls} changed` : "changed";
+  if (token.changed === true) return token.cls !== undefined && token.cls !== "" ? `${token.cls} changed` : "changed";
   return token.cls;
 }
 
@@ -156,7 +157,7 @@ function DiffBody({ file, wrap, inline, selectedKey, onLineSelect }: DiffFilePro
     [hunks, language],
   );
 
-  if (!file.patch) {
+  if ((file.patch ?? "") === "") {
     let note = "No changes to show.";
     if (file.status === "renamed" && file.additions + file.deletions === 0) note = "File renamed without changes.";
     else if (file.additions + file.deletions === 0) note = "Binary file or empty change — no diff to show.";
@@ -168,7 +169,8 @@ function DiffBody({ file, wrap, inline, selectedKey, onLineSelect }: DiffFilePro
     const anchor = anchorOf(line);
     const lineKey = anchor ? anchorKey(anchor.side, anchor.line) : null;
     const leftKey = line.kind === "ctx" && line.oldNo !== null ? anchorKey("LEFT", line.oldNo) : null;
-    const below = (lineKey && inline?.get(lineKey)) || (leftKey && inline?.get(leftKey)) || null;
+    const inlineAt = (key: string | null) => (key === null ? undefined : inline?.get(key));
+    const below = inlineAt(lineKey) ?? inlineAt(leftKey) ?? null;
     const selected = lineKey !== null && lineKey === selectedKey;
     const marker = line.kind === "add" ? "+" : line.kind === "del" ? "-" : " ";
     return (
@@ -190,7 +192,7 @@ function DiffBody({ file, wrap, inline, selectedKey, onLineSelect }: DiffFilePro
               ? "​"
               : tokens.map((token, i) => {
                   const cls = tokenClass(token);
-                  return cls ? (
+                  return cls !== undefined && cls !== "" ? (
                     <span key={i} className={cls}>
                       {token.text}
                     </span>
@@ -200,7 +202,7 @@ function DiffBody({ file, wrap, inline, selectedKey, onLineSelect }: DiffFilePro
                 })}
           </span>
         </div>
-        {below && <div className="diff-inline">{below}</div>}
+        {below !== null && <div className="diff-inline">{below}</div>}
       </div>
     );
   };
@@ -208,13 +210,13 @@ function DiffBody({ file, wrap, inline, selectedKey, onLineSelect }: DiffFilePro
   return (
     <div className={`diff-body${wrap ? " wrap" : ""}`}>
       {hunks.map((hunk, h) => (
-        <div key={hunk.header + h}>
+        <div key={`${hunk.header}${h}`}>
           <div className="diff-hunk-header">
             <span className="dl-code">
               @@ -{hunk.oldStart},{hunk.oldCount} +{hunk.newStart},{hunk.newCount} @@ {hunk.section}
             </span>
           </div>
-          {hunk.lines.map((line, i) => renderLine(hunk, line, tokenized[h][i], `${h}:${i}`))}
+          {hunk.lines.map((line, i) => renderLine(hunk, line, tokenized[h]?.[i] ?? [], `${h}:${i}`))}
         </div>
       ))}
     </div>

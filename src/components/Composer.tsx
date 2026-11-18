@@ -25,7 +25,7 @@ export function Composer({
   }, [value]);
 
   const submit = async () => {
-    if (!value.trim() || busy) return;
+    if (value.trim() === "" || busy) return;
     setBusy(true);
     try {
       await onSubmit();
@@ -37,7 +37,7 @@ export function Composer({
   return (
     <div className="composer">
       <textarea ref={ref} rows={1} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
-      <button className="icon-btn" style={{ color: "var(--accent)" }} aria-label="Send" disabled={!value.trim() || busy} onClick={() => void submit()}>
+      <button className="icon-btn" style={{ color: "var(--accent)" }} aria-label="Send" disabled={value.trim() === "" || busy} onClick={() => void submit()}>
         {busy ? <Spinner small /> : <PaperAirplaneIcon size={20} />}
       </button>
     </div>

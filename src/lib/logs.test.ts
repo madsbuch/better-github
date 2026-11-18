@@ -23,8 +23,8 @@ const LOG = [
 const step = (number: number, name: string, started: string | null, completed: string | null): WorkflowStep => ({
   number,
   name,
-  status: started ? "completed" : "pending",
-  conclusion: started ? "success" : null,
+  status: started !== null ? "completed" : "pending",
+  conclusion: started !== null ? "success" : null,
   started_at: started,
   completed_at: completed,
 });
@@ -76,7 +76,7 @@ describe("groupLines", () => {
     const nodes = groupLines(parseLog(LOG).slice(0, 5));
     expect(nodes.map((n) => n.type)).toEqual(["line", "group", "line"]);
     const group = nodes[1];
-    expect(group.type === "group" && group.children.map((c) => c.type === "line" && c.line.text)).toEqual(["Ubuntu"]);
+    expect(group?.type === "group" && group.children.map((c) => c.type === "line" && c.line.text)).toEqual(["Ubuntu"]);
   });
 });
 

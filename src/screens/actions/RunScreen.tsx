@@ -35,7 +35,7 @@ export function RunScreen() {
   return (
     <Screen
       title={data?.display_title ?? `Run ${runId}`}
-      subtitle={data ? `${data.name} #${data.run_number}` : `${owner}/${repo}`}
+      subtitle={data ? `${data.name ?? ""} #${data.run_number}` : `${owner}/${repo}`}
       actions={
         <button className="icon-btn" aria-label="More" onClick={() => setMenu(true)}>
           <KebabHorizontalIcon size={20} />
@@ -73,29 +73,29 @@ export function RunScreen() {
         <>
           <div className="detail-header">
             <div className="row-flex" style={{ gap: 8 }}>
-              <RunStatusIcon status={data!.status} conclusion={data!.conclusion} size={20} />
-              <strong>{runStatusLabel(data!.status, data!.conclusion)}</strong>
+              <RunStatusIcon status={run.data.status} conclusion={run.data.conclusion} size={20} />
+              <strong>{runStatusLabel(run.data.status, run.data.conclusion)}</strong>
               <span className="muted">
-                · <Elapsed start={data!.run_started_at} end={data!.updated_at} running={running} />
+                · <Elapsed start={run.data.run_started_at} end={run.data.updated_at} running={running} />
               </span>
-              {(data!.run_attempt ?? 1) > 1 && <span className="pill">Attempt {data!.run_attempt}</span>}
+              {(run.data.run_attempt ?? 1) > 1 && <span className="pill">Attempt {run.data.run_attempt}</span>}
             </div>
             <div className="row-flex small muted" style={{ marginTop: 10, flexWrap: "wrap" }}>
-              {data!.actor && <Avatar src={data!.actor.avatar_url} size={18} />}
+              {run.data.actor && <Avatar src={run.data.actor.avatar_url} size={18} />}
               <span>
-                {data!.actor?.login ?? "Someone"} triggered via {data!.event.replace(/_/g, " ")} <Time iso={data!.run_started_at ?? data!.created_at} />
+                {run.data.actor?.login ?? "Someone"} triggered via {run.data.event.replace(/_/g, " ")} <Time iso={run.data.run_started_at ?? run.data.created_at} />
               </span>
             </div>
             <div className="row-flex small" style={{ marginTop: 8, flexWrap: "wrap" }}>
-              {data!.head_branch && (
+              {run.data.head_branch !== null && run.data.head_branch !== "" && (
                 <span className="branch">
-                  <GitBranchIcon size={12} /> {data!.head_branch}
+                  <GitBranchIcon size={12} /> {run.data.head_branch}
                 </span>
               )}
-              <Link {...to.commit(owner, repo, data!.head_sha)} className="pill mono">
-                <GitCommitIcon size={12} /> {data!.head_sha.slice(0, 7)}
+              <Link {...to.commit(owner, repo, run.data.head_sha)} className="pill mono">
+                <GitCommitIcon size={12} /> {run.data.head_sha.slice(0, 7)}
               </Link>
-              {data!.pull_requests?.map((pr) => (
+              {run.data.pull_requests?.map((pr) => (
                 <Link key={pr.number} {...to.pull(owner, repo, pr.number)} className="pill">
                   #{pr.number}
                 </Link>

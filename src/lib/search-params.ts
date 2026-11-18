@@ -2,11 +2,11 @@
 // values, so `?ref=123` arrives as a number; these normalize and drop junk.
 
 export function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
-  return allowed.includes(value as T) ? (value as T) : undefined;
+  return allowed.find((option) => option === value);
 }
 
 export function optionalString(value: unknown): string | undefined {
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean") return value.toString();
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 

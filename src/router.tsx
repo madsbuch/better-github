@@ -1,4 +1,5 @@
 import { createBrowserHistory, createRouter, type HistoryLocation } from "@tanstack/react-router";
+import { z } from "zod";
 import { routeTree } from "./routeTree.gen";
 import { queryClient } from "./queries/client";
 import { NotFoundScreen } from "./screens/NotFoundScreen";
@@ -14,11 +15,22 @@ function createAppHistory() {
   return createBrowserHistory({
     parseLocation: () => {
       const [path, ...fragment] = window.location.hash.slice(1).split("#");
-      return parseLocation(`${path || "/"}${fragment.length ? `#${fragment.join("#")}` : ""}`, window.history.state);
+      const state = HistoryStateSchema.safeParse(window.history.state);
+      return parseLocation(
+        `${path === undefined || path === "" ? "/" : path}${fragment.length > 0 ? `#${fragment.join("#")}` : ""}`,
+        state.success ? state.data : null,
+      );
     },
     createHref: (href) => `${window.location.pathname}${window.location.search}#${href}`,
   });
 }
+
+/** The state TanStack Router keeps in each history entry (anything else in it is kept as is). */
+const HistoryStateSchema = z.looseObject({
+  key: z.string().exactOptional(),
+  __TSR_key: z.string().exactOptional(),
+  __TSR_index: z.number(),
+});
 
 function parseLocation(href: string, state: HistoryLocation["state"] | null): HistoryLocation {
   const hashIndex = href.indexOf("#");

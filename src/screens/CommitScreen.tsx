@@ -49,47 +49,47 @@ export function CommitScreen() {
         <>
           <div className="detail-header">
             <h2 style={{ marginTop: 0 }}>{headline}</h2>
-            {body && <pre style={{ whiteSpace: "pre-wrap", font: "inherit", fontSize: 14, color: "var(--fg-muted)", margin: "0 0 12px" }}>{body}</pre>}
+            {body !== "" && <pre style={{ whiteSpace: "pre-wrap", font: "inherit", fontSize: 14, color: "var(--fg-muted)", margin: "0 0 12px" }}>{body}</pre>}
             <div className="row-flex small">
-              <Avatar src={data!.author?.avatar_url} size={20} />
-              {data!.author ? (
-                <Link {...to.user(data!.author.login)} className="bold" style={{ color: "var(--fg)" }}>
-                  {data!.author.login}
+              <Avatar src={commit.data.author?.avatar_url ?? null} size={20} />
+              {commit.data.author !== null ? (
+                <Link {...to.user(commit.data.author.login)} className="bold" style={{ color: "var(--fg)" }}>
+                  {commit.data.author.login}
                 </Link>
               ) : (
-                <span className="bold">{data!.commit.author?.name}</span>
+                <span className="bold">{commit.data.commit.author?.name}</span>
               )}
               <span className="muted">
-                committed <Time iso={data!.commit.committer?.date ?? data!.commit.author?.date} />
+                committed <Time iso={commit.data.commit.committer?.date ?? commit.data.commit.author?.date} />
               </span>
             </div>
             <div className="row-flex small" style={{ marginTop: 8, flexWrap: "wrap" }}>
               <button
                 className="pill mono"
                 style={{ background: "none" }}
-                onClick={() => void backend.copyText(data!.sha).then(() => toast.show("SHA copied"))}
+                onClick={() => void backend.copyText(commit.data.sha).then(() => toast.show("SHA copied"))}
               >
-                <CopyIcon size={12} /> {data!.sha.slice(0, 12)}
+                <CopyIcon size={12} /> {commit.data.sha.slice(0, 12)}
               </button>
-              {data!.parents.map((p) => (
+              {commit.data.parents.map((p) => (
                 <Link key={p.sha} {...to.commit(owner, repo, p.sha)} className="pill mono">
                   parent {p.sha.slice(0, 7)}
                 </Link>
               ))}
-              {data!.stats && <DiffStat additions={data!.stats.additions ?? 0} deletions={data!.stats.deletions ?? 0} />}
-              <span className="muted">{data!.files?.length ?? 0} files</span>
+              {commit.data.stats !== undefined && <DiffStat additions={commit.data.stats.additions ?? 0} deletions={commit.data.stats.deletions ?? 0} />}
+              <span className="muted">{commit.data.files?.length ?? 0} files</span>
             </div>
           </div>
-          {(data!.files ?? []).map((f) => (
+          {(commit.data.files ?? []).map((f) => (
             <DiffFile
               key={f.filename}
               file={{
                 filename: f.filename,
-                previousFilename: f.previous_filename,
+                previousFilename: f.previous_filename ?? null,
                 status: f.status,
                 additions: f.additions,
                 deletions: f.deletions,
-                patch: f.patch,
+                patch: f.patch ?? null,
               }}
               wrap={prefs.wrapDiff}
               collapsed={collapsed[f.filename] ?? false}

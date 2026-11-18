@@ -1,24 +1,48 @@
 // Preloading. Route loaders call `warm` when a link is touched, scrolls into
 // view, or is followed, so data is usually cached before the screen renders.
 
-import type { FetchInfiniteQueryOptions, FetchQueryOptions, QueryClient } from "@tanstack/react-query";
+import type { FetchInfiniteQueryOptions, FetchQueryOptions, QueryClient, QueryKey } from "@tanstack/react-query";
 import { isGuest } from "../lib/guest";
 import { viewerQueries } from "./viewer";
 
-// Each factory in src/queries returns one of these.
-type AnyOptions = FetchQueryOptions<any, any, any, any> | FetchInfiniteQueryOptions<any, any, any, any, any>;
+/** A query to load ahead of time, with its data types erased so lists can mix them. */
+export interface Warmable {
+  /** Loads it unless cached; errors show on the screen itself (with a retry), never as a failed navigation. */
+  ensure(queryClient: QueryClient): Promise<unknown>;
+  /** Fetches it unless the cached data is fresh. */
+  prefetch(queryClient: QueryClient): Promise<void>;
+}
+
+function isInfinite<TQueryFnData, TError, TData, TQueryKey extends QueryKey, TPageParam>(
+  options: FetchInfiniteQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam> | FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
+): options is FetchInfiniteQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam> {
+  return "getNextPageParam" in options;
+}
+
+/** Wraps what a factory in src/queries returns (`queryOptions` or `infiniteQueryOptions`) for `warm`. */
+export function query<TQueryFnData, TError, TData, TQueryKey extends QueryKey, TPageParam>(
+  options: FetchInfiniteQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam>,
+): Warmable;
+export function query<TQueryFnData, TError, TData, TQueryKey extends QueryKey>(
+  options: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
+): Warmable;
+export function query<TQueryFnData, TError, TData, TQueryKey extends QueryKey, TPageParam>(
+  options: FetchInfiniteQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam> | FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
+): Warmable {
+  if (isInfinite(options)) {
+    return {
+      ensure: (queryClient) => queryClient.ensureInfiniteQueryData(options).catch(() => undefined),
+      prefetch: (queryClient) => queryClient.prefetchInfiniteQuery(options),
+    };
+  }
+  return {
+    ensure: (queryClient) => queryClient.ensureQueryData(options).catch(() => undefined),
+    prefetch: (queryClient) => queryClient.prefetchQuery(options),
+  };
+}
 
 /** How long a navigation waits for data before showing the screen with placeholders. */
 const NAVIGATION_WAIT_MS = 250;
-
-function load(queryClient: QueryClient, options: AnyOptions): Promise<unknown> {
-  const promise =
-    "getNextPageParam" in options
-      ? queryClient.ensureInfiniteQueryData(options as FetchInfiniteQueryOptions)
-      : queryClient.ensureQueryData(options as FetchQueryOptions);
-  // Errors show on the screen itself (with a retry), never as a failed navigation.
-  return promise.catch(() => undefined);
-}
 
 /**
  * Makes sure `primary` is cached, waiting at most a moment so navigation
@@ -27,30 +51,23 @@ function load(queryClient: QueryClient, options: AnyOptions): Promise<unknown> {
  */
 export async function warm(
   queryClient: QueryClient,
-  primary: AnyOptions[],
-  { secondary = [], preload = false }: { secondary?: AnyOptions[]; preload?: boolean } = {},
+  primary: Warmable[],
+  { secondary = [], preload = false }: { secondary?: Warmable[]; preload?: boolean } = {},
 ): Promise<void> {
   // Guests have 60 requests an hour: load only what is actually opened.
   if (isGuest()) {
     if (preload) return;
     secondary = [];
   }
-  const ready = Promise.all(primary.map((options) => load(queryClient, options)));
-  if (!preload) secondary.forEach((options) => void load(queryClient, options));
+  const ready = Promise.all(primary.map((item) => item.ensure(queryClient)));
+  if (!preload) secondary.forEach((item) => void item.ensure(queryClient));
   await Promise.race([ready, new Promise((resolve) => setTimeout(resolve, NAVIGATION_WAIT_MS))]);
 }
 
 /** Fills the cache for the main tabs right after startup, so switching tabs never waits. */
 export function warmStartup(queryClient: QueryClient) {
   if (isGuest()) return;
-  const options: AnyOptions[] = [
-    viewerQueries.repos("yours"),
-    viewerQueries.repos("starred"),
-    viewerQueries.profile(),
-  ];
+  const items = [query(viewerQueries.repos("yours")), query(viewerQueries.repos("starred")), query(viewerQueries.profile())];
   // prefetch* respects staleTime, so fresh restored data isn't refetched.
-  for (const o of options) {
-    if ("getNextPageParam" in o) void queryClient.prefetchInfiniteQuery(o as FetchInfiniteQueryOptions);
-    else void queryClient.prefetchQuery(o as FetchQueryOptions);
-  }
+  for (const item of items) void item.prefetch(queryClient);
 }

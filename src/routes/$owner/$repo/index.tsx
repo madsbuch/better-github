@@ -6,7 +6,7 @@ import { newPullQueries } from "../../../queries/newPull";
 import { releaseQueries } from "../../../queries/releases";
 import { repoQueries } from "../../../queries/repos";
 import { repoListQuery, searchQueries } from "../../../queries/search";
-import { warm } from "../../../queries/warm";
+import { query, warm } from "../../../queries/warm";
 import { RepoScreen } from "../../../screens/RepoScreen";
 
 const TABS: RepoTab[] = ["about", "code", "pulls", "issues", "commits", "actions", "releases"];
@@ -22,16 +22,19 @@ export const Route = createFileRoute("/$owner/$repo/")({
   loaderDeps: ({ search }) => ({ tab: search.tab ?? "about", workflow: search.workflow, status: search.status }),
   loader: ({ context: { queryClient }, params: { owner, repo }, deps, preload }) => {
     const tabData = {
-      about: [repoQueries.readme(owner, repo)],
-      pulls: [searchQueries.issues(repoListQuery(owner, repo, "pulls", "open")), newPullQueries.repoBranches(owner, repo)],
-      issues: [searchQueries.issues(repoListQuery(owner, repo, "issues", "open"))],
-      actions: [actionsQueries.runs(owner, repo, { workflow: deps.workflow, status: deps.status }), actionsQueries.workflows(owner, repo)],
-      releases: [releaseQueries.list(owner, repo)],
+      about: [query(repoQueries.readme(owner, repo))],
+      pulls: [query(searchQueries.issues(repoListQuery(owner, repo, "pulls", "open"))), query(newPullQueries.repoBranches(owner, repo))],
+      issues: [query(searchQueries.issues(repoListQuery(owner, repo, "issues", "open")))],
+      actions: [
+        query(actionsQueries.runs(owner, repo, { workflow: deps.workflow, status: deps.status })),
+        query(actionsQueries.workflows(owner, repo)),
+      ],
+      releases: [query(releaseQueries.list(owner, repo))],
       // Both need the default branch from the repository first.
       code: [],
       commits: [],
     }[deps.tab];
-    return warm(queryClient, [repoQueries.detail(owner, repo), ...tabData], { preload });
+    return warm(queryClient, [query(repoQueries.detail(owner, repo)), ...tabData], { preload });
   },
   component: RepoScreen,
 });

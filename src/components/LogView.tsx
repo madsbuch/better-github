@@ -8,7 +8,7 @@ const TAIL = 1500;
 export const LogView = memo(function LogView({ lines }: { lines: LogLine[] }) {
   const [shown, setShown] = useState(TAIL);
   const hidden = Math.max(0, lines.length - shown);
-  const nodes = useMemo(() => groupLines(hidden ? lines.slice(hidden) : lines), [lines, hidden]);
+  const nodes = useMemo(() => groupLines(hidden > 0 ? lines.slice(hidden) : lines), [lines, hidden]);
   if (lines.length === 0) return <div className="log-empty muted small">No output</div>;
   return (
     <div className="log">
@@ -45,7 +45,7 @@ function Line({ line }: { line: LogLine }) {
   const label = line.kind === "error" ? "Error: " : line.kind === "warning" ? "Warning: " : line.kind === "notice" ? "Notice: " : "";
   return (
     <div className={`log-line log-${line.kind}`}>
-      {label && <span className="log-label">{label}</span>}
+      {label !== "" && <span className="log-label">{label}</span>}
       <Text text={line.text} />
     </div>
   );
@@ -53,11 +53,11 @@ function Line({ line }: { line: LogLine }) {
 
 function Text({ text }: { text: string }) {
   const spans = ansiSpans(text);
-  if (spans.length === 1 && !spans[0].className) return <>{text || " "}</>;
+  if (spans.length === 1 && spans[0]?.className === "") return <>{text !== "" ? text : " "}</>;
   return (
     <>
       {spans.map((span, i) => (
-        <span key={i} className={span.className || undefined}>
+        <span key={i} className={span.className !== "" ? span.className : undefined}>
           {span.text}
         </span>
       ))}

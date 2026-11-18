@@ -95,7 +95,7 @@ export function ReviewSheet({
           onChange={(e) => drafts.setBody(e.target.value)}
         />
         {options.map((option) => (
-          <label key={option.value} className={`radio-card${event === option.value ? " selected" : ""}`} style={option.disabled ? { opacity: 0.5 } : undefined}>
+          <label key={option.value} className={`radio-card${event === option.value ? " selected" : ""}`} style={option.disabled === true ? { opacity: 0.5 } : undefined}>
             <input
               type="radio"
               name="review-event"
@@ -214,7 +214,7 @@ export function MergeSheet({
       },
       {
         onSuccess: (branchError) => {
-          if (branchError) toast.show(`Merged, but the branch wasn't deleted: ${errorMessage(branchError)}`, "error");
+          if (branchError !== null) toast.show(`Merged, but the branch wasn't deleted: ${errorMessage(branchError)}`, "error");
           onClose();
         },
       },
@@ -314,6 +314,18 @@ export function TextSheet({
     if (open) setText(initial ?? "");
   }, [open, initial]);
 
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await onSubmit(text.trim());
+      onClose();
+    } catch {
+      // onSubmit reports its own errors.
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Sheet
       open={open}
@@ -322,18 +334,8 @@ export function TextSheet({
       footer={
         <button
           className="btn btn-primary"
-          disabled={!text.trim() || busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await onSubmit(text.trim());
-              onClose();
-            } catch {
-              // onSubmit reports its own errors.
-            } finally {
-              setBusy(false);
-            }
-          }}
+          disabled={text.trim() === "" || busy}
+          onClick={() => void submit()}
         >
           {busy && <Spinner small />} {submitLabel}
         </button>

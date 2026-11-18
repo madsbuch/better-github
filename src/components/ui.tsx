@@ -16,8 +16,23 @@ import { errorMessage } from "../lib/api";
 import { fullDate, labelTextColor, timeAgo } from "../lib/format";
 import type { IssueState, IssueStateReason, Label, PullState, ReviewDecision, StatusState } from "../lib/types";
 
-export function Avatar({ src, size = 20, square = false, alt = "" }: { src?: string | null; size?: number; square?: boolean; alt?: string }) {
-  if (!src) return <span className={`avatar${square ? " square" : ""}`} style={{ width: size, height: size, display: "inline-block" }} />;
+/** Whether a React node renders anything, like `node && ...` in JSX would treat it. */
+export function hasContent(node: ReactNode): boolean {
+  return node !== null && node !== undefined && node !== false && node !== "" && node !== 0;
+}
+
+export function Avatar({
+  src,
+  size = 20,
+  square = false,
+  alt = "",
+}: {
+  src?: string | null | undefined;
+  size?: number | undefined;
+  square?: boolean | undefined;
+  alt?: string | undefined;
+}) {
+  if (src === null || src === undefined || src === "") return <span className={`avatar${square ? " square" : ""}`} style={{ width: size, height: size, display: "inline-block" }} />;
   const url = withSize(src, size);
   return (
     <img
@@ -36,12 +51,13 @@ export function Avatar({ src, size = 20, square = false, alt = "" }: { src?: str
 /** Requests an appropriately sized avatar from GitHub's avatar CDN. */
 function withSize(src: string, size: number): string {
   if (!src.includes("avatars.githubusercontent.com")) return src;
-  const px = Math.ceil(size * Math.min(window.devicePixelRatio || 2, 3));
+  const ratio = window.devicePixelRatio;
+  const px = Math.ceil(size * Math.min(ratio === 0 || Number.isNaN(ratio) ? 2 : ratio, 3));
   return `${src}${src.includes("?") ? "&" : "?"}s=${px}`;
 }
 
 export function Time({ iso }: { iso: string | null | undefined }) {
-  if (!iso) return null;
+  if (iso === null || iso === undefined || iso === "") return null;
   return (
     <time dateTime={iso} title={fullDate(iso)}>
       {timeAgo(iso)}
@@ -59,7 +75,7 @@ export function LabelPill({ label }: { label: Label }) {
 }
 
 export function Labels({ labels }: { labels: Label[] | undefined | null }) {
-  if (!labels?.length) return null;
+  if (labels === null || labels === undefined || labels.length === 0) return null;
   return (
     <div className="wrap-flex" style={{ marginTop: 6 }}>
       {labels.map((l) => (
@@ -77,7 +93,7 @@ export function pullVisualState(state: PullState, isDraft: boolean): PullVisualS
   return isDraft ? "draft" : "open";
 }
 
-export function PullStateIcon({ state, size = 16 }: { state: PullVisualState; size?: number }) {
+export function PullStateIcon({ state, size = 16 }: { state: PullVisualState; size?: number | undefined }) {
   switch (state) {
     case "merged":
       return <GitMergeIcon size={size} className="c-done" aria-label="Merged" />;
@@ -85,12 +101,12 @@ export function PullStateIcon({ state, size = 16 }: { state: PullVisualState; si
       return <GitPullRequestClosedIcon size={size} className="c-danger" aria-label="Closed" />;
     case "draft":
       return <GitPullRequestDraftIcon size={size} className="c-muted" aria-label="Draft" />;
-    default:
+    case "open":
       return <GitPullRequestIcon size={size} className="c-success" aria-label="Open" />;
   }
 }
 
-export function IssueStateIcon({ state, reason, size = 16 }: { state: IssueState; reason?: IssueStateReason; size?: number }) {
+export function IssueStateIcon({ state, reason, size = 16 }: { state: IssueState; reason?: IssueStateReason | null | undefined; size?: number | undefined }) {
   if (state === "OPEN") return <IssueOpenedIcon size={size} className="c-success" aria-label="Open" />;
   if (reason === "NOT_PLANNED" || reason === "DUPLICATE") return <SkipIcon size={size} className="c-muted" aria-label="Closed as not planned" />;
   return <IssueClosedIcon size={size} className="c-done" aria-label="Closed" />;
@@ -144,7 +160,7 @@ export function StateBadge({ kind }: { kind: PullVisualState | "issue-open" | "i
 }
 
 /** Combined CI status for a commit. */
-export function ChecksIcon({ state, size = 14 }: { state: StatusState | null | undefined; size?: number }) {
+export function ChecksIcon({ state, size = 14 }: { state: StatusState | null | undefined; size?: number | undefined }) {
   switch (state) {
     case "SUCCESS":
       return <CheckIcon size={size} className="c-success" aria-label="Checks passed" />;
@@ -154,7 +170,8 @@ export function ChecksIcon({ state, size = 14 }: { state: StatusState | null | u
     case "PENDING":
     case "EXPECTED":
       return <DotFillIcon size={size} className="c-attention" aria-label="Checks pending" />;
-    default:
+    case null:
+    case undefined:
       return null;
   }
 }
@@ -185,7 +202,7 @@ export function DiffStat({ additions, deletions }: { additions: number; deletion
   );
 }
 
-export function Spinner({ small = false }: { small?: boolean }) {
+export function Spinner({ small = false }: { small?: boolean | undefined }) {
   return <span className={`spinner${small ? " sm" : ""}`} role="progressbar" aria-label="Loading" />;
 }
 
@@ -197,7 +214,7 @@ export function CenterSpinner() {
   );
 }
 
-export function SkeletonList({ rows = 8 }: { rows?: number }) {
+export function SkeletonList({ rows = 8 }: { rows?: number | undefined }) {
   return (
     <div aria-hidden>
       {Array.from({ length: rows }, (_, i) => (
@@ -214,7 +231,7 @@ export function SkeletonList({ rows = 8 }: { rows?: number }) {
   );
 }
 
-export function ErrorView({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+export function ErrorView({ error, onRetry }: { error: unknown; onRetry?: (() => void) | undefined }) {
   return (
     <div className="center">
       <AlertIcon size={28} />
@@ -234,7 +251,7 @@ export function EmptyState({ icon, title, children }: { icon?: ReactNode; title:
     <div className="center">
       {icon}
       <h2>{title}</h2>
-      {children && <p>{children}</p>}
+      {hasContent(children) && <p>{children}</p>}
     </div>
   );
 }
@@ -255,7 +272,7 @@ export function LoadMore({
 
   useEffect(() => {
     const element = ref.current;
-    if (!element || !hasMore) return;
+    if (!element || hasMore !== true) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) callback.current();
@@ -266,7 +283,7 @@ export function LoadMore({
     return () => observer.disconnect();
   }, [hasMore]);
 
-  if (!hasMore) return null;
+  if (hasMore !== true) return null;
   return (
     <div className="load-more" ref={ref}>
       {loading ? (
@@ -286,7 +303,7 @@ export function Segmented<T extends string>({
   onChange,
 }: {
   value: T;
-  options: { value: T; label: ReactNode; count?: number | null }[];
+  options: { value: T; label: ReactNode; count?: number | null | undefined }[];
   onChange: (value: T) => void;
 }) {
   return (
@@ -313,7 +330,7 @@ export function ScreenTabs<T extends string>({
   onChange,
 }: {
   value: T;
-  tabs: { value: T; label: string; icon?: ReactNode; count?: number | null }[];
+  tabs: { value: T; label: string; icon?: ReactNode; count?: number | null | undefined }[];
   onChange: (value: T) => void;
 }) {
   return (

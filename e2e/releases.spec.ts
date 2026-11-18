@@ -1,5 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
+import { z } from "zod";
 import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
+
+/** JSON the fake download bridge keeps in sessionStorage, read on the test's side. */
+async function stored(page: Page, key: string, fallback: string): Promise<unknown> {
+  const text = await page.evaluate((name) => sessionStorage.getItem(name), key);
+  return JSON.parse(text === null || text === "" ? fallback : text);
+}
+
+const DownloadRecords = z.record(z.string(), z.unknown());
+const downloadRecords = async (page: Page) => DownloadRecords.parse(await stored(page, "native-downloads", "{}"));
+const openedDownloads = async (page: Page) => z.array(z.string()).parse(await stored(page, "opened-downloads", "null"));
 
 /** Stands in for Android's download manager bridge (Downloads.kt), recording requests. */
 async function fakeDownloadManager(page: Page) {
@@ -15,22 +26,31 @@ async function fakeDownloadManager(page: Page) {
       },
     });
   });
-  return () => page.evaluate(() => (window as unknown as { __downloads: string[][] }).__downloads);
+  return () => page.evaluate(() => window.__downloads ?? []);
 }
 
 /** DownloadManager survives a web-view reload; persist the fake's records too. */
 async function trackedDownloadManager(page: Page) {
   await page.addInitScript(() => {
-    const saved = () => JSON.parse(sessionStorage.getItem("native-downloads") || "{}") as Record<string, {
-      status: string; downloadedBytes: number; totalBytes: number; reason?: string;
-    }>;
+    const read = (key: string, fallback: string): unknown => {
+      const text = sessionStorage.getItem(key);
+      return JSON.parse(text === null || text === "" ? fallback : text);
+    };
+    const saved = (): Record<string, unknown> => {
+      const value = read("native-downloads", "{}");
+      return typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
+    };
+    const flag = (key: string) => {
+      const value = sessionStorage.getItem(key);
+      return value !== null && value !== "" ? value : null;
+    };
     Object.assign(window, {
       GhCommanderDownloads: {
         download() { throw new Error("Expected the tracked download bridge"); },
         enqueue(url: string, name: string, mime: string) {
-          if (sessionStorage.getItem("fail-enqueue")) return "";
+          if (flag("fail-enqueue") !== null) return "";
           const records = saved();
-          const id = String(Object.keys(records).length + 1);
+          const id = (Object.keys(records).length + 1).toString();
           records[id] = { status: "running", downloadedBytes: 512, totalBytes: 1024 };
           sessionStorage.setItem("native-downloads", JSON.stringify(records));
           sessionStorage.setItem("last-download", JSON.stringify({ url, name, mime, id }));
@@ -40,10 +60,11 @@ async function trackedDownloadManager(page: Page) {
           return JSON.stringify(saved()[id] ?? { status: "missing", downloadedBytes: 0, totalBytes: 0 });
         },
         open(id: string) {
-          const opened = JSON.parse(sessionStorage.getItem("opened-downloads") || "[]") as string[];
+          const value = read("opened-downloads", "[]");
+          const opened: unknown[] = Array.isArray(value) ? value : [];
           opened.push(id);
           sessionStorage.setItem("opened-downloads", JSON.stringify(opened));
-          return sessionStorage.getItem("open-result") || "opened";
+          return flag("open-result") ?? "opened";
         },
       },
     });
@@ -51,13 +72,11 @@ async function trackedDownloadManager(page: Page) {
 }
 
 async function finishDownload(page: Page, status = "successful", reason?: string, count = 1) {
-  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(sessionStorage.getItem("native-downloads") || "{}")).length)).toBe(count);
-  await page.evaluate(({ status, reason }) => {
-    const records = JSON.parse(sessionStorage.getItem("native-downloads")!);
-    const last = JSON.parse(sessionStorage.getItem("last-download")!);
-    records[last.id] = { status, downloadedBytes: 1024, totalBytes: 1024, reason };
-    sessionStorage.setItem("native-downloads", JSON.stringify(records));
-  }, { status, reason });
+  await expect.poll(async () => Object.keys(await downloadRecords(page)).length).toBe(count);
+  const records = await downloadRecords(page);
+  const last = z.object({ id: z.string() }).parse(await stored(page, "last-download", "null"));
+  records[last.id] = { status, downloadedBytes: 1024, totalBytes: 1024, reason };
+  await page.evaluate((json) => sessionStorage.setItem("native-downloads", json), JSON.stringify(records));
 }
 
 test("a completed APK opens from its release and stays available after a reload", async ({ page }) => {
@@ -72,15 +91,21 @@ test("a completed APK opens from its release and stays available after a reload"
   const openFile = activeScreen(page).getByRole("button", { name: "Open rocket-v2.0.0.apk", exact: true });
   await expect(openFile).toBeEnabled();
   await openFile.click();
-  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("opened-downloads")!))).toEqual(["1"]);
+  expect(await openedDownloads(page)).toEqual(["1"]);
 
   await page.reload();
   await expect(openFile).toBeEnabled();
   await openFile.click();
-  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("opened-downloads")!))).toEqual(["1", "1"]);
-  expect(await page.evaluate(() => Object.keys(JSON.parse(sessionStorage.getItem("native-downloads")!)))).toHaveLength(1);
+  expect(await openedDownloads(page)).toEqual(["1", "1"]);
+  expect(Object.keys(await downloadRecords(page))).toHaveLength(1);
   // Only the native ID is saved; signed download links must not persist in app storage.
-  expect(await page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith("ghc.download.")).map(([, value]) => value))).toEqual(["1"]);
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("ghc.download."))
+        .map((key) => localStorage.getItem(key)),
+    ),
+  ).toEqual(["1"]);
   expect(errors).toEqual([]);
 });
 
@@ -109,7 +134,7 @@ test("APK permission, missing files, and failed downloads have a recovery action
   await retry.click();
   await finishDownload(page, "successful", undefined, 3);
   await expect(openFile).toBeEnabled();
-  expect(await page.evaluate(() => Object.keys(JSON.parse(sessionStorage.getItem("native-downloads")!)))).toHaveLength(3);
+  expect(Object.keys(await downloadRecords(page))).toHaveLength(3);
 });
 
 test("download start failures stay retryable and unsupported files stay downloaded", async ({ page }) => {
@@ -129,7 +154,7 @@ test("download start failures stay retryable and unsupported files stay download
   await expect(activeScreen(page).getByRole("status")).toContainText("No installed app can open this file");
   await expect(openFile).toBeEnabled();
   await activeScreen(page).getByRole("button", { name: "Download checksums.txt again", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(sessionStorage.getItem("native-downloads")!)).length)).toBe(2);
+  await expect.poll(async () => Object.keys(await downloadRecords(page)).length).toBe(2);
 });
 
 test("signing out prevents a pending URL request from starting a download", async ({ page }) => {
@@ -139,9 +164,14 @@ test("signing out prevents a pending URL request from starting a download", asyn
   await page.evaluate(async () => {
     // Defer the fixture transport while navigation/sign-out continue normally.
     const modulePath = "/src/lib/backend.ts";
-    const { backend } = await import(modulePath);
-    backend.downloadUrl = () => new Promise<string>((resolve) => {
-      Object.assign(window, { finishDownloadUrl: () => resolve("https://objects.githubusercontent.com/mock/11") });
+    const module: unknown = await import(modulePath);
+    const backend: unknown = typeof module === "object" && module !== null && "backend" in module ? module.backend : null;
+    if (typeof backend !== "object" || backend === null) throw new Error("src/lib/backend.ts exports no backend");
+    Object.assign(backend, {
+      downloadUrl: () =>
+        new Promise<string>((resolve) => {
+          window.finishDownloadUrl = () => resolve("https://objects.githubusercontent.com/mock/11");
+        }),
     });
   });
   await activeScreen(page).getByRole("button", { name: "Download rocket-v2.0.0.apk", exact: true }).click();
@@ -150,7 +180,9 @@ test("signing out prevents a pending URL request from starting a download", asyn
   await activeScreen(page).getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Better GitHub", exact: true })).toBeVisible();
   await page.evaluate(async () => {
-    (window as unknown as { finishDownloadUrl(): void }).finishDownloadUrl();
+    const finish = window.finishDownloadUrl;
+    if (finish === undefined) throw new Error("No download link was requested");
+    finish();
     await Promise.resolve();
   });
   expect(await page.evaluate(() => sessionStorage.getItem("native-downloads"))).toBeNull();

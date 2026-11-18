@@ -29,6 +29,7 @@ export function RunStatusIcon({ status, conclusion, size = 16 }: { status: strin
       return <SkipIcon size={size} className="c-muted" aria-label="Skipped" />;
     case "action_required":
       return <AlertIcon size={size} className="c-attention" aria-label="Action required" />;
+    case null:
     default:
       return <CircleSlashIcon size={size} className="c-muted" aria-label="Neutral" />;
   }
@@ -53,8 +54,10 @@ export function runStatusLabel(status: string | null, conclusion: string | null)
       return "Skipped";
     case "action_required":
       return "Action required";
+    case null:
+      return "Neutral";
     default:
-      return conclusion ? conclusion.replace(/_/g, " ") : "Neutral";
+      return conclusion !== "" ? conclusion.replace(/_/g, " ") : "Neutral";
   }
 }
 
@@ -76,5 +79,5 @@ export function Elapsed({ start, end, running }: { start: string | null | undefi
     return () => window.clearInterval(timer);
   }, [running]);
   const text = formatDuration(start, running ? now : end);
-  return text ? <span className="nowrap">{text}</span> : null;
+  return text !== "" ? <span className="nowrap">{text}</span> : null;
 }

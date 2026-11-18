@@ -2,21 +2,26 @@
 // submitted. Persisted locally so a half-finished review survives restarts.
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { z } from "zod";
 import type { Side } from "./diff";
+import { parseJson } from "./schema";
 
-export interface DraftComment {
-  id: string;
-  path: string;
-  line: number;
-  side: Side;
-  body: string;
-  createdAt: number;
-}
+export const DraftComment = z.object({
+  id: z.string(),
+  path: z.string(),
+  line: z.number(),
+  side: z.enum(["LEFT", "RIGHT"]) satisfies z.ZodType<Side>,
+  body: z.string(),
+  createdAt: z.number(),
+});
+export type DraftComment = z.infer<typeof DraftComment>;
 
-export interface ReviewDraft {
-  body: string;
-  comments: DraftComment[];
-}
+/** A stored draft; a missing or unreadable part starts empty. */
+const ReviewDraft = z.object({
+  body: z.string().catch(""),
+  comments: z.array(DraftComment).catch([]),
+});
+export type ReviewDraft = z.infer<typeof ReviewDraft>;
 
 const EMPTY: ReviewDraft = { body: "", comments: [] };
 const cache = new Map<string, ReviewDraft>();
@@ -31,11 +36,7 @@ function read(key: string): ReviewDraft {
   if (cached) return cached;
   let draft = EMPTY;
   try {
-    const raw = window.localStorage.getItem(storageKey(key));
-    if (raw) {
-      const parsed = JSON.parse(raw) as ReviewDraft;
-      draft = { body: parsed.body ?? "", comments: Array.isArray(parsed.comments) ? parsed.comments : [] };
-    }
+    draft = parseJson(ReviewDraft, window.localStorage.getItem(storageKey(key))) ?? EMPTY;
   } catch {
     // Storage unavailable or corrupt: start empty.
   }
@@ -46,7 +47,7 @@ function read(key: string): ReviewDraft {
 function write(key: string, draft: ReviewDraft) {
   cache.set(key, draft);
   try {
-    if (!draft.body && draft.comments.length === 0) window.localStorage.removeItem(storageKey(key));
+    if (draft.body === "" && draft.comments.length === 0) window.localStorage.removeItem(storageKey(key));
     else window.localStorage.setItem(storageKey(key), JSON.stringify(draft));
   } catch {
     // Keep the in-memory copy.
@@ -63,10 +64,10 @@ let counter = 0;
 export function useReviewDraft(key: string) {
   const subscribe = useCallback(
     (listener: () => void) => {
-      let set = listeners.get(key);
-      if (!set) listeners.set(key, (set = new Set()));
+      const set = listeners.get(key) ?? new Set<() => void>();
+      listeners.set(key, set);
       set.add(listener);
-      return () => set!.delete(listener);
+      return () => set.delete(listener);
     },
     [key],
   );

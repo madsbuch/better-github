@@ -34,14 +34,14 @@ export function useAppMutation<TVars = void, TData = unknown>(
   const queryClient = useQueryClient();
   return useMutation<TData, unknown, TVars, { undo?: Undo }>({
     mutationFn: options.mutationFn,
-    onMutate: async (vars) => ({ undo: options.optimistic ? await options.optimistic(vars, queryClient) : undefined }),
+    onMutate: async (vars) => (options.optimistic ? { undo: await options.optimistic(vars, queryClient) } : {}),
     onError: (error, _vars, context) => {
       context?.undo?.();
       if (options.toastErrors !== false) toast.show(errorMessage(error), "error");
     },
     onSuccess: async (data, vars) => {
       const message = typeof options.success === "function" ? options.success(vars, data) : options.success;
-      if (message) toast.show(message, "success");
+      if (message !== null && message !== undefined && message !== "") toast.show(message, "success");
       const stale = typeof options.invalidates === "function" ? options.invalidates(vars, data) : (options.invalidates ?? []);
       await Promise.all(stale.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
     },

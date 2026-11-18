@@ -11,7 +11,7 @@ const RESERVED = new Set([
   "trending", "users", "watching",
 ]);
 
-const int = (value: string | undefined) => (value && /^\d{1,15}$/.test(value) ? Number(value) : null);
+const int = (value: string | undefined) => (value !== undefined && /^\d{1,15}$/.test(value) ? Number(value) : null);
 
 /**
  * Maps a github.com (or api.github.com) URL to an in-app screen, or returns
@@ -35,10 +35,10 @@ export function appLinkForUrl(href: string): LinkTarget | null {
       return s;
     }
   });
-  if (segments.length === 0) return to.repos();
   const [owner, repo, kind, id, ...rest] = segments;
+  if (owner === undefined) return to.repos();
 
-  if (segments.length === 1) {
+  if (repo === undefined) {
     if (owner === "notifications") return to.notifications();
     if (owner === "pulls") return to.inbox();
     if (RESERVED.has(owner.toLowerCase())) return null;
@@ -47,12 +47,12 @@ export function appLinkForUrl(href: string): LinkTarget | null {
   if (RESERVED.has(owner.toLowerCase())) return null;
   // GitHub serves e.g. https://github.com/owner/repo.git as the repo page.
   const name = repo.replace(/\.git$/, "");
-  if (segments.length === 2) return to.repo(owner, name);
+  if (kind === undefined) return to.repo(owner, name);
 
   switch (kind) {
     case "pull": {
       // `git push` prints github.com/<o>/<r>/pull/new/<branch> for new branches.
-      if (id === "new") return rest.length ? to.compare(owner, name, { head: rest.join("/") }) : to.compare(owner, name);
+      if (id === "new") return rest.length > 0 ? to.compare(owner, name, { head: rest.join("/") }) : to.compare(owner, name);
       const number = int(id);
       if (number === null) return null;
       const tab = rest[0] === "files" ? "files" : rest[0] === "commits" ? "commits" : rest[0] === "checks" ? "checks" : undefined;
@@ -66,13 +66,13 @@ export function appLinkForUrl(href: string): LinkTarget | null {
       return number !== null && rest.length === 0 ? to.issue(owner, name, number) : null;
     }
     case "commit":
-      return id && /^[0-9a-f]{7,40}$/i.test(id) ? to.commit(owner, name, id) : null;
+      return id !== undefined && /^[0-9a-f]{7,40}$/i.test(id) ? to.commit(owner, name, id) : null;
     case "commits":
       return segments.length <= 4 ? to.repo(owner, name, { tab: "commits" }) : null;
     case "tree":
-      return to.tree(owner, name, id, rest.join("/") || undefined);
+      return to.tree(owner, name, id, rest.length > 0 ? rest.join("/") : undefined);
     case "blob":
-      return id && rest.length ? to.blob(owner, name, id, rest.join("/")) : null;
+      return id !== undefined && rest.length > 0 ? to.blob(owner, name, id, rest.join("/")) : null;
     case "actions":
       return actionsLink(owner, name, segments.slice(3));
     case "compare":
@@ -80,7 +80,7 @@ export function appLinkForUrl(href: string): LinkTarget | null {
     case "releases":
       if (segments.length === 3) return to.repo(owner, name, { tab: "releases" });
       if (id === "latest" && rest.length === 0) return to.latestRelease(owner, name);
-      if (id === "tag" && rest.length) return to.release(owner, name, rest.join("/"));
+      if (id === "tag" && rest.length > 0) return to.release(owner, name, rest.join("/"));
       // Asset downloads (releases/download/...) are files for the browser.
       return null;
     default:
@@ -102,24 +102,28 @@ function actionsLink(owner: string, repo: string, rest: string[]): LinkTarget | 
 
 /** github.com/<o>/<r>/compare/<base>...<head>, where head may be "<fork owner>:<branch>". */
 function compareLink(owner: string, repo: string, spec: string): LinkTarget {
-  if (!spec) return to.compare(owner, repo);
-  const [first, second] = spec.split("...");
+  if (spec === "") return to.compare(owner, repo);
+  const [first = "", second] = spec.split("...");
   const [base, head] = second === undefined ? [undefined, first] : [first, second];
   const fork = /^([\w.-]+):(.+)$/.exec(head);
-  const from = fork && fork[1].toLowerCase() !== owner.toLowerCase() ? `${fork[1]}/${repo}` : undefined;
-  return to.compare(owner, repo, { base: base?.replace(/^[\w.-]+:/, ""), head: fork ? fork[2] : head, from });
+  const forkOwner = fork?.[1];
+  const from = forkOwner !== undefined && forkOwner.toLowerCase() !== owner.toLowerCase() ? `${forkOwner}/${repo}` : undefined;
+  return to.compare(owner, repo, { base: base?.replace(/^[\w.-]+:/, ""), head: fork?.[2] ?? head, from });
 }
 
 function appLinkForApiUrl(url: URL): LinkTarget | null {
   const parts = url.pathname.split("/").filter(Boolean).map((s) => decodeURIComponent(s));
   if (parts[0] !== "repos" || parts.length < 3) return null;
   const [, owner, repo, kind, id, sub] = parts;
+  if (owner === undefined || repo === undefined) return null;
   if (parts.length === 3) return to.repo(owner, repo);
-  if (parts.length === 5 && kind === "pulls" && int(id) !== null) return to.pull(owner, repo, int(id)!);
-  if (parts.length === 5 && kind === "issues" && int(id) !== null) return to.issue(owner, repo, int(id)!);
-  if (parts.length === 5 && kind === "commits" && /^[0-9a-f]{4,40}$/i.test(id)) return to.commit(owner, repo, id);
-  if (parts.length === 6 && kind === "actions" && id === "runs" && int(sub) !== null) return to.run(owner, repo, int(sub)!);
-  if (parts.length === 5 && kind === "releases" && int(id) !== null) return to.releaseById(owner, repo, int(id)!);
+  const idNumber = int(id);
+  const subNumber = int(sub);
+  if (parts.length === 5 && kind === "pulls" && idNumber !== null) return to.pull(owner, repo, idNumber);
+  if (parts.length === 5 && kind === "issues" && idNumber !== null) return to.issue(owner, repo, idNumber);
+  if (parts.length === 5 && kind === "commits" && id !== undefined && /^[0-9a-f]{4,40}$/i.test(id)) return to.commit(owner, repo, id);
+  if (parts.length === 6 && kind === "actions" && id === "runs" && subNumber !== null) return to.run(owner, repo, subNumber);
+  if (parts.length === 5 && kind === "releases" && idNumber !== null) return to.releaseById(owner, repo, idNumber);
   return null;
 }
 

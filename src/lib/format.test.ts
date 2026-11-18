@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compactNumber, formatDuration, labelTextColor, timeAgo } from "./format";
-import { dropNullNodes, parseLink } from "./api";
+import { parseLink } from "./api";
 
 describe("timeAgo", () => {
   const now = new Date("2026-06-15T12:00:00Z");
@@ -55,21 +55,5 @@ describe("parseLink", () => {
       last: "https://api.github.com/user/repos?page=5",
     });
     expect(parseLink(null)).toEqual({});
-  });
-});
-
-describe("dropNullNodes", () => {
-  it("removes null connection nodes at any depth", () => {
-    const data = {
-      search: {
-        issueCount: 3,
-        nodes: [null, { id: "a", labels: { nodes: [null, { name: "bug" }] } }, null],
-      },
-      other: [null, 1],
-    };
-    expect(dropNullNodes(data)).toEqual({
-      search: { issueCount: 3, nodes: [{ id: "a", labels: { nodes: [{ name: "bug" }] } }] },
-      other: [null, 1],
-    });
   });
 });

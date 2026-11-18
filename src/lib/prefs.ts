@@ -1,9 +1,12 @@
 // Small persisted UI preferences.
 
 import { useSyncExternalStore } from "react";
-import type { UpdateBranchMethod } from "./types";
+import { z } from "zod";
+import { parseJson } from "./schema";
+import { UpdateBranchMethod } from "./types";
 
-export type ThemePref = "system" | "light" | "dark";
+export const ThemePref = z.enum(["system", "light", "dark"]);
+export type ThemePref = z.infer<typeof ThemePref>;
 
 export interface Prefs {
   /** Light or dark; "system" follows the device (see theme.ts). */
@@ -18,12 +21,19 @@ const KEY = "ghc.prefs";
 const DEFAULTS: Prefs = { theme: "system", wrapDiff: true, wrapCode: false, updateBranchMethod: "MERGE" };
 const listeners = new Set<() => void>();
 
+/** Stored prefs: a missing or unreadable one takes its default. */
+const StoredPrefs = z.object({
+  theme: ThemePref.catch(DEFAULTS.theme),
+  wrapDiff: z.boolean().catch(DEFAULTS.wrapDiff),
+  wrapCode: z.boolean().catch(DEFAULTS.wrapCode),
+  updateBranchMethod: UpdateBranchMethod.catch(DEFAULTS.updateBranchMethod),
+});
+
 let current: Prefs = load();
 
 function load(): Prefs {
   try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Prefs>) } : DEFAULTS;
+    return parseJson(StoredPrefs, window.localStorage.getItem(KEY)) ?? DEFAULTS;
   } catch {
     return DEFAULTS;
   }

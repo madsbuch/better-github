@@ -18,7 +18,7 @@ const TABS: { id: TabId; label: string; path: string; target: ReturnType<(typeof
 export function Shell() {
   const queryClient = useQueryClient();
   const pathname = useLocation({ select: (l) => l.pathname });
-  const index = useLocation({ select: (l) => Number(l.state.__TSR_index ?? 0) });
+  const index = useLocation({ select: (l) => l.state.__TSR_index });
   const screen = useRef<HTMLElement>(null);
   const previous = useRef({ pathname, index });
   const tab = TABS.find((t) => t.path === pathname)?.id;
@@ -49,7 +49,7 @@ export function Shell() {
           <Outlet />
         </section>
       </div>
-      {tab && <TabBar current={tab} />}
+      {tab !== undefined && <TabBar current={tab} />}
     </div>
   );
 }
@@ -66,7 +66,7 @@ function ProgressBar() {
   return <div className={`nav-progress${visible ? " active" : ""}`} aria-hidden />;
 }
 
-function TabBar({ current, rail = false }: { current?: TabId; rail?: boolean }) {
+function TabBar({ current, rail = false }: { current?: TabId | undefined; rail?: boolean | undefined }) {
   const { state } = useSessionApi();
   const nav = useNav();
 

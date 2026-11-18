@@ -741,7 +741,7 @@ export type ActionsActor = z.infer<typeof ActionsActor>;
 export const WorkflowRun = z.object({
   id: z.number(),
   /** The workflow's name. */
-  name: z.string().nullable(),
+  name: z.string().nullable().optional(),
   display_title: z.string(),
   run_number: z.number(),
   run_attempt: z.number().optional(),

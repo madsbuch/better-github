@@ -6,7 +6,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 /** Compact relative time: "now", "5m", "3h", "2d", "Mar 4", "Mar 4, 2023". */
 export function timeAgo(iso: string | null | undefined, now: Date = new Date()): string {
-  if (!iso) return "";
+  if (iso === null || iso === undefined || iso === "") return "";
   const date = new Date(iso);
   const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
   if (Number.isNaN(seconds)) return "";
@@ -14,13 +14,13 @@ export function timeAgo(iso: string | null | undefined, now: Date = new Date()):
   if (seconds < HOUR) return `${Math.max(1, Math.round(seconds / MINUTE))}m`;
   if (seconds < DAY) return `${Math.round(seconds / HOUR)}h`;
   if (seconds < 7 * DAY) return `${Math.round(seconds / DAY)}d`;
-  const month = MONTHS[date.getMonth()];
+  const month = MONTHS[date.getMonth()] ?? "";
   if (date.getFullYear() === now.getFullYear()) return `${month} ${date.getDate()}`;
   return `${month} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 export function fullDate(iso: string | null | undefined): string {
-  if (!iso) return "";
+  if (iso === null || iso === undefined || iso === "") return "";
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -30,13 +30,13 @@ export function fullDate(iso: string | null | undefined): string {
 /** 1234 -> "1.2k", 1500000 -> "1.5m". */
 export function compactNumber(n: number | null | undefined): string {
   if (n === null || n === undefined) return "0";
-  if (n < 1000) return String(n);
+  if (n < 1000) return n.toString();
   if (n < 1_000_000) return `${trim(n / 1000)}k`;
   return `${trim(n / 1_000_000)}m`;
 }
 
 function trim(value: number): string {
-  return value >= 100 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+  return value >= 100 ? Math.round(value).toString() : value.toFixed(1).replace(/\.0$/, "");
 }
 
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
@@ -50,7 +50,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export function formatDuration(startIso?: string | null, endIso?: string | null): string {
-  if (!startIso || !endIso) return "";
+  if (startIso === null || startIso === undefined || startIso === "" || endIso === null || endIso === undefined || endIso === "") return "";
   const seconds = Math.max(0, Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 1000));
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);

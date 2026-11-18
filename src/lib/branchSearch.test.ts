@@ -54,13 +54,13 @@ describe("searchBranches", () => {
 
   it("marks what matched", () => {
     const [top] = searchBranches(BRANCHES, "fix deploy");
-    expect(top.branch.name).toBe("dave/fix-staging-deployment");
-    expect(top.ranges).toEqual([
+    expect(top?.branch.name).toBe("dave/fix-staging-deployment");
+    expect(top?.ranges).toEqual([
       [5, 8],
       [17, 23],
     ]);
     const [fuzzy] = searchBranches([b("dave/eng-629-x")], "eng629");
-    expect(fuzzy.ranges).toEqual([
+    expect(fuzzy?.ranges).toEqual([
       [5, 8],
       [9, 12],
     ]);

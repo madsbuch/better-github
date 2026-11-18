@@ -6,7 +6,7 @@ import { REVIEW_RULES } from "../lib/queries";
 import { NO_RULES, parseReviewRules, reviewFile, RULES_FILE, type FileReview, type ReviewRules } from "../lib/reviewRules";
 import { rulesPrompt } from "../lib/rulesPrompt";
 import { useToast } from "../lib/toast";
-import type { PullDetail, ReviewRulesResult } from "../lib/types";
+import type { PullDetail } from "../lib/types";
 import { keys } from "./keys";
 import { pullQueries } from "./pulls";
 
@@ -16,7 +16,7 @@ export const reviewQueries = {
     queryOptions({
       queryKey: keys.repo.reviewRules(owner, repo, ref),
       queryFn: async () => {
-        const { repository } = await graphql<ReviewRulesResult>(REVIEW_RULES, { owner, name: repo, expression: `${ref}:${RULES_FILE}` });
+        const { repository } = await graphql(REVIEW_RULES, { owner, name: repo, expression: `${ref}:${RULES_FILE}` });
         const blob = repository?.object;
         return { text: blob?.text ?? null, truncated: blob?.isTruncated ?? false };
       },
@@ -48,8 +48,8 @@ export interface PullReview {
  * into, never by its own version of them, so it can't lower its own risk.
  */
 export function usePullReview(owner: string, repo: string, number: number, pr: PullDetail | null): PullReview {
-  const rulesFile = useQuery({ ...reviewQueries.rules(owner, repo, pr?.baseRefName ?? ""), enabled: !!pr });
-  const patches = useQuery({ ...pullQueries.patches(owner, repo, number, pr?.headRefOid ?? ""), enabled: !!pr });
+  const rulesFile = useQuery({ ...reviewQueries.rules(owner, repo, pr?.baseRefName ?? ""), enabled: pr !== null });
+  const patches = useQuery({ ...pullQueries.patches(owner, repo, number, pr?.headRefOid ?? ""), enabled: pr !== null });
   const text = rulesFile.data?.text ?? null;
   const rules = useMemo(() => (text === null ? null : parseReviewRules(text)), [text]);
 
@@ -69,7 +69,7 @@ export function usePullReview(owner: string, repo: string, number: number, pr: P
   // has some: they aren't used until they're on the base branch.
   const headRules = useQuery({
     ...reviewQueries.rules(owner, repo, pr?.headRefOid ?? ""),
-    enabled: !!pr && rulesFile.isSuccess && text === null && !changesRules,
+    enabled: pr !== null && rulesFile.isSuccess && text === null && !changesRules,
   });
 
   return {

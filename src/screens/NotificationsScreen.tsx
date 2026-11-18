@@ -17,9 +17,9 @@ import { useState, type ReactNode } from "react";
 import { backend } from "../lib/backend";
 import { appLinkForUrl, htmlUrlForApiUrl } from "../lib/links";
 import { to, useNav, type LinkTarget } from "../lib/nav";
-import type { RestNotification } from "../lib/types";
 import {
   notificationQueries,
+  type RestNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationDone,
   useMarkNotificationRead,
@@ -72,7 +72,7 @@ function subjectIcon(type: string): ReactNode {
 
 function targetFor(n: RestNotification): { link: LinkTarget | null; url: string } {
   const apiUrl = n.subject.url;
-  if (apiUrl) return { link: appLinkForUrl(apiUrl), url: htmlUrlForApiUrl(apiUrl) };
+  if (apiUrl !== null && apiUrl !== "") return { link: appLinkForUrl(apiUrl), url: htmlUrlForApiUrl(apiUrl) };
   const [owner, repo] = [n.repository.owner.login, n.repository.name];
   const repoUrl = `https://github.com/${n.repository.full_name}`;
   // Workflow run notifications carry no URL; their runs are in the Actions tab.
@@ -95,7 +95,7 @@ export function NotificationsScreen() {
   const groups: { repo: string; avatar: string; items: RestNotification[] }[] = [];
   for (const n of items) {
     const last = groups[groups.length - 1];
-    if (last && last.repo === n.repository.full_name) last.items.push(n);
+    if (last !== undefined && last.repo === n.repository.full_name) last.items.push(n);
     else groups.push({ repo: n.repository.full_name, avatar: n.repository.owner.avatar_url, items: [n] });
   }
 

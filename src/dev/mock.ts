@@ -2,7 +2,21 @@
 // Lets the UI be exercised (and screenshotted) without network access or a
 // token. Never included in production builds.
 
+import { z } from "zod";
 import { ApiError, type Backend, type GraphQLEnvelope, type RestRequest, type RestResponse, type SessionInfo } from "../lib/backend";
+
+/** The fixture at `index`; fixtures are fixed, so a missing one is a bug in this file. */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`mock fixture ${index.toString()} is missing`);
+  return item;
+}
+
+/** A regular expression match's group, or "" when it didn't take part. */
+const group = (match: RegExpExecArray, index = 1): string => match[index] ?? "";
+
+/** A GraphQL variable that should be a string. */
+const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
 const now = Date.now();
 const ago = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
@@ -77,12 +91,13 @@ const ISSUES = [
   },
 ];
 
-const REPOS = [
+const REPO_ROWS: [owner: string, name: string, description: string, lang: string, color: string, stars: number, isPrivate: boolean][] = [
   ["acme", "rocket", "Blazing fast uploads for everyone", "Rust", "#dea584", 2410, false],
   ["acme", "web", "The acme.dev website", "TypeScript", "#3178c6", 312, false],
   ["octocat", "dotfiles", "My config files", "Shell", "#89e051", 12, true],
   ["octocat", "better-github", "A fast, review-focused GitHub client for Android", "TypeScript", "#3178c6", 87, false],
-].map(([owner, name, description, lang, color, stars, isPrivate], i) => ({
+];
+const REPOS = REPO_ROWS.map(([owner, name, description, lang, color, stars, isPrivate], i) => ({
   __typename: "Repository",
   id: `R_${i}`,
   name,
@@ -349,12 +364,13 @@ const TIMELINE = [
   },
 ];
 
-const CHECKS = [
+const CHECK_ROWS: [typename: string, name: string, status: string, conclusion: string | null, workflow: string][] = [
   ["CheckRun", "build (ubuntu-latest)", "COMPLETED", "SUCCESS", "CI"],
   ["CheckRun", "build (windows-latest)", "IN_PROGRESS", null, "CI"],
   ["CheckRun", "clippy", "COMPLETED", "FAILURE", "Lint"],
   ["CheckRun", "docs", "COMPLETED", "SKIPPED", "CI"],
-].map(([, name, status, conclusion, workflow], i) => ({
+];
+const CHECKS = CHECK_ROWS.map(([, name, status, conclusion, workflow], i) => ({
   __typename: "CheckRun",
   id: `CR_${i}`,
   name,
@@ -368,20 +384,21 @@ const CHECKS = [
   checkSuite: { app: { name: "GitHub Actions" }, workflowRun: { databaseId: 100 + i, runNumber: 7, workflow: { name: workflow } } },
 }));
 
-const NOTIFICATIONS = [
+const NOTIFICATION_ROWS: [reason: string, type: string, title: string, repo: string, sub: string | null, unread: boolean][] = [
   ["review_requested", "PullRequest", "Add retry with exponential backoff to the upload client", "acme/rocket", "pulls/482", true],
   ["mention", "Issue", "Crash when uploading files larger than 2 GB", "acme/rocket", "issues/501", true],
   ["comment", "PullRequest", "Fix dark mode contrast on settings page", "acme/web", "pulls/1290", false],
   ["ci_activity", "CheckSuite", "CI workflow run failed for main branch", "acme/web", null, true],
   ["subscribed", "Release", "v2.0.0", "acme/rocket", "releases/1", false],
-].map(([reason, type, title, repo, sub, unread], i) => {
-  const [owner, name] = (repo as string).split("/");
+];
+const NOTIFICATIONS = NOTIFICATION_ROWS.map(([reason, type, title, repo, sub, unread], i) => {
+  const [owner = "", name = ""] = repo.split("/");
   return {
-    id: String(1000 + i),
+    id: (1000 + i).toString(),
     unread,
     reason,
     updated_at: ago(i * 45 + 5),
-    subject: { title, type, url: sub ? `https://api.github.com/repos/${repo}/${sub}` : null, latest_comment_url: null },
+    subject: { title, type, url: sub !== null ? `https://api.github.com/repos/${repo}/${sub}` : null, latest_comment_url: null },
     repository: { full_name: repo, name, owner: { login: owner, avatar_url: avatar(owner === "acme" ? 9 : 1) } },
   };
 });
@@ -506,25 +523,26 @@ const ANNOTATIONS = [
 ];
 
 function actionsBody(path: string): unknown {
-  if (/\/actions\/workflows$/.test(path)) return { total_count: WORKFLOWS.length, workflows: WORKFLOWS };
+  if (path.endsWith("/actions/workflows")) return { total_count: WORKFLOWS.length, workflows: WORKFLOWS };
   const byWorkflow = /\/actions\/workflows\/(\d+)\/runs$/.exec(path);
   if (byWorkflow) {
-    const runs = RUNS.filter((r) => r.workflow_id === Number(byWorkflow[1]));
+    const runs = RUNS.filter((r) => r.workflow_id === Number(group(byWorkflow)));
     return { total_count: runs.length, workflow_runs: runs };
   }
-  if (/\/actions\/runs$/.test(path)) return { total_count: RUNS.length, workflow_runs: RUNS };
+  if (path.endsWith("/actions/runs")) return { total_count: RUNS.length, workflow_runs: RUNS };
   const jobs = /\/actions\/runs\/(\d+)\/jobs$/.exec(path);
   if (jobs) {
-    const list = JOBS.filter((j) => j.run_id === Number(jobs[1]));
-    if (list.length) return { total_count: list.length, jobs: list };
+    const runId = Number(group(jobs));
+    const list = JOBS.filter((j) => j.run_id === runId);
+    if (list.length > 0) return { total_count: list.length, jobs: list };
     // Runs without their own jobs get one that ended like the run did.
-    const conclusion = RUNS.find((r) => r.id === Number(jobs[1]))?.conclusion ?? JOBS[0].conclusion;
-    return { total_count: 1, jobs: [{ ...JOBS[0], id: Number(jobs[1]) + 100, run_id: Number(jobs[1]), conclusion }] };
+    const conclusion = RUNS.find((r) => r.id === runId)?.conclusion ?? at(JOBS, 0).conclusion;
+    return { total_count: 1, jobs: [{ ...at(JOBS, 0), id: runId + 100, run_id: runId, conclusion }] };
   }
   const run = /\/actions\/runs\/(\d+)$/.exec(path);
-  if (run) return RUNS.find((r) => r.id === Number(run[1])) ?? workflowRun(Number(run[1]), "Fix clippy warnings", "completed", "failure", 50);
+  if (run) return RUNS.find((r) => r.id === Number(group(run))) ?? workflowRun(Number(group(run)), "Fix clippy warnings", "completed", "failure", 50);
   const job = /\/actions\/jobs\/(\d+)$/.exec(path);
-  if (job) return JOBS.find((j) => j.id === Number(job[1])) ?? { ...JOBS[0], id: Number(job[1]) };
+  if (job) return JOBS.find((j) => j.id === Number(group(job))) ?? { ...at(JOBS, 0), id: Number(group(job)) };
   if (/\/check-runs\/\d+\/annotations$/.test(path)) return ANNOTATIONS;
   return null;
 }
@@ -568,25 +586,25 @@ const ALL_BRANCHES = (() => {
   ];
   const people = ["alice", "bob", "carol", "dave", "erin"];
   const topics = ["retry", "cache", "upload", "auth", "docs", "metrics", "ui", "deps", "ci", "logging", "search", "perf"];
-  const more = Array.from({ length: 230 }, (_, i): [string, number] => [`${people[i % 5]}/${topics[i % 12]}-${100 + i}`, 3100 + i * 97]);
+  const more = Array.from({ length: 230 }, (_, i): [string, number] => [`${at(people, i % 5)}/${at(topics, i % 12)}-${(100 + i).toString()}`, 3100 + i * 97]);
   return [...named, ...more].sort((a, b) => a[1] - b[1]).map(([name, minutes]) => ({ name, target: { committedDate: iso(minutes) } }));
 })();
 
 function branchesData(op: string, variables: Record<string, unknown>): unknown {
   switch (op) {
     case "RepoBranches": {
-      const start = Number(variables.after ?? 0);
+      const start = Number(str(variables.after));
       const nodes = ALL_BRANCHES.slice(start, start + 100);
       const end = start + nodes.length;
       return {
         repository: {
           defaultBranchRef: { name: "main" },
-          refs: { totalCount: ALL_BRANCHES.length, pageInfo: { hasNextPage: end < ALL_BRANCHES.length, endCursor: String(end) }, nodes },
+          refs: { totalCount: ALL_BRANCHES.length, pageInfo: { hasNextPage: end < ALL_BRANCHES.length, endCursor: end.toString() }, nodes },
         },
       };
     }
     case "SearchBranches": {
-      const query = String(variables.query).toLowerCase();
+      const query = str(variables.query).toLowerCase();
       return { repository: { refs: { nodes: ALL_BRANCHES.filter((b) => b.name.includes(query)).slice(0, 50) } } };
     }
     default:
@@ -618,7 +636,7 @@ function newPullData(op: string, variables: Record<string, unknown>): unknown {
         },
       };
     case "AssignableUsers": {
-      const q = String(variables.query ?? "").toLowerCase();
+      const q = str(variables.query).toLowerCase();
       return { repository: { assignableUsers: { nodes: PEOPLE.filter((p) => p.login.includes(q) || p.name.toLowerCase().includes(q)) } } };
     }
     default:
@@ -629,13 +647,13 @@ function newPullData(op: string, variables: Record<string, unknown>): unknown {
 /** compare/<base>...<head>: nothing new against itself, else two commits. */
 function comparison(spec: string) {
   const [base, head] = decodeURIComponent(spec).split("...");
-  if (!head || head.replace(/^[\w-]+:/, "") === base) {
+  if (head === undefined || head === "" || head.replace(/^[\w-]+:/, "") === base) {
     return { status: "identical", ahead_by: 0, behind_by: 0, total_commits: 0, commits: [], files: [] };
   }
   const commits = [0, 1].map((i) => ({
     sha: `c0ffee${i}`.padEnd(40, "0"),
     commit: {
-      message: ["Stream uploads in chunks", "Reuse connections between chunks"][i],
+      message: at(["Stream uploads in chunks", "Reuse connections between chunks"], i),
       author: { name: "The Octocat", date: iso(40 - i * 10) },
       committer: { name: "The Octocat", date: iso(40 - i * 10) },
     },
@@ -651,14 +669,17 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
     return { number: 483, html_url: "https://github.com/acme/rocket/pull/483" };
   }
   if (method === "POST" && path === "/markdown") {
-    const text = String((request.body as { text?: string })?.text ?? "");
-    return `<p>${text.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)}</p>`;
+    const body = z.object({ text: z.string().optional() }).safeParse(request.body);
+    const text = body.success ? (body.data.text ?? "") : "";
+    const escapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
+    return `<p>${text.replace(/[&<>]/g, (c) => escapes[c] ?? c)}</p>`;
   }
   if (method !== "GET") return undefined;
   const compare = /\/compare\/(.+)$/.exec(path);
-  if (compare) return comparison(compare[1]);
+  if (compare) return comparison(group(compare));
   if (/^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
-    return String(request.query?.head ?? "").includes("upload-retries") ? [EXISTING_PULL] : [];
+    const head = request.query?.head;
+    return typeof head === "string" && head.includes("upload-retries") ? [EXISTING_PULL] : [];
   }
   return undefined;
 }
@@ -709,12 +730,12 @@ const RELEASES = [
 const NOT_FOUND = Symbol("not found");
 
 function releasesBody(path: string): unknown {
-  if (/\/releases$/.test(path)) return RELEASES;
-  if (/\/releases\/latest$/.test(path)) return RELEASES[0];
+  if (path.endsWith("/releases")) return RELEASES;
+  if (path.endsWith("/releases/latest")) return at(RELEASES, 0);
   const byTag = /\/releases\/tags\/(.+)$/.exec(path);
-  if (byTag) return RELEASES.find((r) => r.tag_name === decodeURIComponent(byTag[1])) ?? NOT_FOUND;
+  if (byTag) return RELEASES.find((r) => r.tag_name === decodeURIComponent(group(byTag))) ?? NOT_FOUND;
   const byId = /\/releases\/(\d+)$/.exec(path);
-  if (byId) return RELEASES.find((r) => r.id === Number(byId[1])) ?? NOT_FOUND;
+  if (byId) return RELEASES.find((r) => r.id === Number(group(byId))) ?? NOT_FOUND;
   return undefined;
 }
 
@@ -726,8 +747,8 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
     case "SearchCounts":
       return { c0: { issueCount: 3 }, c1: { issueCount: 1 }, c2: { issueCount: 2 }, c3: { issueCount: 0 }, c4: { issueCount: 5 } };
     case "SearchIssues": {
-      const q = String(variables.query);
-      const nodes = q.includes("is:issue") ? ISSUES : q.includes("author:@me") ? [PULLS[3]] : q.includes("mentions") ? [] : [...PULLS.slice(0, 3), ...ISSUES];
+      const q = str(variables.query);
+      const nodes = q.includes("is:issue") ? ISSUES : q.includes("author:@me") ? [at(PULLS, 3)] : q.includes("mentions") ? [] : [...PULLS.slice(0, 3), ...ISSUES];
       return { search: { issueCount: nodes.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes } };
     }
     case "SearchRepos":
@@ -761,9 +782,9 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       return {
         repositoryOwner: {
           __typename: "Organization",
-          login: variables.login,
+          login: str(variables.login),
           avatarUrl: avatar(9),
-          url: `https://github.com/${variables.login}`,
+          url: `https://github.com/${str(variables.login)}`,
           name: "Acme Inc.",
           description: "We build rockets.",
           location: "Earth",
@@ -773,7 +794,7 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
     case "Repo":
       return {
         repository: {
-          ...REPOS[0],
+          ...at(REPOS, 0),
           url: "https://github.com/acme/rocket",
           homepageUrl: "https://rocket.acme.dev",
           forkCount: 120,
@@ -836,10 +857,9 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
             commits: {
               totalCount: 2,
               pageInfo: { hasNextPage: false, endCursor: null },
-              nodes: TIMELINE.filter((t) => t.__typename === "PullRequestCommit").map((t) => ({
-                id: t.id,
-                commit: { ...(t as { commit: object }).commit, additions: 10, deletions: 2 },
-              })),
+              nodes: TIMELINE.flatMap((t) =>
+                t.__typename === "PullRequestCommit" && "commit" in t ? [{ id: t.id, commit: { ...t.commit, additions: 10, deletions: 2 } }] : [],
+              ),
             },
           },
         },
@@ -860,7 +880,7 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
           nameWithOwner: "acme/rocket",
           viewerPermission: "ADMIN",
           issueOrPullRequest: {
-            ...ISSUES[0],
+            ...at(ISSUES, 0),
             state: "OPEN",
             locked: false,
             body: "Steps to reproduce…",
@@ -895,7 +915,7 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
 }
 
 // Guest mode's REST endpoints (src/queries/guest.ts): public data only.
-const PROFILES: Record<string, Record<string, unknown>> = {
+const PROFILES: Record<string, { login: string; [field: string]: unknown }> = {
   acme: { login: "acme", type: "Organization", name: "Acme Inc.", bio: "We build rockets.", location: "Earth", avatar_url: avatar(9), followers: 1200, public_repos: 2 },
   octocat: { login: "octocat", type: "User", name: "The Octocat", bio: "GitHub's mascot", company: "@github", avatar_url: avatar(1), followers: 9000, following: 9, public_repos: 1 },
 };
@@ -930,17 +950,18 @@ function guestRest(path: string): unknown {
   if (path === "/rate_limit") return { resources: { core: { limit: 60, remaining: 52, reset: Math.floor(now / 1000) + 1800 } } };
   const user = /^\/users\/([^/]+)$/.exec(path);
   if (user) {
-    const profile = PROFILES[user[1].toLowerCase()];
+    const profile = PROFILES[group(user).toLowerCase()];
     return profile ? { ...profile, html_url: `https://github.com/${profile.login}` } : NOT_FOUND;
   }
   const userRepos = /^\/users\/([^/]+)\/repos$/.exec(path);
   if (userRepos) {
-    if (!PROFILES[userRepos[1].toLowerCase()]) return NOT_FOUND;
-    return REPOS.filter((r) => !r.isPrivate && r.owner.login === userRepos[1].toLowerCase()).map(restRepo);
+    const login = group(userRepos).toLowerCase();
+    if (!PROFILES[login]) return NOT_FOUND;
+    return REPOS.filter((r) => !r.isPrivate && r.owner.login === login).map(restRepo);
   }
   const repo = /^\/repos\/([^/]+)\/([^/]+)$/.exec(path);
   if (repo) {
-    const found = REPOS.find((r) => r.nameWithOwner.toLowerCase() === `${repo[1]}/${repo[2]}`.toLowerCase() && !r.isPrivate);
+    const found = REPOS.find((r) => r.nameWithOwner.toLowerCase() === `${group(repo)}/${group(repo, 2)}`.toLowerCase() && !r.isPrivate);
     return found ? restRepo(found) : NOT_FOUND;
   }
   if (/^\/repos\/[^/]+\/[^/]+\/branches$/.test(path)) return [{ name: "main" }, { name: "staging" }, { name: "eng-629-retries" }];
@@ -948,7 +969,7 @@ function guestRest(path: string): unknown {
 }
 
 function restBody(request: RestRequest): unknown {
-  const path = request.path.replace(/^https:\/\/api\.github\.com/, "").split("?")[0];
+  const path = request.path.replace(/^https:\/\/api\.github\.com/, "").split("?")[0] ?? "";
   const method = request.method ?? "GET";
   const newPull = newPullRest(path, method, request);
   if (newPull !== undefined) return newPull;
@@ -963,15 +984,15 @@ function restBody(request: RestRequest): unknown {
   if (actions !== null) return actions;
   const releases = releasesBody(path);
   if (releases !== undefined) return releases;
-  if (/\/pulls\/483\/files$/.test(path)) return [...FILES, RULES_CHANGE];
+  if (path.endsWith("/pulls/483/files")) return [...FILES, RULES_CHANGE];
   if (/\/pulls\/\d+\/files$/.test(path)) return FILES;
-  if (/\/readme$/.test(path)) {
+  if (path.endsWith("/readme")) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';
   }
   const commit = /\/commits\/([0-9a-f]+)$/.exec(path);
   if (commit) {
     return {
-      sha: commit[1].padEnd(40, "0"),
+      sha: group(commit).padEnd(40, "0"),
       commit: { message: "Add retries to upload client\n\nUses exponential backoff.", author: { name: "Alice", date: ago(600) }, committer: { name: "Alice", date: ago(600) } },
       author: { login: "alice", avatar_url: alice.avatarUrl },
       parents: [{ sha: "0f0f0f0f0f0f" }],
@@ -979,18 +1000,18 @@ function restBody(request: RestRequest): unknown {
       files: FILES.slice(0, 1),
     };
   }
-  if (/\/commits$/.test(path)) {
+  if (path.endsWith("/commits")) {
     return [0, 1, 2].map((i) => ({
       sha: `${i}abcdef1234567`,
-      commit: { message: ["Add retries", "Fix typo in README", "Initial commit"][i], author: { name: "Alice", date: ago(i * 600 + 30) }, committer: { date: ago(i * 600 + 30) } },
+      commit: { message: at(["Add retries", "Fix typo in README", "Initial commit"], i), author: { name: "Alice", date: ago(i * 600 + 30) }, committer: { date: ago(i * 600 + 30) } },
       author: { login: "alice", avatar_url: alice.avatarUrl },
     }));
   }
   const contents = /\/contents\/?(.*)$/.exec(path);
   if (contents) {
-    const p = decodeURIComponent(contents[1]);
+    const p = decodeURIComponent(group(contents));
     if (p === "" || p === "src") {
-      const dir = p ? `${p}/` : "";
+      const dir = p !== "" ? `${p}/` : "";
       return [
         { type: "dir", name: "src", path: `${dir}src` },
         { type: "file", name: "Cargo.toml", path: `${dir}Cargo.toml` },
@@ -998,7 +1019,7 @@ function restBody(request: RestRequest): unknown {
         { type: "file", name: "client.rs", path: `${dir}client.rs` },
       ].map((e) => ({ ...e, sha: "x", size: 100, url: "", html_url: "", git_url: "", download_url: null, _links: {} }));
     }
-    if (request.accept?.includes("html")) return "<h1>Rocket</h1><p>Rendered markdown preview.</p>";
+    if (request.accept?.includes("html") === true) return "<h1>Rocket</h1><p>Rendered markdown preview.</p>";
     const source = p.endsWith(".md")
       ? "# Rocket\n\nBlazing fast uploads.\n"
       : 'use std::time::Duration;\n\n/// Uploads with retries.\npub async fn upload(body: Vec<u8>) -> Result<(), Error> {\n    let delay = Duration::from_millis(250);\n    println!("uploading {} bytes", body.len());\n    Ok(())\n}\n';
@@ -1017,7 +1038,7 @@ export function createMockBackend(): Backend {
     native: true,
     sessionGet: () => delay(signedIn ? session : null),
     authConfig: () => delay({ clientId: "Ov23liMockClientId", clientIdSource: "build" as const, scopes: "repo read:org notifications read:user" }),
-    authSetClientId: (clientId) => delay({ clientId, clientIdSource: clientId ? ("user" as const) : null, scopes: "" }),
+    authSetClientId: (clientId) => delay({ clientId, clientIdSource: clientId !== null && clientId !== "" ? ("user" as const) : null, scopes: "" }),
     authDeviceStart: () => delay({ deviceCode: "dc", userCode: "WDJB-MJHT", verificationUri: "https://github.com/login/device", expiresIn: 900, interval: 5 }),
     authDevicePoll: () => delay({ status: "pending" as const }),
     authWithToken: () => {
@@ -1028,13 +1049,12 @@ export function createMockBackend(): Backend {
       signedIn = false;
       return delay(undefined);
     },
-    rest: async <T,>(request: RestRequest) => {
+    rest: async (request) => {
       const body = restBody(request);
       if (body === NOT_FOUND) throw await delay(new ApiError("Not Found", "api", 404));
-      return delay<RestResponse<T>>({ status: 200, body: body as T, link: null });
+      return delay<RestResponse>({ status: 200, body, link: null });
     },
-    graphql: <T,>(query: string, variables?: Record<string, unknown>) =>
-      delay<GraphQLEnvelope<T>>({ data: graphqlData(query, variables ?? {}) as T }),
+    graphql: (query, variables) => delay<GraphQLEnvelope>({ data: graphqlData(query, variables ?? {}) }),
     jobLogs: () => delay({ text: JOB_LOG, truncated: false }),
     downloadUrl: (target) =>
       delay(target.kind === "asset" ? `https://objects.githubusercontent.com/mock/${target.assetId}` : `https://codeload.github.com/mock/${target.ref}.${target.format}`),

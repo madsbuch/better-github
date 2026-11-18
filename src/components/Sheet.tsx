@@ -2,6 +2,7 @@ import { XIcon } from "@primer/octicons-react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOverlay } from "../lib/nav";
+import { hasContent } from "./ui";
 
 interface SheetProps {
   open: boolean;
@@ -10,7 +11,7 @@ interface SheetProps {
   children: ReactNode;
   footer?: ReactNode;
   /** Use most of the screen height (editors, long lists). */
-  full?: boolean;
+  full?: boolean | undefined;
 }
 
 /** Bottom sheet on phones, inset dialog on tablets. Back closes either presentation. */
@@ -29,7 +30,7 @@ export function Sheet({ open, onClose, title, children, footer, full = false }: 
           </button>
         </div>
         <div className="sheet-body">{children}</div>
-        {footer && <div className="sheet-footer">{footer}</div>}
+        {hasContent(footer) && <div className="sheet-footer">{footer}</div>}
       </div>
     </>,
     document.body,
@@ -39,8 +40,8 @@ export function Sheet({ open, onClose, title, children, footer, full = false }: 
 export interface MenuAction {
   label: string;
   icon?: ReactNode;
-  danger?: boolean;
-  hidden?: boolean;
+  danger?: boolean | undefined;
+  hidden?: boolean | undefined;
   onSelect: () => void;
 }
 
@@ -65,12 +66,12 @@ export function ActionSheet({
         <div className="sheet-handle" />
         <div className="sheet-menu">
           {actions
-            .filter((a) => !a.hidden)
+            .filter((a) => a.hidden !== true)
             .map((action) => (
               <button
                 key={action.label}
                 role="menuitem"
-                className={`menu-item${action.danger ? " danger" : ""}`}
+                className={`menu-item${action.danger === true ? " danger" : ""}`}
                 onClick={() => {
                   onClose();
                   action.onSelect();

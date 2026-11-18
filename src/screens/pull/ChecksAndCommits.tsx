@@ -16,7 +16,7 @@ import { backend } from "../../lib/backend";
 import { formatDuration } from "../../lib/format";
 import { appLinkForUrl } from "../../lib/links";
 import { to } from "../../lib/nav";
-import type { CheckRunNode, StatusContextNode } from "../../lib/types";
+import type { CheckContext, CheckRunNode, StatusContextNode } from "../../lib/types";
 import { useRunMutations } from "../../queries/actions";
 import { pullQueries } from "../../queries/pulls";
 import { Avatar, CenterSpinner, ChecksIcon, EmptyState, ErrorView, Spinner, Time } from "../../components/ui";
@@ -31,7 +31,7 @@ export function CommitsTab({ owner, repo, number }: { owner: string; repo: strin
       {commits.data.map(({ id, commit }) => (
         <Link key={id} {...to.commit(owner, repo, commit.oid)} className="row">
           <span className="row-icon" style={{ paddingTop: 0 }}>
-            <Avatar src={commit.author?.avatarUrl} size={28} />
+            <Avatar src={commit.author?.avatarUrl ?? null} size={28} />
           </span>
           <span className="row-body">
             <span className="row-title" style={{ display: "block", fontWeight: 500 }}>
@@ -67,7 +67,7 @@ interface CheckView {
 
 function viewCheckRun(run: CheckRunNode): CheckView {
   const workflow = run.checkSuite.workflowRun?.workflow.name;
-  const name = workflow ? `${workflow} / ${run.name}` : run.checkSuite.app ? `${run.checkSuite.app.name} / ${run.name}` : run.name;
+  const name = workflow !== undefined && workflow !== "" ? `${workflow} / ${run.name}` : run.checkSuite.app ? `${run.checkSuite.app.name} / ${run.name}` : run.name;
   const duration = formatDuration(run.startedAt, run.completedAt);
   let outcome: Outcome;
   let icon: ReactNode;
@@ -81,14 +81,14 @@ function viewCheckRun(run: CheckRunNode): CheckView {
       case "SUCCESS":
         outcome = "success";
         icon = <CheckCircleFillIcon size={16} className="c-success" />;
-        detail = `Successful${duration ? ` in ${duration}` : ""}`;
+        detail = `Successful${duration !== "" ? ` in ${duration}` : ""}`;
         break;
       case "FAILURE":
       case "TIMED_OUT":
       case "STARTUP_FAILURE":
         outcome = "failure";
         icon = <XCircleFillIcon size={16} className="c-danger" />;
-        detail = `${run.conclusion === "TIMED_OUT" ? "Timed out" : "Failing"}${duration ? ` after ${duration}` : ""}`;
+        detail = `${run.conclusion === "TIMED_OUT" ? "Timed out" : "Failing"}${duration !== "" ? ` after ${duration}` : ""}`;
         break;
       case "CANCELLED":
         outcome = "failure";
@@ -105,13 +105,15 @@ function viewCheckRun(run: CheckRunNode): CheckView {
         icon = <SkipIcon size={16} className="c-muted" />;
         detail = "Skipped";
         break;
-      default:
+      case "NEUTRAL":
+      case "STALE":
+      case null:
         outcome = "skipped";
         icon = <CircleSlashIcon size={16} className="c-muted" />;
-        detail = run.conclusion ? run.conclusion.toLowerCase().replace(/_/g, " ") : "Neutral";
+        detail = run.conclusion !== null ? run.conclusion.toLowerCase().replace(/_/g, " ") : "Neutral";
     }
   }
-  if (run.title && outcome !== "success") detail = `${detail} — ${run.title}`;
+  if (run.title !== null && run.title !== "" && outcome !== "success") detail = `${detail} — ${run.title}`;
   return {
     id: run.id,
     name,
@@ -126,11 +128,11 @@ function viewCheckRun(run: CheckRunNode): CheckView {
 
 function viewStatus(status: StatusContextNode): CheckView {
   const map: Record<StatusContextNode["state"], [Outcome, ReactNode]> = {
-    SUCCESS: ["success", <CheckCircleFillIcon size={16} className="c-success" />],
-    FAILURE: ["failure", <XCircleFillIcon size={16} className="c-danger" />],
-    ERROR: ["failure", <XCircleFillIcon size={16} className="c-danger" />],
-    PENDING: ["pending", <DotFillIcon size={16} className="c-attention" />],
-    EXPECTED: ["pending", <ClockIcon size={16} className="c-attention" />],
+    SUCCESS: ["success", <CheckCircleFillIcon key="success" size={16} className="c-success" />],
+    FAILURE: ["failure", <XCircleFillIcon key="failure" size={16} className="c-danger" />],
+    ERROR: ["failure", <XCircleFillIcon key="error" size={16} className="c-danger" />],
+    PENDING: ["pending", <DotFillIcon key="pending" size={16} className="c-attention" />],
+    EXPECTED: ["pending", <ClockIcon key="expected" size={16} className="c-attention" />],
   };
   const [outcome, icon] = map[status.state];
   return {
@@ -143,6 +145,14 @@ function viewStatus(status: StatusContextNode): CheckView {
     required: status.isRequired,
     runId: null,
   };
+}
+
+function isCheckRun(node: CheckContext): node is CheckRunNode {
+  return node.__typename === "CheckRun";
+}
+
+function isStatusContext(node: CheckContext): node is StatusContextNode {
+  return node.__typename === "StatusContext";
 }
 
 const ORDER: Outcome[] = ["failure", "pending", "success", "skipped"];
@@ -161,15 +171,17 @@ export function ChecksTab({ owner, repo, number }: { owner: string; repo: string
   if (checks.isError) return <ErrorView error={checks.error} onRetry={() => void checks.refetch()} />;
 
   const rollup = checks.data.repository?.pullRequest?.commits.nodes[0]?.commit.statusCheckRollup;
-  const views = (rollup?.contexts.nodes ?? []).map((node) =>
-    node.__typename === "CheckRun" ? viewCheckRun(node) : viewStatus(node),
+  // Kinds of checks this app doesn't know yet are left out.
+  const views = (rollup?.contexts.nodes ?? []).flatMap((node) =>
+    isCheckRun(node) ? [viewCheckRun(node)] : isStatusContext(node) ? [viewStatus(node)] : [],
   );
   if (views.length === 0) {
     return <EmptyState title="No checks">No status checks have been reported for the latest commit.</EmptyState>;
   }
 
-  const failedRuns = [...new Set(views.filter((v) => v.outcome === "failure" && v.runId).map((v) => v.runId!))];
-  const counts = Object.fromEntries(ORDER.map((o) => [o, views.filter((v) => v.outcome === o).length])) as Record<Outcome, number>;
+  const failedRuns = [...new Set(views.flatMap((v) => (v.outcome === "failure" && v.runId !== null && v.runId !== 0 ? [v.runId] : [])))];
+  const count = (outcome: Outcome) => views.filter((v) => v.outcome === outcome).length;
+  const counts: Record<Outcome, number> = { failure: count("failure"), pending: count("pending"), success: count("success"), skipped: count("skipped") };
 
 
   return (
@@ -179,7 +191,7 @@ export function ChecksTab({ owner, repo, number }: { owner: string; repo: string
           {counts.failure > 0 && <span className="c-danger bold">{counts.failure} failing </span>}
           {counts.pending > 0 && <span className="c-attention bold">{counts.pending} in progress </span>}
           <span className="muted">
-            {counts.success} successful{counts.skipped ? `, ${counts.skipped} skipped` : ""}
+            {counts.success} successful{counts.skipped > 0 ? `, ${counts.skipped} skipped` : ""}
           </span>
         </span>
         {failedRuns.length > 0 && (
@@ -193,7 +205,10 @@ export function ChecksTab({ owner, repo, number }: { owner: string; repo: string
           <div className="group-header">{HEADINGS[outcome]}</div>
           {views
             .filter((v) => v.outcome === outcome)
-            .sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name))
+            .sort((a, b) => {
+              const byRequired = (b.required ? 1 : 0) - (a.required ? 1 : 0);
+              return byRequired !== 0 ? byRequired : a.name.localeCompare(b.name);
+            })
             .map((v) => (
               <CheckRow key={v.id} check={v} />
             ))}
@@ -219,7 +234,8 @@ function CheckRow({ check: v }: { check: CheckView }) {
       {v.required && <span className="pill">Required</span>}
     </>
   );
-  const link = v.url ? appLinkForUrl(v.url) : null;
+  const url = v.url !== null && v.url !== "" ? v.url : null;
+  const link = url !== null ? appLinkForUrl(url) : null;
   if (link) {
     return (
       <Link {...link} preload="viewport" className="row">
@@ -228,7 +244,7 @@ function CheckRow({ check: v }: { check: CheckView }) {
     );
   }
   return (
-    <button className="row" disabled={!v.url} onClick={() => v.url && void backend.openUrl(v.url)}>
+    <button className="row" disabled={url === null} onClick={() => url !== null && void backend.openUrl(url)}>
       {body}
     </button>
   );

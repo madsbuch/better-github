@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { intParam } from "../../../../../../../lib/search-params";
 import { actionsQueries } from "../../../../../../../queries/actions";
-import { warm } from "../../../../../../../queries/warm";
+import { query, warm } from "../../../../../../../queries/warm";
 import { JobScreen } from "../../../../../../../screens/actions/JobScreen";
 
 export const Route = createFileRoute("/$owner/$repo/actions/runs/$runId/job/$jobId")({
@@ -14,6 +14,6 @@ export const Route = createFileRoute("/$owner/$repo/actions/runs/$runId/job/$job
     stringify: (params) => ({ ...params, runId: String(params.runId), jobId: String(params.jobId) }),
   },
   loader: ({ context: { queryClient }, params: { owner, repo, jobId }, preload }) =>
-    warm(queryClient, [actionsQueries.job(owner, repo, jobId)], { secondary: [actionsQueries.annotations(owner, repo, jobId)], preload }),
+    warm(queryClient, [query(actionsQueries.job(owner, repo, jobId))], { secondary: [query(actionsQueries.annotations(owner, repo, jobId))], preload }),
   component: JobScreen,
 });

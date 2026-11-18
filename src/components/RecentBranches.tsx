@@ -1,8 +1,10 @@
 import { GitBranchIcon, GitPullRequestIcon, XIcon } from "@primer/octicons-react";
 import { Link } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
+import { z } from "zod";
 import { splitRepo, to } from "../lib/nav";
 import { sameRepo, type RecentBranch } from "../lib/newPull";
+import { parseJson } from "../lib/schema";
 import { Time } from "./ui";
 
 // Prompts the user dismissed, by repository, branch and tip commit, so a new
@@ -13,8 +15,7 @@ let dismissed: string[] = load();
 
 function load(): string[] {
   try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    return parseJson(z.array(z.string()), window.localStorage.getItem(KEY)) ?? [];
   } catch {
     return [];
   }
@@ -77,7 +78,7 @@ function BranchPrompt({ branch, showRepo, onDismiss }: { branch: RecentBranch; s
           {fromFork ? `${branch.head.repo} → ${branch.baseRepo}` : branch.baseRepo}
         </div>
       )}
-      {branch.headline && <div className="small ellipsis">{branch.headline}</div>}
+      {branch.headline !== "" && <div className="small ellipsis">{branch.headline}</div>}
       <Link
         {...to.compare(owner, repo, { base: branch.base ?? undefined, head: branch.head.branch, from: fromFork ? branch.head.repo : undefined })}
         preload="viewport"

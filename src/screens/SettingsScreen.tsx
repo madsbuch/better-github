@@ -22,7 +22,7 @@ export function SettingsScreen() {
 }
 
 function GuestAccount() {
-  const { leaveGuest } = useSessionApi();
+  const sessionApi = useSessionApi();
   const rate = useQuery(guestQueries.rateLimit());
   return (
     <>
@@ -46,7 +46,7 @@ function GuestAccount() {
         </div>
       )}
       <div className="pad">
-        <button className="btn btn-block btn-primary" onClick={() => void leaveGuest()}>
+        <button className="btn btn-block btn-primary" onClick={() => void sessionApi.leaveGuest()}>
           Sign in to GitHub
         </button>
       </div>
@@ -56,7 +56,7 @@ function GuestAccount() {
 
 function Account() {
   const session = useViewer();
-  const { signOut } = useSessionApi();
+  const sessionApi = useSessionApi();
   const rate = useQuery(viewerQueries.rateLimit());
 
   return (
@@ -67,7 +67,7 @@ function Account() {
           Signed in as <strong>{session.login}</strong>
           <span className="muted small" style={{ display: "block" }}>
             {session.method === "device" ? "via GitHub sign-in" : "with a personal access token"}
-            {session.scopes ? ` · scopes: ${session.scopes}` : ""}
+            {session.scopes !== null && session.scopes !== "" ? ` · scopes: ${session.scopes}` : ""}
           </span>
         </span>
       </div>
@@ -83,7 +83,7 @@ function Account() {
         </div>
       )}
       <div className="pad">
-        <button className="btn btn-block btn-danger" onClick={() => void signOut()}>
+        <button className="btn btn-block btn-danger" onClick={() => void sessionApi.signOut()}>
           Sign out
         </button>
         <p className="muted small" style={{ marginBottom: 0 }}>
@@ -104,7 +104,7 @@ function AppSettings() {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
-    backend.authConfig().then((c) => {
+    void backend.authConfig().then((c) => {
       setConfig(c);
       setClientId(c.clientId ?? "");
     });
@@ -113,7 +113,8 @@ function AppSettings() {
 
   const saveClientId = async () => {
     try {
-      const next = await backend.authSetClientId(clientId.trim() || null);
+      const trimmed = clientId.trim();
+      const next = await backend.authSetClientId(trimmed === "" ? null : trimmed);
       setConfig(next);
       setClientId(next.clientId ?? "");
       toast.show("Saved", "success");
@@ -182,7 +183,7 @@ function AppSettings() {
 
       <h3 className="section-title">About</h3>
       <div className="kv">
-        <span className="grow">Better GitHub{version ? ` ${version}` : ""}</span>
+        <span className="grow">Better GitHub{version !== null && version !== "" ? ` ${version}` : ""}</span>
       </div>
       <button
         className="kv"

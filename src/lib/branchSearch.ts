@@ -36,7 +36,7 @@ function matchWord(name: string, word: string): { tier: number; ranges: Range[] 
   let best: { tier: number; at: number } | null = null;
   for (let at = name.indexOf(word, 1); at !== -1; at = name.indexOf(word, at + 1)) {
     const before = name[at - 1];
-    const tier = before === "/" ? SEGMENT_PREFIX : WORD_BREAKS.includes(before) ? WORD_PREFIX : SUBSTRING;
+    const tier = before === "/" ? SEGMENT_PREFIX : before !== undefined && WORD_BREAKS.includes(before) ? WORD_PREFIX : SUBSTRING;
     if (!best || tier < best.tier) best = { tier, at };
     if (tier === SEGMENT_PREFIX) break;
   }
@@ -52,20 +52,30 @@ function matchWord(name: string, word: string): { tier: number; ranges: Range[] 
  */
 function subsequence(name: string, word: string): Range[] | null {
   if (word.length < 2) return null;
-  let best: number[] | null = null;
-  for (let start = name.indexOf(word[0]); start !== -1; start = name.indexOf(word[0], start + 1)) {
+  const first = word.charAt(0);
+  /** Positions of the word's characters, and how far apart the first and last are. */
+  let best: { at: number[]; span: number } | null = null;
+  for (let start = name.indexOf(first); start !== -1; start = name.indexOf(first, start + 1)) {
     const at = [start];
+    let last = start;
     for (let i = 1, from = start + 1; i < word.length; i++) {
-      const next = name.indexOf(word[i], from);
+      const next = name.indexOf(word.charAt(i), from);
       if (next === -1) break;
       at.push(next);
+      last = next;
       from = next + 1;
     }
     if (at.length < word.length) break; // Later starts can't do better.
-    if (!best || at[at.length - 1] - at[0] < best[best.length - 1] - best[0]) best = at;
+    const span = last - start;
+    if (!best || span < best.span) best = { at, span };
   }
-  if (!best || best[best.length - 1] - best[0] + 1 > word.length * 2 + 2) return null;
-  return mergeRanges(best.map((i): Range => [i, i + 1]));
+  if (!best || best.span + 1 > word.length * 2 + 2) return null;
+  return mergeRanges(best.at.map((i): Range => [i, i + 1]));
+}
+
+/** The first comparison that tells two items apart (non-zero), for sorting by several keys. */
+function firstDifference(...comparisons: number[]): number {
+  return comparisons.find((c) => c !== 0) ?? 0;
 }
 
 function mergeRanges(ranges: Range[]): Range[] {
@@ -92,7 +102,7 @@ export function searchBranches(branches: Branch[], query: string, pinned: string
   const byName = new Map<string, Branch>();
   for (const branch of branches) {
     const seen = byName.get(branch.name);
-    if (!seen || (!seen.committedDate && branch.committedDate)) byName.set(branch.name, branch);
+    if (!seen || ((seen.committedDate ?? "") === "" && (branch.committedDate ?? "") !== "")) byName.set(branch.name, branch);
   }
   const pinRank = (name: string) => {
     const i = pinned.indexOf(name);
@@ -102,7 +112,7 @@ export function searchBranches(branches: Branch[], query: string, pinned: string
 
   if (words.length === 0) {
     return [...byName.values()]
-      .sort((a, b) => pinRank(a.name) - pinRank(b.name) || newestFirst(a, b) || a.name.localeCompare(b.name))
+      .sort((a, b) => firstDifference(pinRank(a.name) - pinRank(b.name), newestFirst(a, b), a.name.localeCompare(b.name)))
       .map((branch) => ({ branch, ranges: [] }));
   }
 
@@ -125,11 +135,13 @@ export function searchBranches(branches: Branch[], query: string, pinned: string
   return matches
     .sort(
       (a, b) =>
-        a.score - b.score ||
-        pinRank(a.branch.name) - pinRank(b.branch.name) ||
-        newestFirst(a.branch, b.branch) ||
-        a.branch.name.length - b.branch.name.length ||
-        a.branch.name.localeCompare(b.branch.name),
+        firstDifference(
+          a.score - b.score,
+          pinRank(a.branch.name) - pinRank(b.branch.name),
+          newestFirst(a.branch, b.branch),
+          a.branch.name.length - b.branch.name.length,
+          a.branch.name.localeCompare(b.branch.name),
+        ),
     )
     .map(({ branch, ranges }) => ({ branch, ranges }));
 }

@@ -66,7 +66,7 @@ export function Conversation({
   const threadsByReview = new Map<string, ReviewThread[]>();
   for (const thread of threads) {
     const reviewId = thread.comments.nodes[0]?.pullRequestReview?.id;
-    if (!reviewId) continue;
+    if (reviewId === undefined || reviewId === "") continue;
     const list = threadsByReview.get(reviewId) ?? [];
     list.push(thread);
     threadsByReview.set(reviewId, list);
@@ -91,24 +91,24 @@ export function Conversation({
         </div>
       ) : (
         items.map((item) => {
-          switch (item.__typename) {
-            case "IssueComment":
-              return <IssueCommentCard key={item.id} item={item} viewerLogin={viewerLogin} onQuote={onQuote} />;
-            case "PullRequestReview":
-              return (
-                <ReviewBlock
-                  key={item.id}
-                  review={item}
-                  threads={threadsByReview.get(item.id) ?? []}
-                  threadActions={threadActions}
-                  viewerLogin={viewerLogin}
-                />
-              );
-            case "PullRequestCommit":
-              return <CommitRow key={item.id} item={item} owner={owner} repo={repo} />;
-            default:
-              return <EventRow key={item.id} event={item} owner={owner} repo={repo} isPull />;
+          // Kinds of items this app doesn't know yet carry only their type name: show nothing.
+          if (!("id" in item)) return null;
+          if (item.__typename === "IssueComment") {
+            return <IssueCommentCard key={item.id} item={item} viewerLogin={viewerLogin} onQuote={onQuote} />;
           }
+          if (item.__typename === "PullRequestReview") {
+            return (
+              <ReviewBlock
+                key={item.id}
+                review={item}
+                threads={threadsByReview.get(item.id) ?? []}
+                threadActions={threadActions}
+                viewerLogin={viewerLogin}
+              />
+            );
+          }
+          if (item.__typename === "PullRequestCommit") return <CommitRow key={item.id} item={item} owner={owner} repo={repo} />;
+          return <EventRow key={item.id} event={item} owner={owner} repo={repo} isPull />;
         })
       )}
       <LoadMore hasMore={timeline.hasNextPage} loading={timeline.isFetchingNextPage} onLoadMore={() => void timeline.fetchNextPage()} />
@@ -135,7 +135,9 @@ function reviewIcon(state: ReviewState | "REQUESTED") {
       return <FileDiffIcon size={14} className="c-danger" aria-label="Changes requested" />;
     case "REQUESTED":
       return <DotFillIcon size={14} className="c-attention" aria-label="Review requested" />;
-    default:
+    case "COMMENTED":
+    case "DISMISSED":
+    case "PENDING":
       return <CommentIcon size={14} className="c-muted" aria-label="Commented" />;
   }
 }
@@ -148,14 +150,14 @@ function PullHeader({ pr }: { pr: PullDetail }) {
   for (const req of pr.reviewRequests?.nodes ?? []) {
     const reviewer = req.requestedReviewer;
     if (!reviewer) continue;
-    if (reviewer.__typename === "Team") {
+    if ("slug" in reviewer) {
       reviewers.push({ key: `team:${reviewer.slug}`, label: reviewer.name, state: "REQUESTED" });
-    } else if (!reviewers.some((r) => r.key === reviewer.login)) {
+    } else if ("login" in reviewer && !reviewers.some((r) => r.key === reviewer.login)) {
       reviewers.push({ key: reviewer.login, label: reviewer.login, avatar: reviewer.avatarUrl, state: "REQUESTED" });
     }
   }
 
-  const headLabel = pr.isCrossRepository && pr.headRepository ? `${pr.headRepository.nameWithOwner.split("/")[0]}:${pr.headRefName}` : pr.headRefName;
+  const headLabel = pr.isCrossRepository && pr.headRepository ? `${pr.headRepository.nameWithOwner.split("/")[0] ?? ""}:${pr.headRefName}` : pr.headRefName;
   const verb = pr.merged ? "merged" : "wants to merge";
   return (
     <div className="detail-header">
@@ -164,7 +166,7 @@ function PullHeader({ pr }: { pr: PullDetail }) {
         {pr.title} <span className="num">#{pr.number}</span>
       </h2>
       <div className="small muted" style={{ lineHeight: 1.7 }}>
-        <Avatar src={pr.author?.avatarUrl} size={18} />{" "}
+        <Avatar src={pr.author?.avatarUrl ?? null} size={18} />{" "}
         {pr.author ? (
           <Link {...to.user(pr.author.login)} className="bold" style={{ color: "var(--fg)" }}>
             {pr.author.login}
@@ -180,8 +182,8 @@ function PullHeader({ pr }: { pr: PullDetail }) {
         <div className="wrap-flex small" style={{ marginTop: 10 }}>
           <span className="muted">Reviewers</span>
           {reviewers.map((r) => (
-            <span key={r.key} className="pill" style={{ paddingLeft: r.avatar ? 2 : 8 }}>
-              {r.avatar && <Avatar src={r.avatar} size={16} />}
+            <span key={r.key} className="pill" style={{ paddingLeft: r.avatar !== undefined && r.avatar !== "" ? 2 : 8 }}>
+              {r.avatar !== undefined && r.avatar !== "" && <Avatar src={r.avatar} size={16} />}
               {r.label}
               {reviewIcon(r.state)}
             </span>
@@ -236,9 +238,9 @@ function ReviewBlock({
   return (
     <>
       <div className="event">
-        <span className={`event-icon${verb.tone ? ` ${verb.tone}` : ""}`}>{verb.icon}</span>
+        <span className={`event-icon${verb.tone !== undefined && verb.tone !== "" ? ` ${verb.tone}` : ""}`}>{verb.icon}</span>
         <span className="event-text">
-          <Avatar src={review.author?.avatarUrl} size={16} /> <strong>{review.author?.login ?? "ghost"}</strong> {verb.text}
+          <Avatar src={review.author?.avatarUrl ?? null} size={16} /> <strong>{review.author?.login ?? "ghost"}</strong> {verb.text}
           {review.state === "PENDING" && <span className="pill pill-attention" style={{ marginLeft: 6 }}>Pending</span>}{" "}
           <span className="nowrap">
             · <Time iso={review.submittedAt ?? review.createdAt} />
@@ -259,7 +261,7 @@ function ReviewBlock({
   );
 }
 
-function MergeRow({ icon, title, detail, action }: { icon: ReactNode; title: string; detail?: ReactNode; action?: ReactNode }) {
+function MergeRow({ icon, title, detail, action }: { icon: ReactNode; title: string; detail?: string; action?: ReactNode }) {
   return (
     <div className="merge-box-row">
       <span style={{ paddingTop: 2 }}>{icon}</span>
@@ -267,7 +269,7 @@ function MergeRow({ icon, title, detail, action }: { icon: ReactNode; title: str
         <span className="bold" style={{ display: "block" }}>
           {title}
         </span>
-        {detail && <span className="muted small">{detail}</span>}
+        {detail !== undefined && detail !== "" && <span className="muted small">{detail}</span>}
       </span>
       {action}
     </div>
@@ -371,7 +373,7 @@ function MergeBox({
   }
 
   const checks = pr.statusCheckRollup?.state;
-  if (checks) {
+  if (checks !== undefined) {
     const map = {
       SUCCESS: { icon: <CheckCircleFillIcon size={18} className="c-success" />, title: "All checks have passed" },
       FAILURE: { icon: <XCircleFillIcon size={18} className="c-danger" />, title: "Some checks were not successful" },

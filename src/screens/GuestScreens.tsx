@@ -18,6 +18,9 @@ import { Screen } from "../components/Screen";
 import { RepoRow } from "../components/rows";
 import { Avatar, EmptyState, ErrorView, SkeletonList, Spinner } from "../components/ui";
 
+/** `text`, or null when it is missing or empty. */
+const nonEmpty = (text: string | null | undefined): string | null => (text === null || text === undefined || text === "" ? null : text);
+
 /** Every followed profile's most recently pushed public repositories, newest first. */
 export function GuestReposScreen() {
   const profiles = useGuestProfiles();
@@ -30,15 +33,20 @@ export function GuestReposScreen() {
     .flatMap((r) => r.data?.items.map(toRepoListItem) ?? [])
     .sort((a, b) => (b.pushedAt ?? "").localeCompare(a.pushedAt ?? ""));
 
-  const selected = only && profiles.some((p) => p.toLowerCase() === only.toLowerCase()) ? only.toLowerCase() : null;
+  const onlyName = nonEmpty(only);
+  const selected = onlyName !== null && profiles.some((p) => p.toLowerCase() === onlyName.toLowerCase()) ? onlyName.toLowerCase() : null;
   const needle = filter.trim().toLowerCase();
   const visible = repos.filter(
     (r) =>
-      (!selected || r.owner.login.toLowerCase() === selected) &&
-      (!needle || r.nameWithOwner.toLowerCase().includes(needle) || r.description?.toLowerCase().includes(needle)),
+      (selected === null || r.owner.login.toLowerCase() === selected) &&
+      (needle === "" || r.nameWithOwner.toLowerCase().includes(needle) || r.description?.toLowerCase().includes(needle) === true),
   );
   const pending = results.some((r) => r.isPending);
-  const failed = results.flatMap((r, i) => (r.isError ? [{ login: profiles[i], error: r.error }] : []));
+  const failed = results.flatMap((r, i) => {
+    const login = profiles[i];
+    return r.isError && login !== undefined ? [{ login, error: r.error }] : [];
+  });
+  const firstFailure = failed[0];
   const refresh = () => Promise.all(profiles.map((login) => queryClient.refetchQueries({ queryKey: keys.guest.repos(login) })));
 
   return (
@@ -56,7 +64,7 @@ export function GuestReposScreen() {
           <>
             {profiles.length > 1 && (
               <div className="chips" role="radiogroup" aria-label="Profile">
-                <button role="radio" aria-checked={!selected} className={!selected ? "chip active" : "chip"} onClick={() => setOnly(null)}>
+                <button role="radio" aria-checked={selected === null} className={selected === null ? "chip active" : "chip"} onClick={() => setOnly(null)}>
                   All
                 </button>
                 {profiles.map((login) => (
@@ -83,7 +91,7 @@ export function GuestReposScreen() {
                 autoCorrect="off"
                 enterKeyHint="search"
               />
-              {filter && (
+              {filter !== "" && (
                 <button className="icon-btn sm" aria-label="Clear" onClick={() => setFilter("")}>
                   <XIcon size={14} />
                 </button>
@@ -103,8 +111,8 @@ export function GuestReposScreen() {
         </>
       ) : pending && repos.length === 0 ? (
         <SkeletonList />
-      ) : failed.length === profiles.length ? (
-        <ErrorView error={failed[0].error} onRetry={() => void refresh()} />
+      ) : failed.length === profiles.length && firstFailure !== undefined ? (
+        <ErrorView error={firstFailure.error} onRetry={() => void refresh()} />
       ) : (
         <>
           {failed.map(({ login, error }) => (
@@ -113,11 +121,11 @@ export function GuestReposScreen() {
             </div>
           ))}
           {visible.length === 0 ? (
-            <EmptyState icon={<RepoIcon size={32} />} title={needle ? "No matching repositories" : "No public repositories"} />
+            <EmptyState icon={<RepoIcon size={32} />} title={needle !== "" ? "No matching repositories" : "No public repositories"} />
           ) : (
             visible.map((repo) => <RepoRow key={repo.id} repo={repo} />)
           )}
-          {!needle && results.some((r) => r.data?.next) && (
+          {needle === "" && results.some((r) => nonEmpty(r.data?.next) !== null) && (
             <p className="pad muted small" style={{ margin: 0 }}>
               Showing each profile's {GUEST_REPOS_PER_PROFILE} most recently updated repositories. Open a profile to see all of them.
             </p>
@@ -131,7 +139,7 @@ export function GuestReposScreen() {
 /** The profiles a guest follows, with a field to add more. */
 export function GuestProfilesScreen() {
   const profiles = useGuestProfiles();
-  const { leaveGuest } = useSessionApi();
+  const session = useSessionApi();
 
   return (
     <Screen title="Profiles">
@@ -153,7 +161,7 @@ export function GuestProfilesScreen() {
         </Link>
       </div>
       <div className="pad">
-        <button className="btn btn-block btn-primary" onClick={() => void leaveGuest()}>
+        <button className="btn btn-block btn-primary" onClick={() => void session.leaveGuest()}>
           <MarkGithubIcon size={16} /> Sign in to GitHub
         </button>
         <p className="muted small" style={{ marginBottom: 0 }}>
@@ -173,7 +181,7 @@ function ProfileRow({ login }: { login: string }) {
         {p ? <Avatar src={p.avatar_url} size={36} square={p.type === "Organization"} /> : <span style={{ width: 36, height: 36 }} />}
         <span className="row-body">
           <span className="bold ellipsis" style={{ display: "block" }}>
-            {p?.name || login}
+            {nonEmpty(p?.name) ?? login}
           </span>
           <span className="muted small" style={{ display: "block" }}>
             {profile.isError
@@ -181,7 +189,7 @@ function ProfileRow({ login }: { login: string }) {
               : p === null
                 ? "Not found"
                 : p
-                  ? [p.name ? p.login : null, p.type === "Organization" ? "Organization" : null, `${compactNumber(p.public_repos ?? 0)} ${p.public_repos === 1 ? "repository" : "repositories"}`]
+                  ? [nonEmpty(p.name) !== null ? p.login : null, p.type === "Organization" ? "Organization" : null, `${compactNumber(p.public_repos ?? 0)} ${p.public_repos === 1 ? "repository" : "repositories"}`]
                       .filter(Boolean)
                       .join(" · ")
                   : " "}
@@ -218,7 +226,7 @@ function AddProfileForm() {
     setError(null);
     try {
       const profile = await queryClient.fetchQuery(guestQueries.profile(name));
-      if (!profile) {
+      if (profile === null) {
         setError(`There's no user or organization called ${name}.`);
         return;
       }
@@ -252,11 +260,11 @@ function AddProfileForm() {
           spellCheck={false}
           enterKeyHint="done"
         />
-        <button className="btn btn-primary" type="submit" disabled={busy || !login.trim()} aria-label="Add profile">
+        <button className="btn btn-primary" type="submit" disabled={busy || login.trim() === ""} aria-label="Add profile">
           {busy ? <Spinner /> : <PlusIcon size={16} />} Add
         </button>
       </div>
-      {error && (
+      {error !== null && error !== "" && (
         <p className="small c-danger" role="alert" style={{ margin: "6px 0 0" }}>
           {error}
         </p>

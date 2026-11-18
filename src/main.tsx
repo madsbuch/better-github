@@ -18,7 +18,10 @@ initTheme();
 // app opens on its last screen with content instead of a spinner.
 const [session] = await Promise.all([backend.sessionGet().catch(() => null), restoreCache()]);
 
-createRoot(document.getElementById("root")!).render(
+const root = document.getElementById("root");
+if (root === null) throw new Error("index.html has no #root element");
+
+createRoot(root).render(
   <QueryClientProvider client={queryClient}>
     <SessionProvider initial={session}>
       <App />

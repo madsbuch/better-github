@@ -6,7 +6,7 @@ import { backend } from "../lib/backend";
 import { to, useNav } from "../lib/nav";
 import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
-import type { IssueDetail } from "../lib/types";
+import type { IssueDetail, IssueResult } from "../lib/types";
 import { issueQueries, useIssueMutations } from "../queries/issues";
 import { Composer, focusComposer } from "../components/Composer";
 import { Screen } from "../components/Screen";
@@ -15,6 +15,13 @@ import { CommentCard, EventRow, IssueCommentCard } from "../components/Timeline"
 import { Avatar, CenterSpinner, ErrorView, Labels, LoadMore, StateBadge, Time } from "../components/ui";
 
 const route = getRouteApi("/$owner/$repo/issues/$number");
+
+type IssueOrPull = NonNullable<IssueResult["repository"]>["issueOrPullRequest"];
+
+/** The issue, when GitHub answered with one (and not a pull request or something newer). */
+function asIssue(node: IssueOrPull | undefined): IssueDetail | null {
+  return node !== null && node !== undefined && "timelineItems" in node ? node : null;
+}
 
 export function IssueScreen() {
   const { owner, repo, number } = route.useParams();
@@ -33,12 +40,8 @@ export function IssueScreen() {
     if (first?.__typename === "PullRequest") nav.replace(to.pull(owner, repo, number));
   }, [first, owner, repo, number, nav]);
 
-  const issue = first?.__typename === "Issue" ? (first as IssueDetail) : null;
-  const items =
-    query.data?.pages.flatMap((p) => {
-      const node = p.repository?.issueOrPullRequest;
-      return node?.__typename === "Issue" ? (node as IssueDetail).timelineItems.nodes : [];
-    }) ?? [];
+  const issue = asIssue(first);
+  const items = query.data?.pages.flatMap((p) => asIssue(p.repository?.issueOrPullRequest)?.timelineItems.nodes ?? []) ?? [];
 
   const submitComment = async () => {
     if (!issue) return;
@@ -88,12 +91,12 @@ export function IssueScreen() {
       ) : (
         <div className="timeline">
           <div className="detail-header">
-            {badge && <StateBadge kind={badge} />}
+            {badge !== null && <StateBadge kind={badge} />}
             <h2>
               {issue.title} <span className="num">#{issue.number}</span>
             </h2>
             <div className="row-flex small muted">
-              <Avatar src={issue.author?.avatarUrl} size={18} />
+              <Avatar src={issue.author?.avatarUrl ?? null} size={18} />
               {issue.author ? (
                 <Link {...to.user(issue.author.login)} className="bold" style={{ color: "var(--fg)" }}>
                   {issue.author.login}
@@ -136,7 +139,8 @@ export function IssueScreen() {
             }}
           />
           {items.map((item) =>
-            item.__typename === "IssueComment" ? (
+            // Kinds of items this app doesn't know yet carry only their type name: show nothing.
+            !("id" in item) ? null : item.__typename === "IssueComment" ? (
               <IssueCommentCard
                 key={item.id}
                 item={item}

@@ -42,9 +42,10 @@ export function BranchSheet({
     if (!open) return [];
     const branches: Branch[] = list.branches;
     // The default branch may be old enough not to be loaded yet; it's always offered.
-    const all = defaultBranch && !branches.some((b) => b.name === defaultBranch) ? [...branches, { name: defaultBranch, committedDate: null }] : branches;
-    const isBranch = !!current && (current === defaultBranch || branches.some((b) => b.name === current));
-    const pinned = [defaultBranch, isBranch ? current : null].filter((name): name is string => !!name);
+    const hasDefault = defaultBranch !== null && defaultBranch !== "";
+    const all = hasDefault && !branches.some((b) => b.name === defaultBranch) ? [...branches, { name: defaultBranch, committedDate: null }] : branches;
+    const isBranch = current !== undefined && current !== "" && (current === defaultBranch || branches.some((b) => b.name === current));
+    const pinned = [defaultBranch, isBranch ? current : null].filter((name): name is string => name !== null && name !== "");
     return searchBranches(all, filter, pinned);
   }, [open, list.branches, defaultBranch, current, filter]);
 
@@ -68,7 +69,8 @@ export function BranchSheet({
         className="sheet-search"
         onSubmit={(e) => {
           e.preventDefault();
-          if (typed && matches[0]) pick(matches[0].branch.name);
+          const top = matches[0];
+          if (typed !== "" && top !== undefined) pick(top.branch.name);
         }}
       >
         <div className="search-bar">
@@ -101,7 +103,7 @@ export function BranchSheet({
               onPick={pick}
             />
           ))}
-          {typed && matches.length === 0 && !list.searching && (
+          {typed !== "" && matches.length === 0 && !list.searching && (
             <EmptyState icon={<GitBranchIcon size={32} />} title={`No branches match “${typed}”`} />
           )}
           <SheetNote>
@@ -119,8 +121,8 @@ export function BranchSheet({
   );
 }
 
-function SheetNote({ children }: { children: ReactNode }) {
-  if (!children) return null;
+function SheetNote({ children }: { children: string | null }) {
+  if (children === null || children === "") return null;
   return (
     <p className="muted small" style={{ textAlign: "center", margin: "12px 16px" }}>
       {children}
@@ -137,7 +139,7 @@ function BranchRow({ match, isDefault, isCurrent, onPick }: { match: BranchMatch
         <span className={`branch-name mono${isCurrent ? " bold" : ""}`}>
           <Highlighted text={branch.name} ranges={ranges} />
         </span>
-        {branch.committedDate && (
+        {branch.committedDate !== null && branch.committedDate !== "" && (
           <span className="muted small">
             <Time iso={branch.committedDate} />
           </span>

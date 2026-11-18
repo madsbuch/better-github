@@ -18,13 +18,25 @@ const EVENTS: Record<string, string> = {
 };
 
 /** A repository's workflow runs, newest first, with workflow and status filters. */
-export function ActionsTab({ owner, repo, workflow, status }: { owner: string; repo: string; workflow?: number; status?: RunStatusFilter }) {
+export function ActionsTab({
+  owner,
+  repo,
+  workflow,
+  status,
+}: {
+  owner: string;
+  repo: string;
+  workflow?: number | undefined;
+  status?: RunStatusFilter | undefined;
+}) {
   const nav = useNav();
   const workflows = useQuery(actionsQueries.workflows(owner, repo));
   const runs = useInfiniteQuery(actionsQueries.runs(owner, repo, { workflow, status }));
   const items = runs.data?.pages.flatMap((p) => p.items) ?? [];
   const active = (workflows.data?.workflows ?? []).filter((w) => w.state === "active");
-  const filter = (next: { workflow?: number; status?: RunStatusFilter }) =>
+  // 0 is not a workflow id: it means no filter, like a missing one.
+  const noWorkflow = workflow === undefined || workflow === 0;
+  const filter = (next: { workflow?: number | undefined; status?: RunStatusFilter | undefined }) =>
     nav.replace(to.repo(owner, repo, { tab: "actions", workflow, status, ...next }));
 
   return (
@@ -40,7 +52,7 @@ export function ActionsTab({ owner, repo, workflow, status }: { owner: string; r
       />
       {active.length > 1 && (
         <div className="chips" role="tablist" aria-label="Workflows">
-          <button role="tab" aria-selected={!workflow} className={`chip${!workflow ? " active" : ""}`} onClick={() => filter({ workflow: undefined })}>
+          <button role="tab" aria-selected={noWorkflow} className={`chip${noWorkflow ? " active" : ""}`} onClick={() => filter({ workflow: undefined })}>
             All workflows
           </button>
           {active.map((w) => (
@@ -97,7 +109,7 @@ function RunRow({ owner, repo, run }: { owner: string; repo: string; run: Workfl
           {run.display_title}
         </span>
         <span className="row-stats">
-          {run.head_branch && (
+          {run.head_branch !== null && run.head_branch !== "" && (
             <span className="branch ellipsis" style={{ maxWidth: "50%" }}>
               <GitBranchIcon size={12} /> {run.head_branch}
             </span>

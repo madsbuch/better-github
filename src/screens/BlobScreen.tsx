@@ -29,14 +29,15 @@ export function BlobScreen() {
   const isMarkdown = MARKDOWN.test(path);
   const [preview, setPreview] = useState(isMarkdown);
 
-  const detail = useQuery({ ...repoQueries.detail(owner, repo), enabled: !explicitRef });
+  const detail = useQuery({ ...repoQueries.detail(owner, repo), enabled: explicitRef === undefined || explicitRef === "" });
   const gitRef = explicitRef ?? detail.data?.repository?.defaultBranchRef?.name ?? null;
-  const file = useQuery({ ...repoQueries.blob(owner, repo, gitRef ?? "", path), enabled: !!gitRef });
-  const rendered = useQuery({ ...repoQueries.blobHtml(owner, repo, gitRef ?? "", path), enabled: !!gitRef && isMarkdown && preview });
+  const hasRef = gitRef !== null && gitRef !== "";
+  const file = useQuery({ ...repoQueries.blob(owner, repo, gitRef ?? "", path), enabled: hasRef });
+  const rendered = useQuery({ ...repoQueries.blobHtml(owner, repo, gitRef ?? "", path), enabled: hasRef && isMarkdown && preview });
 
   const name = path.split("/").pop() ?? path;
   const dir = path.split("/").slice(0, -1).join("/");
-  const base: MarkdownBase | null = gitRef ? { owner, repo, ref: gitRef, dir } : null;
+  const base: MarkdownBase | null = hasRef ? { owner, repo, ref: gitRef, dir } : null;
   const webUrl = `https://github.com/${owner}/${repo}/blob/${gitRef ?? "HEAD"}/${path}`;
   const data = file.data;
 
@@ -44,7 +45,7 @@ export function BlobScreen() {
     <Screen
       wide={!isMarkdown || !preview}
       title={name}
-      subtitle={`${owner}/${repo}${gitRef ? ` · ${gitRef}` : ""}`}
+      subtitle={`${owner}/${repo}${hasRef ? ` · ${gitRef}` : ""}`}
       actions={
         <>
           {isMarkdown && (
@@ -63,23 +64,23 @@ export function BlobScreen() {
         </>
       }
     >
-      {gitRef && <Breadcrumbs owner={owner} repo={repo} gitRef={gitRef} path={path} />}
-      {!gitRef || file.isPending ? (
+      {hasRef && <Breadcrumbs owner={owner} repo={repo} gitRef={gitRef} path={path} />}
+      {!hasRef || file.isPending ? (
         detail.isError ? <ErrorView error={detail.error} onRetry={() => void detail.refetch()} /> : <CenterSpinner />
       ) : file.isError ? (
         <ErrorView error={file.error} onRetry={() => void file.refetch()} />
-      ) : data!.kind === "image" ? (
+      ) : file.data.kind === "image" ? (
         <div className="pad" style={{ textAlign: "center" }}>
-          {data!.meta.download_url ? (
-            <img src={data!.meta.download_url} alt={name} style={{ maxWidth: "100%", background: "repeating-conic-gradient(var(--bg-inset) 0% 25%, transparent 0% 50%) 50% / 16px 16px" }} />
+          {file.data.meta.download_url !== null && file.data.meta.download_url !== "" ? (
+            <img src={file.data.meta.download_url} alt={name} style={{ maxWidth: "100%", background: "repeating-conic-gradient(var(--bg-inset) 0% 25%, transparent 0% 50%) 50% / 16px 16px" }} />
           ) : (
             <EmptyState title="Image unavailable" />
           )}
         </div>
-      ) : data!.kind === "binary" ? (
-        <EmptyState title="Binary file">{formatBytes(data!.meta.size)} — open it on GitHub to download.</EmptyState>
-      ) : data!.kind === "too-large" ? (
-        <EmptyState title="File too large">{formatBytes(data!.meta.size)} is too big to show here.</EmptyState>
+      ) : file.data.kind === "binary" ? (
+        <EmptyState title="Binary file">{formatBytes(file.data.meta.size)} — open it on GitHub to download.</EmptyState>
+      ) : file.data.kind === "too-large" ? (
+        <EmptyState title="File too large">{formatBytes(file.data.meta.size)} is too big to show here.</EmptyState>
       ) : isMarkdown && preview ? (
         rendered.isPending ? (
           <CenterSpinner />
@@ -91,7 +92,7 @@ export function BlobScreen() {
           </div>
         )
       ) : (
-        <CodeView text={data!.text} path={path} wrap={prefs.wrapCode} />
+        <CodeView text={file.data.text} path={path} wrap={prefs.wrapCode} />
       )}
       <ActionSheet
         open={menu}

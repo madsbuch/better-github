@@ -16,8 +16,13 @@ type DeviceState =
   | { step: "waiting"; code: DeviceCode; expiresAt: number }
   | { step: "finishing" };
 
+/** Errors with `kind: "network"` (see ApiError) are worth retrying. */
+function isNetworkError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "kind" in error && error.kind === "network";
+}
+
 export function LoginScreen() {
-  const { signedIn, browseAsGuest } = useSessionApi();
+  const sessionApi = useSessionApi();
   const toast = useToast();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [device, setDevice] = useState<DeviceState>({ step: "idle" });
@@ -29,7 +34,7 @@ export function LoginScreen() {
   const [showClientId, setShowClientId] = useState(false);
 
   useEffect(() => {
-    backend
+    void backend
       .authConfig()
       .then((c) => {
         setConfig(c);
@@ -38,7 +43,7 @@ export function LoginScreen() {
       .catch(() => setConfig({ clientId: null, clientIdSource: null, scopes: "" }));
   }, []);
 
-  const deviceAvailable = backend.native && !!config?.clientId;
+  const deviceAvailable = backend.native && config?.clientId !== null && config?.clientId !== undefined && config.clientId !== "";
 
   // ---- device flow -------------------------------------------------------
 
@@ -69,7 +74,7 @@ export function LoginScreen() {
         case "complete":
           stopPolling();
           setDevice({ step: "finishing" });
-          signedIn(result.session);
+          sessionApi.signedIn(result.session);
           return;
         case "denied":
           stopPolling();
@@ -89,7 +94,7 @@ export function LoginScreen() {
       }
     } catch (e) {
       // Network hiccups while the user is in the browser are expected; keep polling.
-      if ((e as { kind?: string }).kind !== "network") {
+      if (!isNetworkError(e)) {
         stopPolling();
         setDevice({ step: "idle" });
         setError(errorMessage(e));
@@ -106,6 +111,9 @@ export function LoginScreen() {
     pollTimer.current = window.setTimeout(() => void poll(code, expiresAt), interval.current * 1000);
   };
 
+  const pollRef = useRef(poll);
+  pollRef.current = poll;
+
   // Poll right away when the user switches back from the browser, unless
   // that would be sooner than GitHub's polling interval allows.
   useEffect(() => {
@@ -113,7 +121,7 @@ export function LoginScreen() {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (Date.now() - lastPoll.current < interval.current * 1000) return;
-      void poll(device.code, device.expiresAt);
+      void pollRef.current(device.code, device.expiresAt);
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -159,7 +167,7 @@ export function LoginScreen() {
     setError(null);
     setTokenBusy(true);
     try {
-      signedIn(await backend.authWithToken(token));
+      sessionApi.signedIn(await backend.authWithToken(token));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -170,10 +178,11 @@ export function LoginScreen() {
   const saveClientId = async () => {
     setError(null);
     try {
-      const next = await backend.authSetClientId(clientIdDraft.trim() || null);
+      const trimmed = clientIdDraft.trim();
+      const next = await backend.authSetClientId(trimmed === "" ? null : trimmed);
       setConfig(next);
       setShowClientId(false);
-      toast.show(next.clientId ? "OAuth app saved" : "OAuth app cleared", "success");
+      toast.show(next.clientId !== null && next.clientId !== "" ? "OAuth app saved" : "OAuth app cleared", "success");
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -222,7 +231,7 @@ export function LoginScreen() {
         <p style={{ marginTop: 8 }}>Review pull requests, triage your inbox and browse code on your phone or tablet.</p>
       </div>
 
-      {error && <div className="banner banner-danger" style={{ margin: 0 }}>{error}</div>}
+      {error !== null && error !== "" && <div className="banner banner-danger" style={{ margin: 0 }}>{error}</div>}
 
       {backend.native && (
         <button
@@ -236,7 +245,7 @@ export function LoginScreen() {
         </button>
       )}
 
-      {backend.native && config && !config.clientId && !showClientId && (
+      {backend.native && config && (config.clientId === null || config.clientId === "") && !showClientId && (
         <p className="small">
           Sign-in with GitHub needs an OAuth app client id.{" "}
           <button className="link-btn" onClick={() => setShowClientId(true)}>
@@ -306,7 +315,7 @@ export function LoginScreen() {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && token.trim()) void signInWithToken();
+                if (e.key === "Enter" && token.trim() !== "") void signInWithToken();
               }}
             />
           </div>
@@ -317,21 +326,21 @@ export function LoginScreen() {
               Create one
             </button>
           </p>
-          <button className="btn btn-primary btn-block" disabled={!token.trim() || tokenBusy} onClick={() => void signInWithToken()}>
+          <button className="btn btn-primary btn-block" disabled={token.trim() === "" || tokenBusy} onClick={() => void signInWithToken()}>
             {tokenBusy ? <Spinner small /> : null} Sign in with token
           </button>
         </div>
       )}
 
       <div className="divider">or</div>
-      <button className="btn btn-block" onClick={browseAsGuest}>
+      <button className="btn btn-block" onClick={() => sessionApi.browseAsGuest()}>
         <EyeIcon size={16} /> Browse without signing in
       </button>
       <p className="small" style={{ marginTop: -8 }}>
         Follow users and organizations to browse their public repositories, code and releases.
       </p>
 
-      {backend.native && config?.clientId && !showClientId && (
+      {backend.native && config?.clientId !== null && config?.clientId !== undefined && config.clientId !== "" && !showClientId && (
         <button className="link-btn small" style={{ alignSelf: "center" }} onClick={() => setShowClientId(true)}>
           OAuth app settings
         </button>

@@ -17,7 +17,7 @@ const indent = (text: string) =>
   text
     .trimEnd()
     .split("\n")
-    .map((line) => (line ? `    ${line}` : ""))
+    .map((line) => (line !== "" ? `    ${line}` : ""))
     .join("\n");
 
 export function rulesPrompt({ repo, branch, current }: RulesPromptInput): string {

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { repoQueries } from "../../../../queries/repos";
-import { warm } from "../../../../queries/warm";
+import { query, warm } from "../../../../queries/warm";
 import { CommitScreen } from "../../../../screens/CommitScreen";
 
 export const Route = createFileRoute("/$owner/$repo/commit/$sha")({
@@ -9,6 +9,6 @@ export const Route = createFileRoute("/$owner/$repo/commit/$sha")({
     stringify: (params) => params,
   },
   loader: ({ context: { queryClient }, params: { owner, repo, sha }, preload }) =>
-    warm(queryClient, [repoQueries.commit(owner, repo, sha)], { preload }),
+    warm(queryClient, [query(repoQueries.commit(owner, repo, sha))], { preload }),
   component: CommitScreen,
 });

@@ -11,8 +11,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { backend } from "../lib/backend";
 import { to } from "../lib/nav";
-import type { RestCommitListItem } from "../lib/types";
-import { repoQueries } from "../queries/repos";
+import { repoQueries, type RestCommitListItem } from "../queries/repos";
 import { BranchSheet } from "./BranchSheet";
 import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Time } from "./ui";
 
@@ -65,7 +64,8 @@ export function TreeView({ owner, repo, gitRef, path }: { owner: string; repo: s
 
   const items = [...contents.data].sort((a, b) => {
     const rank = (t: string) => (t === "dir" ? 0 : t === "submodule" ? 1 : 2);
-    return rank(a.type) - rank(b.type) || a.name.localeCompare(b.name);
+    const byType = rank(a.type) - rank(b.type);
+    return byType !== 0 ? byType : a.name.localeCompare(b.name);
   });
 
   return (
@@ -76,7 +76,9 @@ export function TreeView({ owner, repo, gitRef, path }: { owner: string; repo: s
             key={item.path}
             className="row"
             style={{ alignItems: "center", paddingTop: 11, paddingBottom: 11 }}
-            onClick={() => item.html_url && void backend.openUrl(item.html_url)}
+            onClick={() => {
+              if (item.html_url !== null && item.html_url !== "") void backend.openUrl(item.html_url);
+            }}
           >
             {iconFor(item.type)}
             <span className="grow ellipsis">{item.name}</span>
@@ -149,7 +151,7 @@ export function CommitRow({ owner, repo, commit: c }: { owner: string; repo: str
     // A commit's diff can be large: preload on touch, not on sight.
     <Link {...to.commit(owner, repo, c.sha)} className="row">
       <span className="row-icon" style={{ paddingTop: 0 }}>
-        <Avatar src={c.author?.avatar_url} size={28} />
+        <Avatar src={c.author?.avatar_url ?? null} size={28} />
       </span>
       <span className="row-body">
         <span className="row-title" style={{ display: "block", fontWeight: 500 }}>

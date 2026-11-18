@@ -19,14 +19,13 @@ import { useDownload, type DownloadFile } from "../../lib/downloads";
 import { compactNumber, formatBytes } from "../../lib/format";
 import { to } from "../../lib/nav";
 import { useToast } from "../../lib/toast";
-import type { Release } from "../../lib/types";
-import { releaseQueries, type ReleaseLookup } from "../../queries/releases";
+import { releaseQueries, type Release, type ReleaseLookup } from "../../queries/releases";
 import { repoQueries } from "../../queries/repos";
 import { Markdown } from "../../components/Markdown";
 import { Screen } from "../../components/Screen";
 import { ActionSheet } from "../../components/Sheet";
 import { Avatar, CenterSpinner, EmptyState, ErrorView, Spinner, Time } from "../../components/ui";
-import { ReleaseBadges } from "./ReleasesTab";
+import { ReleaseBadges, releaseTitle } from "./ReleasesTab";
 
 function assetIcon(name: string): ReactNode {
   if (/\.apk$/i.test(name)) return <DeviceMobileIcon size={16} />;
@@ -42,15 +41,15 @@ export function ReleaseScreen({ owner, repo, lookup }: { owner: string; repo: st
   const release = useQuery(releaseQueries.one(owner, repo, lookup));
   const detail = useQuery(repoQueries.detail(owner, repo));
   const r = release.data;
-  const latest = !!r && detail.data?.repository?.latestRelease?.tagName === r.tag_name;
+  const latest = r !== undefined && detail.data?.repository?.latestRelease?.tagName === r.tag_name;
   const fallback = lookup === "latest" ? "Latest release" : "tag" in lookup ? lookup.tag : "Release";
   const url = r?.html_url ?? `https://github.com/${owner}/${repo}/releases`;
   // A draft's tag may not exist yet, so there's no source to download.
-  const archives: ("zip" | "tar")[] = r?.draft ? [] : ["zip", "tar"];
+  const archives: ("zip" | "tar")[] = r?.draft === true ? [] : ["zip", "tar"];
 
   return (
     <Screen
-      title={r ? r.name || r.tag_name : fallback}
+      title={r ? releaseTitle(r) : fallback}
       subtitle={`${owner}/${repo}`}
       actions={
         <button className="icon-btn" aria-label="More" onClick={() => setMenu(true)}>
@@ -71,18 +70,18 @@ export function ReleaseScreen({ owner, repo, lookup }: { owner: string; repo: st
         )
       ) : (
         <>
-          <ReleaseHeader owner={owner} repo={repo} release={r!} latest={latest} />
+          <ReleaseHeader owner={owner} repo={repo} release={release.data} latest={latest} />
           <div className="pad">
-            {r!.body_html ? (
-              <Markdown html={r!.body_html} base={{ owner, repo, ref: r!.tag_name, dir: "" }} />
+            {release.data.body_html !== undefined && release.data.body_html !== "" ? (
+              <Markdown html={release.data.body_html} base={{ owner, repo, ref: release.data.tag_name, dir: "" }} />
             ) : (
               <p className="muted" style={{ margin: 0 }}>
                 No release notes.
               </p>
             )}
           </div>
-          <div className="group-header">Assets · {r!.assets.length + archives.length}</div>
-          {r!.assets.map((asset) => (
+          <div className="group-header">Assets · {release.data.assets.length + archives.length}</div>
+          {release.data.assets.map((asset) => (
             <DownloadRow
               key={asset.id}
               icon={assetIcon(asset.name)}
@@ -97,14 +96,14 @@ export function ReleaseScreen({ owner, repo, lookup }: { owner: string; repo: st
             />
           ))}
           {archives.map((format) => {
-            const name = `${repo}-${r!.tag_name.replace(/\//g, "-")}.${format === "zip" ? "zip" : "tar.gz"}`;
+            const name = `${repo}-${release.data.tag_name.replace(/\//g, "-")}.${format === "zip" ? "zip" : "tar.gz"}`;
             return (
               <DownloadRow
                 key={format}
                 icon={<FileCodeIcon size={16} />}
                 name={`Source code (${format === "zip" ? "zip" : "tar.gz"})`}
                 meta={name}
-                target={{ kind: "archive", owner, repo, ref: r!.tag_name, format }}
+                target={{ kind: "archive", owner, repo, ref: release.data.tag_name, format }}
                 file={{ name, contentType: format === "zip" ? "application/zip" : "application/gzip" }}
               />
             );
@@ -130,7 +129,7 @@ function ReleaseHeader({ owner, repo, release, latest }: { owner: string; repo: 
       <div className="row-flex" style={{ gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
         <ReleaseBadges release={release} latest={latest} />
       </div>
-      <h2 style={{ marginTop: 0 }}>{release.name || release.tag_name}</h2>
+      <h2 style={{ marginTop: 0 }}>{releaseTitle(release)}</h2>
       <div className="row-flex small muted" style={{ flexWrap: "wrap" }}>
         <Avatar src={release.author.avatar_url} size={18} />
         <Link {...to.user(release.author.login)} className="bold" style={{ color: "var(--fg)" }}>
@@ -175,7 +174,7 @@ function DownloadRow({
           <span className="muted small" style={{ overflowWrap: "anywhere" }}>
             {meta}
           </span>
-          {download.message && <span className="download-status small" role="status">{download.message}</span>}
+          {download.message !== null && download.message !== "" && <span className="download-status small" role="status">{download.message}</span>}
         </span>
         <span className="row-trailing c-accent">
           {download.busy ? <Spinner small /> : download.complete ? "Open" : <DownloadIcon size={18} />}

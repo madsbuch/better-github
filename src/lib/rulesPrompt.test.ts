@@ -6,7 +6,7 @@ const setup = rulesPrompt({ repo: "acme/rocket", branch: "main", current: null }
 
 describe("rulesPrompt", () => {
   it("teaches the format with an example the app reads without warnings", () => {
-    const example = /## The format\n\n([\s\S]*?)\n\n- /.exec(setup)![1].replace(/^ {4}/gm, "");
+    const example = (/## The format\n\n([\s\S]*?)\n\n- /.exec(setup)?.[1] ?? "").replace(/^ {4}/gm, "");
     const rules = parseReviewRules(example);
     expect(rules.warnings).toEqual([]);
     expect(rules.rules.map((r) => r.risk)).toEqual(["high", "medium", "low", "low"]);

@@ -4,7 +4,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // Tauri sets TAURI_DEV_HOST when running `tauri android dev` so the
 // device/emulator can reach the dev server over the network.
-const host = process.env.TAURI_DEV_HOST;
+const host = process.env.TAURI_DEV_HOST ?? "";
 
 export default defineConfig({
   plugins: [
@@ -25,8 +25,8 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
+    host: host !== "" ? host : false,
+    ...(host !== "" ? { hmr: { protocol: "ws", host, port: 1421 } } : {}),
     watch: { ignored: ["**/src-tauri/**"] },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],

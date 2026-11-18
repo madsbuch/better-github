@@ -28,10 +28,11 @@ const COMMANDS: [string, LineKind][] = [
 
 export function parseLog(text: string): LogLine[] {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
-  if (lines.length && lines[lines.length - 1] === "") lines.pop();
+  if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
   return lines.map((raw) => {
     const stamp = TIMESTAMP.exec(raw);
-    const time = stamp ? Date.parse(stamp[1]) : null;
+    const iso = stamp?.[1];
+    const time = iso !== undefined ? Date.parse(iso) : null;
     let rest = stamp ? raw.slice(stamp[0].length) : raw;
     let kind: LineKind = "plain";
     for (const [prefix, k] of COMMANDS) {
@@ -58,24 +59,24 @@ const second = (ms: number) => Math.floor(ms / 1000);
  */
 export function splitBySteps(lines: LogLine[], steps: WorkflowStep[]): Map<number, LogLine[]> {
   const started = steps
-    .filter((s) => s.started_at)
-    .map((s) => ({ number: s.number, start: second(Date.parse(s.started_at!)) }))
+    .flatMap((s) => (s.started_at !== null && s.started_at !== undefined && s.started_at !== "" ? [{ number: s.number, start: second(Date.parse(s.started_at)) }] : []))
     .filter((s) => !Number.isNaN(s.start))
-    .sort((a, b) => a.start - b.start || a.number - b.number);
-  const result = new Map<number, LogLine[]>(started.map((s) => [s.number, []]));
-  if (started.length === 0) return result;
+    .sort((a, b) => (a.start !== b.start ? a.start - b.start : a.number - b.number));
+  // Each step's lines, in the order of `started`; the map holds the same arrays.
+  const buckets = started.map((): LogLine[] => []);
+  const result = new Map<number, LogLine[]>(started.map((s, i) => [s.number, buckets[i] ?? []]));
 
   let current = 0;
   for (const line of lines) {
     if (line.time !== null) {
       const t = second(line.time);
-      while (current + 1 < started.length) {
-        const next = started[current + 1];
-        if (t > next.start || (t === next.start && isHeader(line))) current++;
-        else break;
+      let next = started[current + 1];
+      while (next !== undefined && (t > next.start || (t === next.start && isHeader(line)))) {
+        current++;
+        next = started[current + 1];
       }
     }
-    result.get(started[current].number)!.push(line);
+    buckets[current]?.push(line);
   }
   return result;
 }
@@ -87,7 +88,7 @@ export function groupLines(lines: LogLine[]): LogNode[] {
   const root: LogNode[] = [];
   const stack: LogNode[][] = [root];
   for (const line of lines) {
-    const top = stack[stack.length - 1];
+    const top = stack[stack.length - 1] ?? root;
     if (line.kind === "group") {
       const group: LogNode = { type: "group", title: line, children: [] };
       top.push(group);
@@ -109,27 +110,33 @@ export interface AnsiSpan {
   className: string;
 }
 
-const ESCAPE = /\x1b\[([\d;]*)([A-Za-z])/g;
+/** The escape character that starts ANSI sequences. */
+const ESC = "\u001b";
+// Built from a string: a control character in a regex literal reads like a mistake.
+const ESCAPE = new RegExp(`${ESC}\\[([\\d;]*)([A-Za-z])`, "g");
 
 /** Splits text into styled spans by its ANSI SGR codes; other escape codes are dropped. */
 export function ansiSpans(text: string): AnsiSpan[] {
-  if (!text.includes("\x1b[")) return [{ text, className: "" }];
+  if (!text.includes(`${ESC}[`)) return [{ text, className: "" }];
   const spans: AnsiSpan[] = [];
   let bold = false;
   let fg: number | null = null;
   let last = 0;
   const push = (chunk: string) => {
-    if (!chunk) return;
-    const classes = [bold ? "ansi-bold" : "", fg !== null ? `ansi-fg-${fg}` : ""].filter(Boolean).join(" ");
+    if (chunk === "") return;
+    const classes = [bold ? "ansi-bold" : "", fg !== null ? `ansi-fg-${fg.toString()}` : ""].filter((c) => c !== "").join(" ");
     spans.push({ text: chunk, className: classes });
   };
   for (const match of text.matchAll(ESCAPE)) {
     push(text.slice(last, match.index));
-    last = match.index! + match[0].length;
+    last = match.index + match[0].length;
     if (match[2] !== "m") continue;
-    const codes = match[1] === "" ? [0] : match[1].split(";").map(Number);
+    const params = match[1] ?? "";
+    // Only digits and ";" match, so each part is a number; an empty one means 0.
+    const codes = params === "" ? [0] : params.split(";").map((part) => (part === "" ? 0 : Number.parseInt(part, 10)));
     for (let i = 0; i < codes.length; i++) {
       const code = codes[i];
+      if (code === undefined) break;
       if (code === 0) {
         bold = false;
         fg = null;

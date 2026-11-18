@@ -9,13 +9,13 @@ import { to, useNav } from "../../lib/nav";
 import { usePrefs } from "../../lib/prefs";
 import { useToast } from "../../lib/toast";
 import { reviewGuide, riskRank, RULES_FILE, type FileReview, type Risk } from "../../lib/reviewRules";
-import type { FileViewedState, PullDetail, RestPullFile, ReviewThread } from "../../lib/types";
+import type { FileViewedState, PullDetail, ReviewThread } from "../../lib/types";
 import { DiffFile, type LineTarget } from "../../components/DiffView";
 import { FileReviewSheet, ReviewGuideSheet, ReviewStrip, RiskBadge } from "../../components/ReviewRules";
 import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
-import { pullQueries, useInlineComment, useToggleViewed } from "../../queries/pulls";
+import { pullQueries, useInlineComment, useToggleViewed, type RestPullFile } from "../../queries/pulls";
 import { useCopyRulesPrompt, useRecheckReviewRules, type PullReview } from "../../queries/reviewRules";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
@@ -69,7 +69,7 @@ export function FilesTab({
     const rank = (f: RestPullFile) => {
       if (f.filename === RULES_FILE || f.previous_filename === RULES_FILE) return 3;
       const risk = verdicts.get(f.filename)?.risk;
-      return risk ? riskRank(risk) : -1;
+      return risk !== undefined ? riskRank(risk) : -1;
     };
     return [...changed].sort((a, b) => rank(b) - rank(a));
   }, [patches.data, verdicts]);
@@ -185,7 +185,7 @@ export function FilesTab({
         onCommentNow={commentNow}
       />
 
-      <FileReviewSheet path={checksFor} review={checksFor ? verdicts.get(checksFor) : undefined} onClose={() => setChecksFor(null)} />
+      <FileReviewSheet path={checksFor} review={checksFor !== null && checksFor !== "" ? verdicts.get(checksFor) : undefined} onClose={() => setChecksFor(null)} />
       <ReviewGuideSheet
         open={guideOpen}
         onClose={() => setGuideOpen(false)}
@@ -207,6 +207,7 @@ export function FilesTab({
       <Sheet open={jumpOpen} onClose={onJumpClose} title="Jump to file" full>
         {files.map((file) => {
           const isViewed = viewed.data?.[file.filename] === "VIEWED";
+          const verdict = verdicts.get(file.filename);
           const count = (threadsByFile.get(file.filename)?.length ?? 0) + (draftsByFile.get(file.filename)?.length ?? 0);
           return (
             <button key={file.filename} className="menu-item" style={{ paddingLeft: 4, minHeight: 46 }} onClick={() => scrollToFile(file.filename)}>
@@ -215,7 +216,7 @@ export function FilesTab({
                 {file.filename}
               </span>
               {count > 0 && <span className="counter">{count}</span>}
-              {verdicts.get(file.filename) && <RiskBadge risk={verdicts.get(file.filename)!.risk} />}
+              {verdict && <RiskBadge risk={verdict.risk} />}
               <span className="diffstat">
                 <span className="add">+{file.additions}</span>
                 <span className="del">−{file.deletions}</span>
@@ -389,7 +390,7 @@ function ReviewSummary({
   baseRef: string;
   onOpenGuide: () => void;
 }) {
-  const groups = (["high", "medium", "low"] as Risk[])
+  const groups = (["high", "medium", "low"] satisfies Risk[])
     .map((risk) => {
       const paths = files.filter((f) => review.files.get(f.filename)?.risk === risk).map((f) => f.filename);
       return { risk, total: paths.length, viewed: paths.filter((path) => viewed?.[path] === "VIEWED").length };
@@ -537,13 +538,13 @@ function LineCommentSheet({
       footer={
         <>
           {!draft && (
-            <button className="btn" disabled={!body.trim() || busy} onClick={() => void commentNow()}>
+            <button className="btn" disabled={body.trim() === "" || busy} onClick={() => void commentNow()}>
               {busy && <Spinner small />} Comment now
             </button>
           )}
           <button
             className="btn btn-primary"
-            disabled={!body.trim() || busy}
+            disabled={body.trim() === "" || busy}
             onClick={() => {
               onAddDraft(line, body.trim(), draft);
               onClose();
@@ -579,7 +580,7 @@ function LineCommentSheet({
         <button
           className="btn btn-sm"
           style={{ marginTop: 10 }}
-          onClick={() => setBody((b) => (b ? `${b.replace(/\s*$/, "")}\n\n` : "") + suggestionBody([line.line.text]))}
+          onClick={() => setBody((b) => (b !== "" ? `${b.replace(/\s*$/, "")}\n\n` : "") + suggestionBody([line.line.text]))}
         >
           <LightBulbIcon size={14} /> Suggest a change
         </button>

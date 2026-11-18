@@ -49,25 +49,27 @@ function Who({ actor }: { actor: Actor | null }) {
 
 export interface CommentCardProps {
   author: Actor | null;
-  association?: string;
+  association?: string | undefined;
   createdAt: string;
   bodyHTML: string;
-  body?: string;
-  url?: string;
-  highlight?: boolean;
+  body?: string | undefined;
+  url?: string | undefined;
+  highlight?: boolean | undefined;
   headerExtra?: ReactNode;
-  emptyText?: string;
-  onQuote?: (body: string) => void;
+  emptyText?: string | undefined;
+  onQuote?: ((body: string) => void) | undefined;
 }
 
 export function CommentCard({ author, association, createdAt, bodyHTML, body, url, highlight, headerExtra, emptyText, onQuote }: CommentCardProps) {
   const [menu, setMenu] = useState(false);
   const toast = useToast();
-  const assoc = association ? ASSOCIATION[association] : undefined;
+  const assoc = association !== undefined && association !== "" ? ASSOCIATION[association] : undefined;
+  const hasUrl = url !== undefined && url !== "";
+  const hasBody = body !== undefined && body !== "";
   return (
-    <div className={`comment${highlight ? " viewer" : ""}`}>
+    <div className={`comment${highlight === true ? " viewer" : ""}`}>
       <div className="comment-header">
-        <Avatar src={author?.avatarUrl} size={22} />
+        <Avatar src={author?.avatarUrl ?? null} size={22} />
         <span className="grow ellipsis">
           <span className="author">{author?.login ?? "ghost"}</span>{" "}
           <span className="muted">
@@ -75,8 +77,8 @@ export function CommentCard({ author, association, createdAt, bodyHTML, body, ur
           </span>
         </span>
         {headerExtra}
-        {assoc && <span className="pill">{assoc}</span>}
-        {(url || onQuote) && (
+        {assoc !== undefined && assoc !== "" && <span className="pill">{assoc}</span>}
+        {(hasUrl || onQuote !== undefined) && (
           <button className="icon-btn sm" aria-label="Comment actions" onClick={() => setMenu(true)}>
             <KebabHorizontalIcon size={16} />
           </button>
@@ -92,20 +94,20 @@ export function CommentCard({ author, association, createdAt, bodyHTML, body, ur
         actions={[
           {
             label: "Quote reply",
-            hidden: !onQuote || !body,
+            hidden: onQuote === undefined || !hasBody,
             onSelect: () => onQuote?.(quote(body ?? "")),
           },
           {
             label: "Copy link",
-            hidden: !url,
-            onSelect: () => void backend.copyText(url!).then(() => toast.show("Link copied")),
+            hidden: !hasUrl,
+            onSelect: () => void backend.copyText(url ?? "").then(() => toast.show("Link copied")),
           },
           {
             label: "Copy text",
-            hidden: !body,
-            onSelect: () => void backend.copyText(body!).then(() => toast.show("Copied")),
+            hidden: !hasBody,
+            onSelect: () => void backend.copyText(body ?? "").then(() => toast.show("Copied")),
           },
-          { label: "Open in browser", hidden: !url, onSelect: () => void backend.openUrl(url!) },
+          { label: "Open in browser", hidden: !hasUrl, onSelect: () => void backend.openUrl(url ?? "") },
         ]}
       />
     </div>
@@ -137,10 +139,10 @@ export function IssueCommentCard({ item, viewerLogin, onQuote }: { item: IssueCo
   );
 }
 
-function EventLine({ icon, tone, children, at }: { icon: ReactNode; tone?: string; children: ReactNode; at: string }) {
+function EventLine({ icon, tone, children, at }: { icon: ReactNode; tone?: string | undefined; children: ReactNode; at: string }) {
   return (
     <div className="event">
-      <span className={`event-icon${tone ? ` ${tone}` : ""}`}>{icon}</span>
+      <span className={`event-icon${tone !== undefined && tone !== "" ? ` ${tone}` : ""}`}>{icon}</span>
       <span className="event-text">
         {children} <span className="nowrap">· <Time iso={at} /></span>
       </span>
@@ -229,7 +231,7 @@ export function EventRow({ event, owner, repo, isPull }: { event: TimelineEvent;
       const assignee = event.assignee?.login;
       return (
         <EventLine icon={<PersonIcon size={14} />} at={event.createdAt}>
-          <Who actor={event.actor} /> {assignee && assignee === event.actor?.login ? "self-assigned this" : <>assigned <strong>{assignee ?? "someone"}</strong></>}
+          <Who actor={event.actor} /> {assignee !== undefined && assignee !== "" && assignee === event.actor?.login ? "self-assigned this" : <>assigned <strong>{assignee ?? "someone"}</strong></>}
         </EventLine>
       );
     }
@@ -241,6 +243,8 @@ export function EventRow({ event, owner, repo, isPull }: { event: TimelineEvent;
       );
     case "CrossReferencedEvent": {
       const source = event.source;
+      // A kind of subject this app doesn't know yet.
+      if (!("repository" in source)) return null;
       const [o, r] = splitRepo(source.repository.nameWithOwner);
       const sameRepo = o === owner && r === repo;
       const label = `${sameRepo ? "" : source.repository.nameWithOwner}#${source.number} ${source.title}`;
@@ -270,7 +274,7 @@ export function reviewVerb(state: ReviewState): { text: string; icon: ReactNode;
       return { text: "reviewed (dismissed)", icon: <EyeIcon size={14} /> };
     case "PENDING":
       return { text: "started a review", icon: <EyeIcon size={14} /> };
-    default:
+    case "COMMENTED":
       return { text: "reviewed", icon: <EyeIcon size={14} /> };
   }
 }
@@ -282,7 +286,7 @@ export function CommitRow({ item, owner, repo }: { item: Extract<TimelineItem, {
       <span className="event-icon">
         <GitCommitIcon size={14} />
       </span>
-      <Avatar src={c.author?.avatarUrl} size={18} />
+      <Avatar src={c.author?.avatarUrl ?? null} size={18} />
       <span className="event-text ellipsis" style={{ color: "var(--fg)" }}>
         {c.messageHeadline}
       </span>
@@ -340,7 +344,7 @@ export function ThreadCard({
   const first = thread.comments.nodes[0];
 
   const send = async () => {
-    if (!reply.trim()) return;
+    if (reply.trim() === "") return;
     setBusy(true);
     try {
       await actions.reply(thread, reply.trim());
@@ -372,7 +376,7 @@ export function ThreadCard({
         <CommentIcon size={14} />
         <span className="grow ellipsis mono">
           {thread.path}
-          {line ? `:${line}` : ""}
+          {line !== null && line !== 0 ? `:${line}` : ""}
         </span>
         {thread.isOutdated && <span className="pill pill-attention">Outdated</span>}
         {thread.isResolved && <span className="pill">Resolved</span>}
@@ -384,7 +388,7 @@ export function ThreadCard({
           {thread.comments.nodes.map((c) => (
             <div key={c.id} className="thread-comment">
               <div className="row-flex small" style={{ marginBottom: 6 }}>
-                <Avatar src={c.author?.avatarUrl} size={20} />
+                <Avatar src={c.author?.avatarUrl ?? null} size={20} />
                 <span className={`bold${c.author?.login === viewerLogin ? " c-accent" : ""}`}>{c.author?.login ?? "ghost"}</span>
                 <span className="muted">
                   <Time iso={c.createdAt} />
@@ -407,7 +411,7 @@ export function ThreadCard({
                 <button className="btn btn-sm btn-ghost" onClick={() => setReplying(false)}>
                   Cancel
                 </button>
-                <button className="btn btn-sm btn-primary" disabled={!reply.trim() || busy} onClick={() => void send()}>
+                <button className="btn btn-sm btn-primary" disabled={reply.trim() === "" || busy} onClick={() => void send()}>
                   {busy && <Spinner small />} Reply
                 </button>
               </div>

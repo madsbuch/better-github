@@ -18,7 +18,7 @@ export function CodeView({ text, path, wrap }: { text: string; path: string; wra
             {tokens.length === 0
               ? "​"
               : tokens.map((token, j) =>
-                  token.cls ? (
+                  token.cls !== undefined && token.cls !== "" ? (
                     <span key={j} className={token.cls}>
                       {token.text}
                     </span>

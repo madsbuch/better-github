@@ -11,15 +11,17 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { ApiError, errorMessage } from "../lib/api";
 import { splitRepo, to, useNav, type CompareSearch } from "../lib/nav";
 import { sameRepo, suggestedBody, suggestedTitle } from "../lib/newPull";
 import { usePrefs } from "../lib/prefs";
 import { useViewer } from "../lib/session";
 import { toast } from "../lib/toast";
-import type { AssignableUser, RestComparison } from "../lib/types";
+import { parseJson } from "../lib/schema";
+import { AssignableUser, type BranchTip } from "../lib/types";
 import { useBranches } from "../queries/branches";
-import { newPullQueries, useCreatePull, type Comparison } from "../queries/newPull";
+import { newPullQueries, useCreatePull, type Comparison, type RestComparison } from "../queries/newPull";
 import { DiffFile } from "../components/DiffView";
 import { Markdown } from "../components/Markdown";
 import { BranchSheet } from "../components/BranchSheet";
@@ -47,9 +49,11 @@ export function NewPullScreen() {
   const ctx = context.data;
   const base = search.base ?? ctx?.defaultBranchRef?.name;
   const head = search.head;
+  const hasBase = base !== undefined && base !== "";
+  const hasHead = head !== undefined && head !== "";
   const compare = useQuery({
     ...newPullQueries.compare(owner, repo, base ?? "", { repo: headRepo, branch: head ?? "" }),
-    enabled: !!base && !!head,
+    enabled: hasBase && hasHead,
   });
   const headBranches = useQuery(newPullQueries.repoBranches(headOwner, headName));
   const [sheet, setSheet] = useState<null | "base" | "head" | "repos">(null);
@@ -60,10 +64,11 @@ export function NewPullScreen() {
   const update = (next: CompareSearch) =>
     nav.replace(to.compare(owner, repo, { base: search.base, head: search.head, from: search.from, tab: search.tab, ...next }));
   const comparison = compare.data?.comparison;
-  const ready = !!comparison && comparison.ahead_by > 0 && !compare.data?.existing;
+  const ready = comparison !== undefined && comparison.ahead_by > 0 && (compare.data?.existing ?? null) === null;
   const pane: Pane = ready ? (search.tab ?? "write") : "write";
 
   // Other places this pull request could come from or go to.
+  const parent = ctx?.parent ?? null;
   const repoChoices = [
     ...[baseRepo, ...(ctx?.forks.nodes.map((f) => f.nameWithOwner) ?? [])]
       .filter((r) => !sameRepo(r, headRepo))
@@ -72,12 +77,12 @@ export function NewPullScreen() {
         icon: <RepoForkedIcon size={18} />,
         onSelect: () => update({ from: sameRepo(r, baseRepo) ? undefined : r, head: undefined }),
       })),
-    ...(ctx?.parent && !fromFork
+    ...(parent !== null && !fromFork
       ? [
           {
-            label: `Open into ${ctx.parent.nameWithOwner}`,
+            label: `Open into ${parent.nameWithOwner}`,
             icon: <GitPullRequestIcon size={18} />,
-            onSelect: () => nav.replace(to.compare(...splitRepo(ctx.parent!.nameWithOwner), { head, from: baseRepo })),
+            onSelect: () => nav.replace(to.compare(...splitRepo(parent.nameWithOwner), { head, from: baseRepo })),
           },
         ]
       : []),
@@ -99,7 +104,7 @@ export function NewPullScreen() {
             <ArrowLeftIcon size={14} className="c-muted" />
             <button className="btn btn-sm" onClick={() => setSheet("head")} aria-label="Branch to compare">
               <span className="muted">from</span>
-              <span className="mono ellipsis">{head ? `${fromFork ? `${headOwner}:` : ""}${head}` : "…"}</span>
+              <span className="mono ellipsis">{hasHead ? `${fromFork ? `${headOwner}:` : ""}${head}` : "…"}</span>
               <TriangleDownIcon size={14} />
             </button>
             {repoChoices.length > 0 && (
@@ -108,7 +113,7 @@ export function NewPullScreen() {
               </button>
             )}
           </div>
-          {ready && comparison && (
+          {ready && (
             <ScreenTabs
               value={pane}
               onChange={(tab) => update({ tab: tab === "write" ? undefined : tab })}
@@ -124,14 +129,14 @@ export function NewPullScreen() {
     >
       {context.isError ? (
         <ErrorView error={context.error} onRetry={() => void context.refetch()} />
-      ) : !head ? (
+      ) : !hasHead ? (
         <ChooseBranch
           branches={(headBranches.data?.refs?.nodes ?? []).filter((b) => fromFork || b.name !== base)}
           loading={headBranches.isPending}
           onPick={(branch) => update({ head: branch })}
           onBrowse={() => setSheet("head")}
         />
-      ) : compare.isPending || !base ? (
+      ) : compare.isPending || !hasBase ? (
         <SkeletonList rows={4} />
       ) : compare.isError ? (
         ApiError.from(compare.error).status === 404 ? (
@@ -141,16 +146,16 @@ export function NewPullScreen() {
         ) : (
           <ErrorView error={compare.error} onRetry={() => void compare.refetch()} />
         )
-      ) : compare.data.existing ? (
+      ) : compare.data.existing !== null ? (
         <ExistingPull owner={owner} repo={repo} pull={compare.data.existing} />
-      ) : comparison!.ahead_by === 0 ? (
+      ) : compare.data.comparison.ahead_by === 0 ? (
         <EmptyState icon={<CheckCircleIcon size={32} />} title="Nothing to compare">
           {base} already has every commit from {head}. Pick another branch to compare.
         </EmptyState>
       ) : pane === "commits" ? (
-        comparison!.commits.map((c) => <CommitRow key={c.sha} owner={headOwner} repo={headName} commit={c} />)
+        compare.data.comparison.commits.map((c) => <CommitRow key={c.sha} owner={headOwner} repo={headName} commit={c} />)
       ) : pane === "files" ? (
-        <Files comparison={comparison!} />
+        <Files comparison={compare.data.comparison} />
       ) : (
         <PullForm
           // A draft per pair of branches, restored when you come back to it.
@@ -194,7 +199,7 @@ function ChooseBranch({
   onPick,
   onBrowse,
 }: {
-  branches: { name: string; target: { committedDate?: string; messageHeadline?: string } | null; associatedPullRequests: { totalCount: number } }[];
+  branches: BranchTip[];
   loading: boolean;
   onPick: (branch: string) => void;
   onBrowse: () => void;
@@ -215,10 +220,10 @@ function ChooseBranch({
                 {b.name}
               </span>
               <span className="row-meta">
-                {b.target?.committedDate && <Time iso={b.target.committedDate} />}
+                {b.target !== null && (b.target.committedDate ?? "") !== "" && <Time iso={b.target.committedDate} />}
                 {b.associatedPullRequests.totalCount > 0 && <span className="pill">Has an open pull request</span>}
               </span>
-              {b.target?.messageHeadline && (
+              {b.target?.messageHeadline !== undefined && b.target.messageHeadline !== "" && (
                 <span className="muted small ellipsis" style={{ display: "block" }}>
                   {b.target.messageHeadline}
                 </span>
@@ -272,11 +277,11 @@ function Files({ comparison }: { comparison: RestComparison }) {
           key={f.filename}
           file={{
             filename: f.filename,
-            previousFilename: f.previous_filename,
+            previousFilename: f.previous_filename ?? null,
             status: f.status,
             additions: f.additions,
             deletions: f.deletions,
-            patch: f.patch,
+            patch: f.patch ?? null,
           }}
           wrap={prefs.wrapDiff}
           collapsed={!(open[f.filename] ?? startOpen)}
@@ -300,10 +305,18 @@ interface FormState {
 
 const EMPTY: FormState = { title: "", body: "", draft: false, reviewers: [], edited: false };
 
+/** A saved draft; anything missing takes its EMPTY value. */
+const SavedDraft = z.object({
+  title: z.string().default(EMPTY.title),
+  body: z.string().default(EMPTY.body),
+  draft: z.boolean().default(EMPTY.draft),
+  reviewers: z.array(AssignableUser).default(EMPTY.reviewers),
+});
+
 function loadDraft(key: string): FormState | null {
   try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? { ...EMPTY, ...(JSON.parse(raw) as Partial<FormState>), edited: true } : null;
+    const saved = parseJson(SavedDraft, window.localStorage.getItem(key));
+    return saved === null ? null : { ...saved, edited: true };
   } catch {
     return null;
   }
@@ -341,7 +354,7 @@ function PullForm({
   );
   const [mode, setMode] = useState<"write" | "preview">("write");
   const [reviewersOpen, setReviewersOpen] = useState(false);
-  const preview = useQuery({ ...newPullQueries.markdown(owner, repo, form.body), enabled: mode === "preview" && !!form.body.trim() });
+  const preview = useQuery({ ...newPullQueries.markdown(owner, repo, form.body), enabled: mode === "preview" && form.body.trim() !== "" });
 
   // Keep what was typed until the pull request is open (or the text is cleared).
   useEffect(() => {
@@ -369,7 +382,7 @@ function PullForm({
           } catch {
             // Nothing to clean up.
           }
-          if (reviewersError) toast.show(`Opened, but requesting reviews failed: ${errorMessage(reviewersError)}`, "error");
+          if (reviewersError !== null) toast.show(`Opened, but requesting reviews failed: ${errorMessage(reviewersError)}`, "error");
           // The new pull request takes this screen's place: back returns to where you came from.
           nav.replace(to.pull(owner, repo, number));
         },
@@ -418,7 +431,7 @@ function PullForm({
             value={form.body}
             onChange={(e) => change({ body: e.target.value })}
           />
-        ) : !form.body.trim() ? (
+        ) : form.body.trim() === "" ? (
           <p className="muted small">Nothing to preview.</p>
         ) : preview.isPending ? (
           <div className="center">
@@ -449,7 +462,7 @@ function PullForm({
             </span>
           ))}
           <button className="chip" onClick={() => setReviewersOpen(true)}>
-            <PersonAddIcon size={14} /> {form.reviewers.length ? "Add" : "Request reviews"}
+            <PersonAddIcon size={14} /> {form.reviewers.length > 0 ? "Add" : "Request reviews"}
           </button>
         </div>
       </div>
@@ -457,7 +470,7 @@ function PullForm({
         <input type="checkbox" checked={form.draft} onChange={(e) => change({ draft: e.target.checked })} />
         Open as a draft (not ready for review yet)
       </label>
-      <button className="btn btn-primary btn-block" disabled={!form.title.trim() || create.isPending} onClick={submit}>
+      <button className="btn btn-primary btn-block" disabled={form.title.trim() === "" || create.isPending} onClick={submit}>
         {create.isPending ? <Spinner small /> : <GitPullRequestIcon size={16} />} {form.draft ? "Create draft pull request" : "Create pull request"}
       </button>
       <ReviewerSheet

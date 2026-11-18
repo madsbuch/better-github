@@ -2,8 +2,7 @@ import { TagIcon } from "@primer/octicons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { to } from "../../lib/nav";
-import type { Release } from "../../lib/types";
-import { releaseQueries } from "../../queries/releases";
+import { releaseQueries, type Release } from "../../queries/releases";
 import { Avatar, EmptyState, ErrorView, LoadMore, SkeletonList, Time } from "../../components/ui";
 
 /** A repository's releases, newest first. */
@@ -35,7 +34,7 @@ function ReleaseRow({ owner, repo, release, latest }: { owner: string; repo: str
       <span className="row-body">
         <span className="row-flex" style={{ gap: 6, flexWrap: "wrap" }}>
           <span className="bold" style={{ overflowWrap: "anywhere" }}>
-            {release.name || release.tag_name}
+            {releaseTitle(release)}
           </span>
           <ReleaseBadges release={release} latest={latest} />
         </span>
@@ -51,6 +50,11 @@ function ReleaseRow({ owner, repo, release, latest }: { owner: string; repo: str
       </span>
     </Link>
   );
+}
+
+/** A release's name, or its tag when it has none. */
+export function releaseTitle(release: Release): string {
+  return release.name !== null && release.name !== "" ? release.name : release.tag_name;
 }
 
 export function ReleaseBadges({ release, latest }: { release: Release; latest: boolean }) {

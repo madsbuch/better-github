@@ -71,8 +71,8 @@ const ruleHeading = (rule: RuleMatch, labels = [rule.label]) =>
 /** Everything to check in one file, by the rule it comes from. */
 export function FileReviewSheet({ path, review, onClose }: { path: string | null; review: FileReview | undefined; onClose: () => void }) {
   return (
-    <Sheet open={!!path && !!review} onClose={onClose} title={path?.split("/").pop() ?? "File"} full>
-      {path && review && (
+    <Sheet open={path !== null && path !== "" && review !== undefined} onClose={onClose} title={path?.split("/").pop() ?? "File"} full>
+      {path !== null && path !== "" && review && (
         <>
           <p className="mono small muted" style={{ margin: "0 0 12px", overflowWrap: "anywhere" }}>
             {path}

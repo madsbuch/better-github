@@ -85,12 +85,12 @@ export function compilePattern(pattern: string): RegExp | null {
   if (folderOnly) p = p.slice(0, -1);
   const rooted = p.startsWith("/");
   if (rooted) p = p.slice(1);
-  if (!p || p.includes("//")) return null;
+  if (p === "" || p.includes("//")) return null;
   const anchored = rooted || p.includes("/");
 
   let source = "";
   for (let i = 0; i < p.length; i++) {
-    const c = p[i];
+    const c = p.charAt(i);
     if (c === "*" && p[i + 1] === "*" && (i === 0 || p[i - 1] === "/") && (i + 2 === p.length || p[i + 2] === "/")) {
       if (p[i + 2] === "/") {
         source += "(?:.*/)?"; // "**/": any number of folders, including none
@@ -118,35 +118,37 @@ export function parseReviewRules(text: string): ReviewRules {
   // Where indented instructions go. "skip" swallows those of a line that couldn't be read.
   let current: { instructions: string[] } | "skip" | null = null;
 
-  text.split(/\r?\n/).forEach((raw, index) => {
+  for (const [index, raw] of text.split(/\r?\n/).entries()) {
     const line = index + 1;
     const warn = (message: string) => warnings.push({ line, message });
     const trimmed = raw.trim();
-    if (trimmed === "" || trimmed.startsWith("#")) return;
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
 
     if (/^\s/.test(raw)) {
-      if (current === "skip") return;
+      if (current === "skip") continue;
       if (current === null) {
         warn("Instructions need a rule line above them.");
         current = "skip";
-        return;
+        continue;
       }
       const item = /^[-*](?:\s+|$)(.*)$/.exec(trimmed);
       const items = current.instructions;
       if (item) {
-        if (item[1].trim()) items.push(item[1].trim());
+        const text = (item[1] ?? "").trim();
+        if (text !== "") items.push(text);
       } else if (items.length > 0) {
-        items[items.length - 1] += ` ${trimmed}`;
+        const last = items.length - 1;
+        items[last] = `${items[last] ?? ""} ${trimmed}`;
       } else {
         items.push(trimmed);
       }
-      return;
+      continue;
     }
 
     const words = trimmed.split(/\s+/);
     const comment = words.findIndex((w) => w.startsWith("#"));
     if (comment !== -1) words.length = comment;
-    const [head, ...rest] = words;
+    const [head = "", ...rest] = words;
     const keyword = head.toLowerCase();
     current = "skip";
 
@@ -158,11 +160,11 @@ export function parseReviewRules(text: string): ReviewRules {
         unmatched = { risk, instructions: [] };
         current = unmatched;
       }
-      return;
+      continue;
     }
     if (!isRisk(keyword)) {
       warn(`"${head}" isn't low, medium or high.`);
-      return;
+      continue;
     }
     const rule: Rule = { risk: keyword, include: [], exclude: [], instructions: [], line };
     for (const word of rest) {
@@ -175,11 +177,11 @@ export function parseReviewRules(text: string): ReviewRules {
     }
     if (rule.include.length === 0) {
       warn(`The ${keyword} rule needs at least one path.`);
-      return;
+      continue;
     }
     rules.push(rule);
     current = rule;
-  });
+  }
 
   return { rules, unmatched: unmatched ?? { risk: "medium", instructions: [] }, warnings };
 }
@@ -192,7 +194,8 @@ export const NO_RULES: ReviewRules = { rules: [], unmatched: { risk: "medium", i
  * judged by its old and its new path, so moving it can't lower its risk.
  */
 export function reviewFile(rules: ReviewRules, path: string, previousPath?: string | null): FileReview {
-  const paths = previousPath && previousPath !== path ? [path, previousPath] : [path];
+  const paths =
+    previousPath !== undefined && previousPath !== null && previousPath !== "" && previousPath !== path ? [path, previousPath] : [path];
   const hits: RuleMatch[] = [];
 
   for (const rule of rules.rules) {
@@ -228,7 +231,12 @@ export function reviewFile(rules: ReviewRules, path: string, previousPath?: stri
  */
 export function checksByRule(review: FileReview): RuleMatch[] {
   const seen = new Set<string>();
-  return review.rules.map((rule) => ({ ...rule, instructions: rule.instructions.filter((text) => !seen.has(text) && !!seen.add(text)) }));
+  return review.rules.map((rule) => ({ ...rule, instructions: rule.instructions.filter((text) => {
+      if (seen.has(text)) return false;
+      seen.add(text);
+      return true;
+    }),
+  }));
 }
 
 /**
@@ -246,6 +254,9 @@ export function reviewGuide(files: Map<string, FileReview>, order: string[]): { 
       guide.set(rule.id, entry);
     }
   }
-  const position = (id: string) => (id.startsWith("line:") ? Number(id.slice(5)) : id === "rules-file" ? -1 : Infinity);
-  return [...guide.values()].sort((a, b) => RANK[b.rule.risk] - RANK[a.rule.risk] || position(a.rule.id) - position(b.rule.id));
+  const position = (id: string) => (id.startsWith("line:") ? Number.parseInt(id.slice(5), 10) : id === "rules-file" ? -1 : Infinity);
+  return [...guide.values()].sort((a, b) => {
+    const byRisk = RANK[b.rule.risk] - RANK[a.rule.risk];
+    return byRisk !== 0 ? byRisk : position(a.rule.id) - position(b.rule.id);
+  });
 }

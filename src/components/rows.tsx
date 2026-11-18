@@ -38,7 +38,7 @@ export function PullRow({ pr, showRepo = true }: { pr: PullListItem; showRepo?: 
         </span>
         <Labels labels={pr.labels?.nodes} />
         <span className="row-stats">
-          {checks && (
+          {checks !== undefined && (
             <span>
               <ChecksIcon state={checks} />
             </span>
@@ -95,9 +95,13 @@ export function IssueRow({ issue, showRepo = true }: { issue: IssueListItem; sho
   );
 }
 
+// The schema parses a known __typename only with its own fields (see byTypename), so these hold.
+const isPull = (node: SearchIssueNode): node is PullListItem => node.__typename === "PullRequest";
+const isIssue = (node: SearchIssueNode): node is IssueListItem => node.__typename === "Issue";
+
 export function SearchIssueRow({ node, showRepo = true }: { node: SearchIssueNode; showRepo?: boolean }) {
-  if (node.__typename === "PullRequest") return <PullRow pr={node as PullListItem} showRepo={showRepo} />;
-  if (node.__typename === "Issue") return <IssueRow issue={node as IssueListItem} showRepo={showRepo} />;
+  if (isPull(node)) return <PullRow pr={node} showRepo={showRepo} />;
+  if (isIssue(node)) return <IssueRow issue={node} showRepo={showRepo} />;
   return null;
 }
 
@@ -113,7 +117,7 @@ export function RepoRow({ repo, showOwner = true }: { repo: RepoListItem; showOw
           {repo.isPrivate && <LockIcon size={13} className="c-muted" aria-label="Private" />}
           {repo.isArchived && <span className="pill pill-attention">Archived</span>}
         </span>
-        {repo.description && (
+        {repo.description !== null && repo.description !== "" && (
           <span className="muted small" style={{ display: "block", marginTop: 2, overflowWrap: "anywhere" }}>
             {repo.description}
           </span>
@@ -133,7 +137,7 @@ export function RepoRow({ repo, showOwner = true }: { repo: RepoListItem; showOw
               <RepoForkedIcon size={13} /> fork
             </span>
           )}
-          {repo.pushedAt && (
+          {repo.pushedAt !== null && repo.pushedAt !== "" && (
             <span>
               Updated <Time iso={repo.pushedAt} />
             </span>

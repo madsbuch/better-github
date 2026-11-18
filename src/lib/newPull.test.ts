@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { headSpec, recentBranches, suggestedBody, suggestedTitle } from "./newPull";
-import type { BranchTip, BranchesRepo, RestComparison } from "./types";
+import { headSpec, recentBranches, suggestedBody, suggestedTitle, type CommitMessage } from "./newPull";
+import type { BranchTip, BranchesRepo } from "./types";
 
-const commit = (message: string) => ({ commit: { message } }) as RestComparison["commits"][number];
+const commit = (message: string): CommitMessage => ({ commit: { message } });
 
 describe("headSpec", () => {
   it("names fork branches with their owner", () => {
@@ -41,7 +41,7 @@ describe("recentBranches", () => {
   const repo = (nameWithOwner: string, refs: BranchTip[], parent?: string): BranchesRepo => ({
     nameWithOwner,
     defaultBranchRef: { name: "main" },
-    parent: parent ? { nameWithOwner: parent, defaultBranchRef: { name: "trunk" } } : null,
+    parent: parent !== undefined ? { nameWithOwner: parent, defaultBranchRef: { name: "trunk" } } : null,
     refs: { nodes: refs },
   });
 

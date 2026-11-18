@@ -5,8 +5,8 @@ import { highlightLines, htmlToTokenLines, languageForPath, overlaySegments } fr
 describe("languageForPath", () => {
   it("detects common languages", () => {
     // Aliases are fine as long as highlight.js knows them.
-    expect(hljs.getLanguage(languageForPath("src/main.rs")!)?.name).toBe("Rust");
-    expect(hljs.getLanguage(languageForPath("lib/app.py")!)?.name).toBe("Python");
+    expect(hljs.getLanguage(languageForPath("src/main.rs") ?? "")?.name).toBe("Rust");
+    expect(hljs.getLanguage(languageForPath("lib/app.py") ?? "")?.name).toBe("Python");
     expect(languageForPath("App.tsx")).toBe("typescript");
     expect(languageForPath("Dockerfile")).toBe("dockerfile");
     expect(languageForPath("build.gradle.kts")).toBe("kotlin");
@@ -54,7 +54,7 @@ describe("overlaySegments", () => {
       ],
     );
     expect(out.map((t) => t.text).join("")).toBe("let b = 3;");
-    expect(out.filter((t) => t.changed).map((t) => t.text)).toEqual(["3"]);
+    expect(out.filter((t) => t.changed === true).map((t) => t.text)).toEqual(["3"]);
     expect(out[0]).toMatchObject({ text: "let ", cls: "kw", changed: false });
   });
 });
