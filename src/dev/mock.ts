@@ -908,6 +908,17 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
           },
         },
       };
+    // Mutations whose result the app parses; the others only need an answer.
+    case "AddComment":
+      return { addComment: { commentEdge: { node: { id: "IC_new" } } } };
+    case "ReplyToThread":
+      return { addPullRequestReviewThreadReply: { comment: { id: "PRRC_new" } } };
+    case "ResolveThread":
+      return { resolveReviewThread: { thread: { id: str(variables.threadId), isResolved: true } } };
+    case "UnresolveThread":
+      return { unresolveReviewThread: { thread: { id: str(variables.threadId), isResolved: false } } };
+    case "UpdatePullBranch":
+      return { updatePullRequestBranch: { pullRequest: { id: str(variables.pullRequestId), headRefOid: PR_DETAIL.headRefOid } } };
     default:
       // Mutations: echo something truthy.
       return { ok: true };

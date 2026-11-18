@@ -14,13 +14,8 @@ interface GuestState {
   profiles: string[];
 }
 
-/** What's stored: anything but a list of profiles reads as none, and non-strings in it are dropped. */
-const StoredGuest = z.object({
-  profiles: z
-    .array(z.unknown())
-    .catch([])
-    .transform((list) => list.filter((p): p is string => typeof p === "string")),
-});
+/** What's stored; anything else reads as not a guest. */
+const StoredGuest = z.object({ profiles: z.array(z.string()) });
 
 const KEY = "ghc.guest";
 const listeners = new Set<() => void>();
