@@ -10,6 +10,7 @@ gate publishing. Run these first, from the repo root:
 
 ```sh
 npm run typecheck                 # TypeScript (app + node configs)
+npm run lint                      # oxlint, type-aware: the strictness rules below
 npm test                          # unit tests + every GraphQL query checked against GitHub's schema
 npm run e2e                       # Playwright on the fixture backend (see below)
 cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
@@ -43,6 +44,40 @@ are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When ad
 endpoint, add a fixture there too, or the screen renders empty in dev and in the
 e2e smoke tests.
 
+## Strict types
+
+The app is strict on types end to end; CI enforces it.
+
+- **Parse at the edge.** Nothing from outside (GitHub responses, Rust command
+  results, localStorage, Android bridges) is used before a zod schema has
+  checked it. `rest(schema, path)`, `restPage(itemSchema, …)`, `restAll(itemSchema, …)`
+  and `graphql(DOCUMENT, vars)` parse for you (`src/lib/api.ts`); `restSend` is for
+  calls made only for their effect. Stored JSON goes through `parseJson(schema, text)`
+  (`src/lib/schema.ts`). Never `JSON.parse(...) as X`.
+- **Types come from schemas.** `export const Foo = z.object(...)` with
+  `export type Foo = z.infer<typeof Foo>`. GraphQL result schemas live in
+  `src/lib/types.ts` and are paired with their document in `src/lib/queries.ts`
+  (`gql(Schema, source)`). Use `nodes(item)` for connection `nodes` and
+  `byTypename([...])` for unions/interfaces (unknown `__typename`s pass as
+  `{ __typename }`, so handle that case).
+- **Schemas can't be stricter than GitHub.** `queries.test.ts` walks every
+  document with its schema against GitHub's GraphQL schema: a field GitHub may
+  return as null must be `.nullable()`, enums must list every value, and the
+  schema may only require fields the document selects. REST schemas are
+  narrow (only fields the app reads) and `src/lib/restConformance.*.ts` makes
+  `tsc` check GitHub's OpenAPI types satisfy them.
+- **No escape hatches.** No `any`, no `as` (except `as const`), no `!`, no
+  `@ts-ignore`. tsconfig adds `noUncheckedIndexedAccess` and
+  `exactOptionalPropertyTypes`.
+- **No coercion.** Conditions must be booleans: compare explicitly
+  (`!== null`, `!== ""`, `> 0`) instead of relying on truthiness of strings,
+  numbers or nullable values (nullable objects are fine). No `String(x)`/`+x`/`!!x`,
+  no `==`, template literals only with strings and numbers.
+- **Rust:** `unsafe` is forbidden; clippy denies `as` casts, `unwrap`/`expect`/`panic`
+  and slice indexing outside tests (`src-tauri/Cargo.toml`). JSON from GitHub is
+  either parsed into typed structs (errors, GraphQL envelope) or passed through
+  untouched as `RawValue` for the frontend to parse; no `serde_json::Value`.
+
 ## When touching data (TanStack Query)
 
 - Every query key comes from `keys` in `src/queries/keys.ts`, one hierarchy:
@@ -59,8 +94,9 @@ e2e smoke tests.
   undo. Errors become toasts automatically.
 - Large or short-lived data (diffs, files, logs) sets `meta: { persist: false }`
   so it stays out of the on-device cache (`src/queries/client.ts`).
-- GraphQL documents live in `src/lib/queries.ts`. Add new ones to `ALL_DOCUMENTS`
-  so `npm test` validates them against `@octokit/graphql-schema`. GitHub's API isn't
+- GraphQL documents live in `src/lib/queries.ts`, each with its result schema.
+  Add new ones to `ALL_DOCUMENTS` so `npm test` validates them (and their
+  schemas) against `@octokit/graphql-schema`. GitHub's API isn't
   reachable from every dev environment, and this test catches typos, wrong
   arguments and field conflicts offline.
 - Fields with the same name on different union members must have the same type, or
