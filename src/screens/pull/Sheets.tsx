@@ -149,7 +149,7 @@ export function ReviewSheet({
         )}
         {comments.length === 0 && (
           <p className="muted small" style={{ margin: 0 }}>
-            Tip: tap any line in the Files tab to add inline comments or suggestions to this review.
+            Tip: pick any line in the Files tab to add inline comments or suggestions to this review.
           </p>
         )}
       </div>

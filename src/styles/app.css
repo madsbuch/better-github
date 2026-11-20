@@ -2392,3 +2392,189 @@ a.spec-link:active {
   color: inherit;
   font-size: 14px;
 }
+
+/* ---------------------------------------------------------------- desktop */
+
+/* Shown only where there is a mouse: what touch does with a gesture. */
+.pointer-only,
+.pointer-only-block {
+  display: none;
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+/* Keyboard focus. Fields draw their own ring. */
+:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: -2px;
+}
+
+.input:focus-visible,
+.textarea:focus-visible,
+.select:focus-visible,
+.search-bar input:focus-visible {
+  outline: none;
+}
+
+.search-bar:focus-within {
+  border-color: var(--accent-emphasis);
+}
+
+.shortcut-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+kbd {
+  min-width: 24px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pointer-only {
+    display: inline-flex;
+  }
+
+  .pointer-only-block {
+    display: block;
+  }
+
+  /* Everything that responds to a press also responds to the pointer. */
+  a.row:hover,
+  button.row:hover,
+  a.kv:hover,
+  button.kv:hover,
+  .menu-item:hover,
+  a.spec-link:hover,
+  a.spec-diff-item-head:hover,
+  .review-strip:hover,
+  .tabs button:hover,
+  .chip:hover,
+  .breadcrumbs a:hover {
+    background: var(--bg-hover);
+  }
+
+  .icon-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+  .btn:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+
+  .tabs button:hover {
+    color: var(--fg);
+  }
+
+  .main-nav button:hover:not(.active) .tab-icon {
+    background: var(--bg-hover);
+  }
+
+  .main-nav button:hover {
+    color: var(--fg);
+  }
+
+  .repo-shortcuts button:hover,
+  a.card:hover {
+    border-color: var(--fg-subtle);
+  }
+
+  .link-btn:hover,
+  .markdown-body a:hover,
+  .spec-item a:hover,
+  .spec-problems a:hover {
+    text-decoration: underline;
+  }
+
+  .spec-changes-link:hover {
+    filter: brightness(0.97);
+  }
+
+  .sheet-backdrop {
+    cursor: default;
+  }
+
+  /* Scrollbars that match the theme instead of the system's wide ones. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* A mouse is precise: menus and rows can be closer together. */
+  .menu-item {
+    min-height: 42px;
+  }
+
+  .sheet-menu .menu-item:focus-visible {
+    background: var(--bg-hover);
+  }
+}
+
+/* A window wide enough for a sidebar with names next to the icons. */
+@media (min-width: 1200px) {
+  .nav-rail {
+    width: 200px;
+    padding: 16px 12px;
+  }
+
+  .nav-logo {
+    align-self: flex-start;
+    margin-left: 10px;
+  }
+
+  .nav-rail button {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 6px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  .nav-rail .tab-icon {
+    width: 36px;
+    background: none;
+  }
+
+  .nav-rail button.active,
+  .nav-rail button.active .tab-icon {
+    background: var(--bg-active);
+  }
+
+  .nav-rail button.active .tab-icon {
+    background: none;
+  }
+
+  .screen > .content {
+    max-width: 1080px;
+  }
+
+  .sheet.full {
+    max-width: 920px;
+  }
+}
+
+@media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
+  .nav-rail button:hover:not(.active) {
+    background: var(--bg-hover);
+  }
+
+  .nav-rail button:hover:not(.active) .tab-icon {
+    background: none;
+  }
+}

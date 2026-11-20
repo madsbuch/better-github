@@ -1,6 +1,6 @@
 # Better GitHub
 
-A fast GitHub client for Android, built around your repositories with [Tauri 2](https://tauri.app), React and Rust.
+A fast GitHub client for Android phones and tablets and for the Mac, built around your repositories with [Tauri 2](https://tauri.app), React and Rust.
 
 ## Features
 
@@ -237,6 +237,39 @@ CI signs release builds with this app's own upload key, from these repository se
 
 For local release builds, put the same values in the git-ignored `src-tauri/gen/android/keystore.properties` (`keyAlias`, `password`, `storeFile`). Keep the keystore: Android only installs updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
 
+## Installing on a Mac
+
+Every push to `main` also builds the desktop app for Apple silicon Macs (M1 and
+later) and publishes it on the same release:
+
+<https://github.com/madsbuch/better-github/releases/download/latest/better-github-macos-arm64.dmg>
+
+Open the disk image and drag *Better GitHub* to Applications. The build isn't
+notarized by Apple (that takes a paid developer account), so the first time you
+open it macOS refuses: go to System Settings > Privacy & Security and choose
+*Open Anyway*. To have CI sign and notarize it instead, add the `APPLE_*`
+secrets described in the `release` skill.
+
+On a desktop the app is used with a mouse and a keyboard:
+
+- The window opens wide: the main sections are in a sidebar, lists and prose
+  stay a readable width, and code, diffs and logs use the rest.
+- Rows, buttons and menus respond to the pointer, and icon buttons show their
+  name. A refresh button stands in for pulling down.
+- Dialogs and menus take keyboard focus, keep Tab inside, close on Esc, and
+  menus move with the arrow keys.
+
+| Shortcut | Does |
+| --- | --- |
+| `/` or `⌘K` | Search |
+| `⌘[` or `⌥←`, `⌘]` or `⌥→` (and the mouse's back and forward buttons) | Back, forward |
+| `⌘R` | Refresh the screen's data |
+| `⌘1`, `⌘2` | Repositories, your profile |
+| `Esc` | Close the dialog or menu on top |
+
+Elsewhere `Ctrl` takes the place of `⌘` and `Alt` of `⌥`. Settings list the
+shortcuts too.
+
 ## Development
 
 Requirements: Node 22+, Rust (stable), and for Android: JDK 17+, the Android SDK and NDK ([Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)).
@@ -287,6 +320,7 @@ src/                  React app
   lib/diff.ts         patch parsing and word-level diffs
   lib/reviewRules.ts  .review-rules: parsing, path patterns and per-file verdicts
   lib/spec.ts         .spec: the item schema, the outline built from the folder, filtering
+  lib/desktop.ts      keyboard shortcuts and mouse behavior for desktop windows
   lib/specDiff.ts     what changed between two specs, by item and requirement
   lib/specPrompt.ts   the prompt for a coding agent to write or improve a spec
   screens/            one file per screen; pull/ and actions/ hold their screens' parts

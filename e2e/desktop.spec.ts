@@ -1,0 +1,118 @@
+import { devices, expect, test } from "@playwright/test";
+import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
+
+// A desktop window: a mouse that hovers, a keyboard, no touch.
+test.use({ ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } });
+
+test("the layout uses the window: a sidebar with names, and no bottom tabs", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/repos");
+  const rail = page.locator(".nav-rail");
+  await expect(rail).toBeVisible();
+  await expect(page.locator(".tabbar")).toBeHidden();
+  await expect(rail.getByRole("button", { name: "Repos" })).toHaveCSS("flex-direction", "row");
+  expect((await rail.boundingBox())?.width).toBe(200);
+  expect(errors).toEqual([]);
+});
+
+test("keyboard shortcuts go to search, back and forward, and to the main sections", async ({ page }) => {
+  await open(page, "/repos");
+  await expect(screenTitle(page)).toHaveText("Repositories");
+  await page.keyboard.press("/");
+  await expect(screenTitle(page)).toHaveText("Search");
+  // The search field has focus, and typing a slash into it is just a slash.
+  await expect(activeScreen(page).getByRole("searchbox")).toBeFocused();
+  await page.keyboard.type("a/b");
+  await expect(activeScreen(page).getByRole("searchbox")).toHaveValue("a/b");
+
+  await page.keyboard.press("Escape");
+  await expect(activeScreen(page).getByRole("searchbox")).not.toBeFocused();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(screenTitle(page)).toHaveText("Repositories");
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(screenTitle(page)).toHaveText("Search");
+  await page.keyboard.press("Control+2");
+  await expect(page.locator(".nav-rail button[aria-current=page]")).toHaveText("You");
+  await page.keyboard.press("Control+1");
+  await expect(screenTitle(page)).toHaveText("Repositories");
+  await page.keyboard.press("Control+k");
+  await expect(screenTitle(page)).toHaveText("Search");
+});
+
+test("menus and dialogs work from the keyboard", async ({ page }) => {
+  await open(page, "/acme/rocket");
+  const more = activeScreen(page).getByRole("button", { name: "More" });
+  await more.click();
+  const items = page.getByRole("menuitem");
+  // Focus moves into the menu; the arrows move through it and wrap.
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(items.nth(1)).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await expect(items.last()).toBeFocused();
+
+  // Escape closes it and focus returns to the button that opened it.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".sheet")).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await expect(screenTitle(page)).toHaveText("rocket");
+
+  // Enter picks an item.
+  await more.click();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Copy link" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".toast", { hasText: "Link copied" })).toBeVisible();
+});
+
+test("only the dialog on top closes on Escape, and Tab stays inside it", async ({ page }) => {
+  await open(page, "/acme/rocket/pull/482?tab=files");
+  await page.locator(".bottom-bar").getByRole("button", { name: /Review/ }).click();
+  const sheet = page.locator(".sheet");
+  await expect(sheet).toHaveCount(1);
+  // With a keyboard, the dialog's text field is ready to type in.
+  await expect(sheet.locator("textarea").first()).toBeFocused();
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.closest(".sheet") instanceof Element)).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
+  await expect(screenTitle(page)).toContainText("Add retry");
+});
+
+test("a screen refreshes from its button and from the keyboard, without reloading the page", async ({ page }) => {
+  await open(page, "/acme/rocket");
+  await expect(activeScreen(page).locator(".repo-header")).toBeVisible();
+  await page.evaluate(() => {
+    window.__loadingSeen = ["still the same page"];
+  });
+  const refresh = activeScreen(page).getByRole("button", { name: "Refresh" });
+  await expect(refresh).toBeVisible();
+  // Its name shows when the pointer rests on it.
+  await refresh.hover();
+  await expect(refresh).toHaveAttribute("title", "Refresh");
+  await refresh.click();
+  await expect(refresh).toBeEnabled();
+  await page.keyboard.press("Control+r");
+  await expect(refresh).toBeEnabled();
+  await expect(activeScreen(page).locator(".repo-header")).toBeVisible();
+  expect(await page.evaluate(() => window.__loadingSeen)).toEqual(["still the same page"]);
+});
+
+test("rows and buttons respond to the pointer", async ({ page }) => {
+  await open(page, "/repos");
+  const row = activeScreen(page).locator("a.row").first();
+  await expect(row).toBeVisible();
+  const before = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await row.hover();
+  await expect.poll(() => row.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before);
+});
+
+test("settings list the shortcuts", async ({ page }) => {
+  await open(page, "/settings");
+  await expect(activeScreen(page).getByRole("heading", { name: "Keyboard shortcuts" })).toBeVisible();
+  await expect(activeScreen(page).locator(".shortcut-keys").first()).toContainText("/");
+});

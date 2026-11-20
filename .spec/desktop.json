@@ -1,0 +1,73 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Desktop",
+  "summary": "The same app with a mouse and a keyboard, as a macOS download.",
+  "status": "implemented",
+  "order": 4,
+  "description": "The app was built for touch. On a desktop nothing may depend on a gesture or on the system's back button, and the window is used for more than one phone-sized column.",
+  "requirements": [
+    {
+      "id": "K1",
+      "text": "Every push to `main` publishes a disk image for Apple silicon Macs, `better-github-macos-arm64.dmg`, on the `latest` release next to the APK."
+    },
+    {
+      "id": "K2",
+      "text": "Without a Developer ID certificate the app is signed ad hoc, so it runs on Apple silicon after the user confirms it once. With one it is signed, and notarized when the Apple ID secrets are set.",
+      "status": "accepted"
+    },
+    {
+      "id": "K3",
+      "text": "The window opens at 1280 by 860. From 768 px wide the main sections are in a sidebar, and from 1200 px the sidebar shows their names next to the icons."
+    },
+    {
+      "id": "K4",
+      "text": "Everything that reacts to a press reacts to the pointer resting on it. Icon buttons show their name."
+    },
+    {
+      "id": "K5",
+      "text": "A screen that can be pulled down to refresh has a refresh button where there is a mouse, and refreshes on Cmd or Ctrl+R without reloading the web view."
+    },
+    {
+      "id": "K6",
+      "text": "Escape closes the dialog or menu on top, and only that one. Without one open it takes focus out of a field."
+    },
+    {
+      "id": "K7",
+      "text": "A dialog takes keyboard focus when it opens, keeps Tab inside it, and gives focus back when it closes. With a mouse its first text field is focused; on touch none is, so the keyboard doesn't cover it."
+    },
+    {
+      "id": "K8",
+      "text": "The arrow keys move through a menu and Enter picks an item."
+    },
+    {
+      "id": "K9",
+      "text": "Back and forward work from the keyboard (Cmd+[ and Cmd+], Alt+Left and Alt+Right) and from the mouse's back and forward buttons."
+    },
+    {
+      "id": "K10",
+      "text": "`/` and Cmd or Ctrl+K open search with its field focused. A single-key shortcut never fires while typing in a field."
+    },
+    {
+      "id": "K11",
+      "text": "Settings list the shortcuts where there is a mouse.",
+      "level": "should"
+    }
+  ],
+  "questions": [
+    "Should diffs be shown side by side in wide windows?",
+    "Should the window remember its size and position?",
+    "Should there be builds for Intel Macs, Windows and Linux?"
+  ],
+  "code": [
+    "src/lib/desktop.ts",
+    "src/components/Sheet.tsx",
+    "src/components/Screen.tsx",
+    "src/styles/app.css",
+    "src-tauri/tauri.conf.json",
+    ".github/workflows/macos.yml",
+    "e2e/desktop.spec.ts"
+  ],
+  "related": [
+    "foundations#F5"
+  ]
+}

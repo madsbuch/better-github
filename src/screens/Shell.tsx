@@ -2,6 +2,7 @@ import { PeopleIcon, RepoIcon } from "@primer/octicons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useLocation, useRouterState, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDesktopInput } from "../lib/desktop";
 import { to, useNav } from "../lib/nav";
 import { useSessionApi } from "../lib/session";
 import { warmStartup } from "../queries/warm";
@@ -24,6 +25,7 @@ export function Shell() {
   const tab = TABS.find((t) => t.path === pathname)?.id;
 
   useEffect(() => warmStartup(queryClient), [queryClient]);
+  useDesktopInput();
 
   // Slide new screens in when going forward; going back just shows the previous one.
   useEffect(() => {

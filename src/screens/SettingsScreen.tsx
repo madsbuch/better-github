@@ -1,4 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { isApple, SHORTCUTS } from "../lib/desktop";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { errorMessage } from "../lib/api";
@@ -181,6 +182,21 @@ function AppSettings() {
           </div>
         </>
       )}
+
+      {/* Only where there is a keyboard to use them with. */}
+      <div className="pointer-only-block">
+        <h3 className="section-title">Keyboard shortcuts</h3>
+        {SHORTCUTS.map((shortcut) => (
+          <div key={shortcut.label} className="kv">
+            <span className="grow">{shortcut.label}</span>
+            <span className="shortcut-keys">
+              {shortcut.keys(isApple()).map((key) => (
+                <kbd key={key}>{key}</kbd>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
 
       <h3 className="section-title">About</h3>
       <div className="kv">

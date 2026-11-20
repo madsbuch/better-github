@@ -187,6 +187,19 @@ class Controller {
     });
   }
 
+  forward() {
+    this.whenSettled(() => this.router.history.forward());
+  }
+
+  /** Closes the sheet on top (Escape). Returns false when none is open. */
+  closeTopOverlay(): boolean {
+    const top = this.overlays.at(-1);
+    if (top === undefined) return false;
+    // Its component closes, which unwinds its history entry (closeOverlay).
+    top.close();
+    return true;
+  }
+
   /** Jumps to a root screen (bottom tab), unwinding the whole history. */
   resetTo(options: NavigateTarget) {
     this.whenSettled(() => {
@@ -269,6 +282,9 @@ export function useNav() {
       /** Swaps the current screen's URL without adding history (tabs, filters). */
       replace: (target: LinkTarget) => controller.navigate({ ...target, replace: true }),
       back: () => controller.back(),
+      forward: () => controller.forward(),
+      /** Closes the sheet on top; false when none is open. */
+      closeTopSheet: () => controller.closeTopOverlay(),
       resetTo: (target: LinkTarget) => controller.resetTo(target),
     };
   }, [router]);

@@ -2,6 +2,7 @@ import { ArrowLeftIcon, SyncIcon } from "@primer/octicons-react";
 import { useCanGoBack } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNav } from "../lib/nav";
+import { REFRESH_EVENT } from "../lib/desktop";
 import { hasContent } from "./ui";
 
 interface ScreenProps {
@@ -43,6 +44,31 @@ export function Screen({ title, subtitle, actions, header, footer, onRefresh, sc
     return () => window.removeEventListener("ghc:scroll-top", handler);
   }, [ref]);
 
+  // Pulling down needs a touch screen. With a mouse and keyboard there is a
+  // button in the app bar and a shortcut (lib/desktop.ts), which both end here.
+  const refresh = async () => {
+    if (!refreshRef.current || refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshRef.current();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const refreshNow = useRef(refresh);
+  refreshNow.current = refresh;
+  const canRefresh = onRefresh !== undefined;
+  useEffect(() => {
+    if (!canRefresh) return;
+    const handler = (event: Event) => {
+      // Tells the shortcut that a screen took it, so the web view doesn't reload.
+      event.preventDefault();
+      void refreshNow.current();
+    };
+    window.addEventListener(REFRESH_EVENT, handler);
+    return () => window.removeEventListener(REFRESH_EVENT, handler);
+  }, [canRefresh]);
+
   return (
     <>
       <header className="appbar">
@@ -55,7 +81,16 @@ export function Screen({ title, subtitle, actions, header, footer, onRefresh, sc
           <h1>{title}</h1>
           {hasContent(subtitle) && <div className="appbar-sub">{subtitle}</div>}
         </div>
-        {hasContent(actions) && <div className="appbar-actions">{actions}</div>}
+        {(hasContent(actions) || canRefresh) && (
+          <div className="appbar-actions">
+            {canRefresh && (
+              <button className="icon-btn pointer-only" onClick={() => void refresh()} aria-label="Refresh" disabled={refreshing}>
+                <SyncIcon size={18} {...(refreshing ? { className: "spin" } : {})} />
+              </button>
+            )}
+            {actions}
+          </div>
+        )}
       </header>
       {header}
       {/* The router restores this element's scroll position on back (see router.tsx). */}
