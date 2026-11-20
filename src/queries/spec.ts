@@ -1,84 +1,358 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { errorMessage, graphql } from "../lib/api";
+// Loading a repository's spec (src/lib/spec.ts) so that its size doesn't matter:
+//
+//   1. One small query per branch says which tree the .spec folder is. The
+//      tree's id changes when anything in the folder does, so while it stays
+//      the same nothing else is asked for again.
+//   2. One REST call lists every file of that tree with its git object id.
+//      That is enough for the outline: ids, folders and how many items.
+//   3. Contents are read in batches, by object id, only for what is looked at
+//      (a small spec is read whole). A file's id is the same on every branch
+//      it hasn't changed on, so switching branches, and comparing two of
+//      them, reads only what differs.
+
+import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import { z } from "zod";
+import { errorMessage, graphql, rest } from "../lib/api";
 import { backend } from "../lib/backend";
-import { SPEC } from "../lib/queries";
-import { buildSpec, SPEC_DIR, type Spec, type SpecFile } from "../lib/spec";
+import { SPEC_BLOBS, SPEC_ROOT } from "../lib/queries";
+import { buildSpec, SPEC_DIR, type Spec, type SpecFile, type SpecNode } from "../lib/spec";
+import { diffSpecs, type SpecDiff } from "../lib/specDiff";
 import { specPrompt } from "../lib/specPrompt";
 import { useToast } from "../lib/toast";
-import type { SpecTree } from "../lib/types";
+import { SPEC_BLOB_BATCH } from "../lib/types";
 import { keys } from "./keys";
 
-/** The spec folder's files, and the folders nested too deep to have been read. */
-export interface SpecFolder {
-  files: SpecFile[];
-  tooDeep: string[];
-}
+// ------------------------------------------------------------------ listing
 
-function flatten(tree: NonNullable<SpecTree>): SpecFolder {
-  const folder: SpecFolder = { files: [], tooDeep: [] };
-  // The levels are separate types (the query has a fixed depth), so each is walked by its own call.
-  for (const a of tree.entries ?? []) {
-    if (!add(folder, a.name, a.object)) continue;
-    for (const b of a.object?.entries ?? []) {
-      if (!add(folder, `${a.name}/${b.name}`, b.object)) continue;
-      for (const c of b.object?.entries ?? []) {
-        if (!add(folder, `${a.name}/${b.name}/${c.name}`, c.object)) continue;
-        for (const d of c.object?.entries ?? []) {
-          const path = `${a.name}/${b.name}/${c.name}/${d.name}`;
-          if (!add(folder, path, d.object) && (d.object?.entries ?? []).length > 0) folder.tooDeep.push(path);
-        }
-      }
-    }
-  }
-  return folder;
-}
+/** A git tree, listed recursively (`git-tree`). Only what the app reads. */
+export const RestGitTree = z.object({
+  tree: z.array(z.object({ path: z.string(), type: z.string(), sha: z.string() })),
+  /** GitHub stops at 100,000 entries or 7 MB. */
+  truncated: z.boolean(),
+});
 
-/** Adds a file; returns true for a folder, whose entries the caller walks. */
-function add(
-  folder: SpecFolder,
-  path: string,
-  object: { oid?: string | undefined; text?: string | null | undefined; isTruncated?: boolean | undefined; entries?: unknown } | null,
-): boolean {
-  // Submodules have no object here.
-  if (object === null) return false;
-  if (object.entries !== undefined) return true;
-  folder.files.push({ path, text: object.text ?? null, truncated: object.isTruncated ?? false, oid: object.oid });
-  return false;
+/** Every file of a spec folder: its path from the folder and its git object id. */
+export interface SpecListing {
+  files: { path: string; oid: string }[];
+  /** The folder has more files than GitHub lists; the rest is missing. */
+  cutOff: boolean;
 }
 
 export const specQueries = {
-  /** The .spec folder on a branch; null when the repository has none. */
-  folder: (owner: string, repo: string, ref: string) =>
+  /** The id of the .spec folder's tree on a branch or commit; null when there is no such folder. */
+  root: (owner: string, repo: string, ref: string) =>
     queryOptions({
       queryKey: keys.repo.spec(owner, repo, ref),
-      queryFn: async (): Promise<SpecFolder | null> => {
-        const { repository } = await graphql(SPEC, { owner, name: repo, expression: `${ref}:${SPEC_DIR}` });
-        const tree = repository?.object ?? null;
-        // A file called .spec isn't a spec.
-        return tree === null || tree.entries === undefined ? null : flatten(tree);
+      queryFn: async (): Promise<string | null> => {
+        const { repository } = await graphql(SPEC_ROOT, { owner, name: repo, expression: `${ref}:${SPEC_DIR}` });
+        // A file called .spec isn't a spec: it has no tree id.
+        return repository?.object?.oid ?? null;
       },
       // Like review rules: rarely changes, but a screen showing it checks again when it opens.
       staleTime: 30_000,
     }),
+  /** The files in a spec folder's tree. A tree never changes, so this is never asked for twice. */
+  listing: (owner: string, repo: string, tree: string) =>
+    queryOptions({
+      queryKey: keys.repo.specListing(owner, repo, tree),
+      queryFn: async (): Promise<SpecListing> => {
+        const listed = await rest(RestGitTree, `/repos/${owner}/${repo}/git/trees/${tree}`, { query: { recursive: 1 } });
+        return {
+          files: listed.tree.filter((entry) => entry.type === "blob").map((entry) => ({ path: entry.path, oid: entry.sha })),
+          cutOff: listed.truncated,
+        };
+      },
+      staleTime: Infinity,
+      gcTime: 30 * 60_000,
+    }),
 };
 
+/** The commit two refs both descend from (`commit-comparison`). */
+export const RestMergeBase = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
+
+/**
+ * The commit a pull request's branch started from. Its spec is what the pull
+ * request's changes are measured against: the base branch itself may have
+ * moved on since, and those changes aren't the pull request's.
+ */
+export function mergeBaseQuery(owner: string, repo: string, base: string, head: string) {
+  return queryOptions({
+    queryKey: keys.repo.mergeBase(owner, repo, base, head),
+    queryFn: async () => {
+      const comparison = await rest(RestMergeBase, `/repos/${owner}/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`, {
+        query: { per_page: 1 },
+      });
+      return comparison.merge_base_commit.sha;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+// ----------------------------------------------------------------- contents
+
+interface Blob {
+  text: string | null;
+  truncated: boolean;
+}
+
+/**
+ * File contents by git object id, for this run of the app. Content-addressed,
+ * so nothing here is ever stale, and it is shared by every branch and both
+ * sides of a comparison.
+ */
+const blobs = new Map<string, Blob>();
+const queued = new Map<string, { owner: string; repo: string }>();
+const inFlight = new Set<string>();
+const failed = new Map<string, unknown>();
+const listeners = new Set<() => void>();
+let version = 0;
+let running = 0;
+/** Sign-out starts a new generation: answers to the old account's requests are dropped. */
+let generation = 0;
+
+const MAX_REQUESTS = 4;
+
+function changed() {
+  version++;
+  listeners.forEach((listener) => listener());
+}
+
+async function readBatch(owner: string, repo: string, oids: string[]) {
+  const startedIn = generation;
+  // Every slot of the query needs an id; a short batch repeats its first.
+  const variables: Record<string, string> = { owner, name: repo };
+  for (let i = 0; i < SPEC_BLOB_BATCH; i++) variables[`o${i}`] = oids[i] ?? oids[0] ?? "";
+  try {
+    const { repository } = await graphql(SPEC_BLOBS, variables);
+    if (startedIn !== generation) return;
+    for (const blob of Object.values(repository ?? {})) {
+      if (blob?.oid !== undefined) blobs.set(blob.oid, { text: blob.text ?? null, truncated: blob.isTruncated ?? false });
+    }
+    // An id GitHub had nothing for (not a file, or gone): don't ask again.
+    for (const oid of oids) if (!blobs.has(oid)) blobs.set(oid, { text: null, truncated: true });
+  } catch (error) {
+    if (startedIn !== generation) return;
+    for (const oid of oids) failed.set(oid, error);
+  } finally {
+    for (const oid of oids) inFlight.delete(oid);
+  }
+}
+
+function pump() {
+  while (running < MAX_REQUESTS && queued.size > 0) {
+    // One request reads files of one repository.
+    const [first] = queued.values();
+    if (first === undefined) return;
+    const batch: string[] = [];
+    for (const [oid, from] of queued) {
+      if (from.owner !== first.owner || from.repo !== first.repo) continue;
+      batch.push(oid);
+      if (batch.length === SPEC_BLOB_BATCH) break;
+    }
+    for (const oid of batch) {
+      queued.delete(oid);
+      inFlight.add(oid);
+    }
+    running++;
+    void readBatch(first.owner, first.repo, batch).finally(() => {
+      running--;
+      changed();
+      pump();
+    });
+  }
+}
+
+/** Asks for the contents of these files, unless they're here, on their way, or failed (see `retrySpecContents`). */
+export function requestSpecContents(owner: string, repo: string, oids: Iterable<string>) {
+  let added = false;
+  for (const oid of oids) {
+    if (blobs.has(oid) || inFlight.has(oid) || queued.has(oid) || failed.has(oid)) continue;
+    queued.set(oid, { owner, repo });
+    added = true;
+  }
+  if (added) pump();
+}
+
+/** Forgets failures, so the files are asked for again when next wanted. */
+export function retrySpecContents() {
+  failed.clear();
+  changed();
+}
+
+/** Forgets every file's contents (on sign-out: they may be from private repositories). */
+export function clearSpecContents() {
+  generation++;
+  blobs.clear();
+  queued.clear();
+  failed.clear();
+  changed();
+}
+
+/** A file's text, if it has been read. */
+export function specFileText(oid: string | null | undefined): string | null {
+  return oid === null || oid === undefined ? null : (blobs.get(oid)?.text ?? null);
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Changes whenever contents arrive or fail. */
+function useContentsVersion(): number {
+  return useSyncExternalStore(subscribe, () => version);
+}
+
+const fileOf = (entry: { path: string; oid: string }): SpecFile => {
+  const blob = entry.path.endsWith(".json") ? blobs.get(entry.oid) : undefined;
+  return { path: entry.path, oid: entry.oid, text: blob?.text ?? null, truncated: blob?.truncated ?? false };
+};
+
+/** The listed files with the contents read so far. `_arrivals` is what makes a caller's memo see new ones. */
+const filesAsOf = (listing: SpecListing, _arrivals: number): SpecFile[] => listing.files.map(fileOf);
+
+// --------------------------------------------------------------------- spec
+
+/** Specs up to this many items are read whole, so filtering and counts are complete from the start. */
+export const SPEC_READ_WHOLE = 300;
+
 export interface LoadedSpec {
-  /** Null while loading, and when the branch has no spec. */
+  /** Null while loading, and when the branch has no spec. Items may still be on their way (`node.loaded`). */
   spec: Spec | null;
-  /** Whether the branch has been checked. */
+  /** Whether the branch has been checked, and its files listed. */
   loaded: boolean;
   isPending: boolean;
   error: Error | null;
   retry: () => void;
+  /** Reads these items' contents, if they aren't here yet. */
+  want: (nodes: Iterable<SpecNode>) => void;
+  /** Reading some contents failed; `retry` asks again. */
+  contentsError: unknown;
 }
 
 /** The spec on `ref` ("" while the branch isn't known yet). */
 export function useSpec(owner: string, repo: string, ref: string): LoadedSpec {
-  const folder = useQuery({ ...specQueries.folder(owner, repo, ref), enabled: ref !== "" });
-  const data = folder.data;
-  const spec = useMemo(() => (data === null || data === undefined ? null : buildSpec(data.files, data.tooDeep)), [data]);
-  return { spec, loaded: folder.isSuccess, isPending: folder.isPending, error: folder.error, retry: () => void folder.refetch() };
+  const root = useQuery({ ...specQueries.root(owner, repo, ref), enabled: ref !== "" });
+  const tree = root.data ?? null;
+  const listing = useQuery({ ...specQueries.listing(owner, repo, tree ?? ""), enabled: tree !== null });
+  const contents = useContentsVersion();
+  const files = listing.data;
+  // Rebuilt as files arrive (`contents` counts arrivals); each file is only parsed once (see readItem).
+  const spec = useMemo(() => (files === undefined ? null : buildSpec(filesAsOf(files, contents), files.cutOff)), [files, contents]);
+
+  const want = useCallback(
+    (nodes: Iterable<SpecNode>) => {
+      const oids: string[] = [];
+      for (const node of nodes) if (!node.loaded && node.oid !== null) oids.push(node.oid);
+      if (oids.length > 0) requestSpecContents(owner, repo, oids);
+    },
+    [owner, repo],
+  );
+
+  // A spec of ordinary size is simply read whole.
+  useEffect(() => {
+    if (spec !== null && spec.nodes.size <= SPEC_READ_WHOLE) want(spec.nodes.values());
+  }, [spec, want]);
+
+  const firstFailure = useMemo(() => {
+    if (spec === null) return null;
+    for (const node of spec.nodes.values()) if (node.oid !== null && failed.has(node.oid)) return failed.get(node.oid);
+    return null;
+  }, [spec]);
+
+  return {
+    spec: tree === null ? null : spec,
+    loaded: root.isSuccess && (tree === null || listing.isSuccess),
+    isPending: root.isPending || (tree !== null && listing.isPending),
+    error: root.error ?? listing.error,
+    retry: () => {
+      retrySpecContents();
+      void root.refetch();
+      if (listing.isError) void listing.refetch();
+    },
+    want,
+    contentsError: firstFailure,
+  };
+}
+
+/** Reads `nodes`' contents when they change. Screens say what they are about to show. */
+export function useSpecContents(loaded: LoadedSpec, nodes: SpecNode[]) {
+  const { want } = loaded;
+  useEffect(() => want(nodes), [want, nodes]);
+}
+
+// --------------------------------------------------------------------- diff
+
+export interface LoadedSpecDiff {
+  before: LoadedSpec;
+  after: LoadedSpec;
+  /** Null until both sides are listed. Items whose contents are on their way are `pending`. */
+  diff: SpecDiff | null;
+  error: Error | null;
+  retry: () => void;
+}
+
+/**
+ * What changed in the spec from `base` to `head`. Only the files that differ
+ * between the two are read, however large the spec.
+ * `renames`: new path to old path of files a pull request moved, from the spec folder.
+ */
+export function useSpecDiff(owner: string, repo: string, base: string, head: string, renames?: Map<string, string>): LoadedSpecDiff {
+  const before = useSpec(owner, repo, base);
+  const after = useSpec(owner, repo, head);
+  const ready = before.loaded && after.loaded;
+  const diff = useMemo(() => (ready ? diffSpecs(before.spec, after.spec, renames) : null), [ready, before.spec, after.spec, renames]);
+
+  const [wantBefore, wantAfter] = [before.want, after.want];
+  // The changed items, and the folders above them for their names.
+  useEffect(() => {
+    if (diff === null) return;
+    const [old, current]: [SpecNode[], SpecNode[]] = [[], []];
+    const above = (node: SpecNode | null, into: SpecNode[]) => {
+      for (let at = node; at !== null; at = at.parent) into.push(at);
+    };
+    for (const item of diff.items) {
+      above(item.before, old);
+      above(item.after, current);
+    }
+    wantBefore(old);
+    wantAfter(current);
+  }, [diff, wantBefore, wantAfter]);
+
+  return {
+    before,
+    after,
+    diff,
+    error: before.error ?? after.error,
+    retry: () => {
+      before.retry();
+      after.retry();
+    },
+  };
+}
+
+// ------------------------------------------------------------------- prompt
+
+async function wholeSpec(queryClient: QueryClient, owner: string, repo: string, branch: string): Promise<Spec | null> {
+  const tree = await queryClient.fetchQuery(specQueries.root(owner, repo, branch));
+  if (tree === null) return null;
+  const listing = await queryClient.fetchQuery(specQueries.listing(owner, repo, tree));
+  const items = listing.files.filter((file) => file.path.endsWith(".json"));
+  // The prompt names every item of a spec of ordinary size; a huge one is outlined by its files.
+  if (items.length <= SPEC_READ_WHOLE) {
+    requestSpecContents(owner, repo, items.map((file) => file.oid));
+    await new Promise<void>((resolve) => {
+      const done = () => items.every((file) => blobs.has(file.oid) || failed.has(file.oid));
+      if (done()) return resolve();
+      const stop = subscribe(() => {
+        if (!done()) return;
+        stop();
+        resolve();
+      });
+    });
+  }
+  return buildSpec(listing.files.map(fileOf), listing.cutOff);
 }
 
 /**
@@ -90,8 +364,7 @@ export function useCopySpecPrompt() {
   const toast = useToast();
   return async (owner: string, repo: string, branch: string) => {
     try {
-      const folder = await queryClient.fetchQuery(specQueries.folder(owner, repo, branch));
-      const current = folder === null ? null : buildSpec(folder.files, folder.tooDeep);
+      const current = await wholeSpec(queryClient, owner, repo, branch);
       await backend.copyText(specPrompt({ repo: `${owner}/${repo}`, branch, current }));
       toast.show("Prompt copied. Paste it into your coding agent.", "success");
       // The agent is about to change it: check again when the app is back in front.

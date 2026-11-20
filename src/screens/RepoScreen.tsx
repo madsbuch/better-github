@@ -20,7 +20,7 @@ import {
 } from "@primer/octicons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
 import { splitRepo, to, useNav, type RepoTab } from "../lib/nav";
@@ -36,7 +36,7 @@ import { releaseQueries } from "../queries/releases";
 import { repoQueries, useStarRepo } from "../queries/repos";
 import { reviewQueries, useCopyRulesPrompt } from "../queries/reviewRules";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
-import { specQueries, useCopySpecPrompt, useSpec } from "../queries/spec";
+import { specQueries, useCopySpecPrompt, useSpec, useSpecContents } from "../queries/spec";
 import { specCounts } from "../lib/spec";
 import { ActionsTab } from "./actions/ActionsTab";
 import { ReleasesTab } from "./releases/ReleasesTab";
@@ -93,7 +93,7 @@ export function RepoScreen() {
   }, [queryClient, owner, repo, defaultBranch, hasDefaultBranch, guest]);
   // The branch being looked at: its spec is one tap away from the overview and the menu.
   useEffect(() => {
-    if (gitRef !== "" && !guest) void queryClient.prefetchQuery(specQueries.folder(owner, repo, gitRef));
+    if (gitRef !== "" && !guest) void queryClient.prefetchQuery(specQueries.root(owner, repo, gitRef));
   }, [queryClient, owner, repo, gitRef, guest]);
   const copyRulesPrompt = useCopyRulesPrompt();
   const copySpecPrompt = useCopySpecPrompt();
@@ -373,7 +373,11 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
 
 /** A way into the repository's spec, when its default branch has one. */
 function SpecCard({ owner, repo, branch }: { owner: string; repo: string; branch: string }) {
-  const { spec } = useSpec(owner, repo, branch);
+  const loaded = useSpec(owner, repo, branch);
+  const spec = loaded.spec;
+  // The root says what the spec is about; a small spec is read whole anyway.
+  const root = spec?.root;
+  useSpecContents(loaded, useMemo(() => (root ? [root] : []), [root]));
   if (spec === null) return null;
   const counts = specCounts(spec.root);
   const summary = spec.root.item?.summary;
@@ -389,7 +393,7 @@ function SpecCard({ owner, repo, branch }: { owner: string; repo: string; branch
         </span>
       </span>
       <span className="muted small nowrap">
-        {counts.items} items · {counts.requirements} requirements
+        {counts.items} items{counts.unloaded === 0 && ` · ${counts.requirements} requirements`}
       </span>
     </Link>
   );

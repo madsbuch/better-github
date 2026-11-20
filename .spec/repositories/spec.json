@@ -24,7 +24,7 @@
     },
     {
       "id": "S5",
-      "text": "The whole folder loads in one request, so moving between items never waits."
+      "text": "A spec's size doesn't matter. Its files are listed in one request; their contents are read in batches, by git object id, only for what is being looked at. A spec of up to 300 items is read whole."
     },
     {
       "id": "S6",
@@ -44,13 +44,24 @@
     },
     {
       "id": "S10",
-      "text": "Items can be nested three folders deep. A deeper folder is listed as a problem.",
-      "level": "should"
+      "text": "Items nest as deep as the folders do."
     },
     {
       "id": "S11",
       "text": "A repository's menu, a branch without a spec and the list of a spec's problems each offer a prompt for a coding agent to write the spec or improve it. The prompt stands on its own: it includes the schema, the current outline and the problems.",
       "level": "should"
+    },
+    {
+      "id": "S12",
+      "text": "An item that is listed but not read yet shows under its file's name, and is never reported as a problem."
+    },
+    {
+      "id": "S13",
+      "text": "Long lists show 100 rows at a time. Filtering reads the whole spec once and says how far it is."
+    },
+    {
+      "id": "S14",
+      "text": "A file's contents are read once per run of the app, whichever branches it is on, and forgotten on sign-out."
     }
   ],
   "figures": [
@@ -68,8 +79,8 @@
   "code": [
     "src/lib/spec.ts",
     "src/queries/spec.ts",
-    "src/screens/SpecScreen.tsx",
     "src/lib/specPrompt.ts",
+    "src/screens/SpecScreen.tsx",
     "schema/spec.schema.json",
     "e2e/spec.spec.ts"
   ],

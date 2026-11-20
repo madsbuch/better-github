@@ -29,6 +29,7 @@
     "src/lib/drafts.ts"
   ],
   "related": [
-    "pull-requests/review-rules#RR5"
+    "pull-requests/review-rules#RR5",
+    "pull-requests/spec-review"
   ]
 }

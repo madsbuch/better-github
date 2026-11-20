@@ -279,35 +279,116 @@ const BACKOFF_PICTURE = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" font-family="sans-serif" font-size="14"><rect width="640" height="160" fill="#f6f8fa"/><path d="M30 90H610" stroke="#8c959f" stroke-width="2"/><g fill="#0969da"><circle cx="40" cy="90" r="8"/><circle cx="90" cy="90" r="8"/><circle cx="170" cy="90" r="8"/><circle cx="310" cy="90" r="8"/><circle cx="570" cy="90" r="8"/></g><g fill="#57606a" text-anchor="middle"><text x="65" y="70">250 ms</text><text x="130" y="120">500 ms</text><text x="240" y="70">1 s</text><text x="440" y="120">2 s</text></g></svg>',
 )}`;
 
-/** The same files by their path in the repository, for the file viewer. */
-const ROCKET_SPEC_FILES: Record<string, unknown> = Object.fromEntries(Object.entries(ROCKET_SPEC).map(([path, value]) => [`.spec/${path}`, value]));
+/** The head commit of the fixture pull requests. */
+const PR_HEAD = "9f3c2a1b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a";
 
-interface SpecEntry {
-  name: string;
-  object: { oid: string; text: string | null; isTruncated: boolean } | { entries: SpecEntry[] };
+/** A file's text as it is in the repository. */
+const specText = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
+
+/** A stand-in for a git object id: the same for the same contents. */
+function oidOf(text: string): string {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) hash = (hash * 33 + text.charCodeAt(i)) >>> 0;
+  return `${hash.toString(16).padStart(8, "0")}${text.length.toString(16).padStart(8, "0")}`.padEnd(40, "0");
 }
 
-/** The spec's files as GitHub's nested tree entries; `version` stands in for the pictures' contents. */
-function specTree(files: Record<string, unknown>, version = "1"): { entries: SpecEntry[] } {
-  const root: { entries: SpecEntry[] } = { entries: [] };
-  for (const [path, value] of Object.entries(files)) {
-    let folder = root;
-    const parts = path.split("/");
-    const name = parts.pop() ?? "";
-    for (const part of parts) {
-      const found = folder.entries.find((e) => e.name === part)?.object;
-      if (found !== undefined && "entries" in found) {
-        folder = found;
-      } else {
-        const next = { entries: [] };
-        folder.entries.push({ name: part, object: next });
-        folder = next;
-      }
+// A large spec, to see that size doesn't matter: acme/atlas has 40 areas of
+// 75 items each. On its `next` branch three items differ and one is new.
+const ATLAS_AREAS = 40;
+const ATLAS_ITEMS = 75;
+function atlasSpec(next: boolean): Record<string, unknown> {
+  const files: Record<string, unknown> = { "index.json": { title: "Atlas", summary: "Maps for everything." } };
+  for (let a = 1; a <= ATLAS_AREAS; a++) {
+    const area = `area-${a.toString().padStart(2, "0")}`;
+    files[`${area}/index.json`] = { title: `Area ${a}`, summary: `Everything about area ${a}.`, order: a };
+    for (let i = 1; i <= ATLAS_ITEMS; i++) {
+      const edited = next && a === 7 && i <= 3;
+      files[`${area}/item-${i.toString().padStart(3, "0")}.json`] = {
+        title: `Feature ${a}.${i}`,
+        summary: i === 42 ? "The one with the needle in it." : `What feature ${a}.${i} does.`,
+        status: "implemented",
+        order: i,
+        requirements: [
+          { id: "A", text: edited ? `Feature ${a}.${i} answers within 100 ms.` : `Feature ${a}.${i} answers within 200 ms.` },
+          { id: "B", text: `Feature ${a}.${i} keeps working offline.`, level: "should" },
+        ],
+      };
     }
-    const text = value === null ? null : JSON.stringify(value, null, 2);
-    folder.entries.push({ name, object: { oid: text ?? `${path}@${version}`, text, isTruncated: false } });
   }
-  return root;
+  if (next) files["area-07/item-new.json"] = { title: "Feature 7.new", status: "draft", requirements: [{ id: "A", text: "It exists." }] };
+  return files;
+}
+
+/** Every version of every fixture spec: what `<ref>:.spec` resolves to, by repository. */
+const SPEC_VERSIONS: Record<string, { files: Record<string, unknown>; pictures: string } | undefined> = {
+  "acme/rocket@main": { files: ROCKET_SPEC, pictures: "1" },
+  // The commit pull request 484 branched from.
+  "acme/rocket@ba5eba11": { files: ROCKET_SPEC, pictures: "1" },
+  "acme/rocket@staging": { files: { ...ROCKET_SPEC, "cli.json": { title: "Command line", sumary: "The `rocket` command." } }, pictures: "1" },
+  "acme/rocket@eng-629-retries": { files: ROCKET_SPEC_NEXT, pictures: "2" },
+  [`acme/rocket@${PR_HEAD}`]: { files: ROCKET_SPEC_NEXT, pictures: "2" },
+  "acme/atlas@main": { files: atlasSpec(false), pictures: "1" },
+  "acme/atlas@next": { files: atlasSpec(true), pictures: "1" },
+};
+
+/** Contents by object id, filled as trees are listed (like a repository's object store). */
+const SPEC_OBJECTS = new Map<string, string>();
+
+/** A version's files as a recursive tree listing. */
+function specListing(version: { files: Record<string, unknown>; pictures: string }) {
+  return Object.entries(version.files).map(([path, value]) => {
+    const text = value === null ? null : specText(value);
+    const sha = text === null ? oidOf(`${path}@${version.pictures}`) : oidOf(text);
+    if (text !== null) SPEC_OBJECTS.set(sha, text);
+    return { path, mode: "100644", type: "blob", sha, size: text?.length ?? 1000, url: "" };
+  });
+}
+
+/** `git diff` of two texts as one hunk with the whole file for context: enough for a fixture. */
+function wholeFilePatch(before: string, after: string): { patch: string; additions: number; deletions: number } {
+  const [a, b] = [before === "" ? [] : before.trimEnd().split("\n"), after === "" ? [] : after.trimEnd().split("\n")];
+  const lcs: number[][] = Array.from({ length: a.length + 1 }, () => Array.from({ length: b.length + 1 }, () => 0));
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      const row = lcs[i];
+      if (row) row[j] = a[i] === b[j] ? (lcs[i + 1]?.[j + 1] ?? 0) + 1 : Math.max(lcs[i + 1]?.[j] ?? 0, row[j + 1] ?? 0);
+    }
+  }
+  const lines: string[] = [];
+  let [i, j, additions, deletions] = [0, 0, 0, 0];
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      lines.push(` ${a[i] ?? ""}`);
+      i++;
+      j++;
+    } else if (j < b.length && (i === a.length || (lcs[i]?.[j + 1] ?? 0) > (lcs[i + 1]?.[j] ?? 0))) {
+      lines.push(`+${b[j++] ?? ""}`);
+      additions++;
+    } else {
+      lines.push(`-${a[i++] ?? ""}`);
+      deletions++;
+    }
+  }
+  return { patch: `@@ -${a.length === 0 ? 0 : 1},${a.length} +${b.length === 0 ? 0 : 1},${b.length} @@\n${lines.join("\n")}`, additions, deletions };
+}
+
+/** The spec files a pull request changes, going from one version of the spec to another. */
+function specFileChanges(from: Record<string, unknown>, to: Record<string, unknown>) {
+  const changes = [];
+  for (const path of new Set([...Object.keys(from), ...Object.keys(to)])) {
+    const [before, after] = [from[path], to[path]];
+    const status = !(path in from) ? "added" : !(path in to) ? "removed" : "modified";
+    if (before === null || after === null) {
+      // The fixture's one picture is redrawn.
+      if (status === "modified") changes.push({ filename: `.spec/${path}`, status, additions: 0, deletions: 0, changes: 0 });
+      continue;
+    }
+    const [old, current] = [before === undefined ? "" : specText(before), after === undefined ? "" : specText(after)];
+    if (old === current) continue;
+    const diff = wholeFilePatch(old, current);
+    changes.push({ filename: `.spec/${path}`, status, ...diff, changes: diff.additions + diff.deletions });
+  }
+  return changes;
 }
 
 // Pull request 483 also edits the rules.
@@ -318,16 +399,6 @@ const RULES_CHANGE = {
   deletions: 1,
   changes: 2,
   patch: "@@ -10,4 +10,4 @@ medium src/**\n   - Errors reach the caller with the server's message.\n \n-low *.md\n+low *.md src/**\n   - Is it still true?",
-};
-
-// Pull request 484 also edits the spec.
-const SPEC_CHANGE = {
-  filename: ".spec/uploads/retries.json",
-  status: "modified",
-  additions: 1,
-  deletions: 1,
-  changes: 2,
-  patch: '@@ -8,3 +8,3 @@\n   "requirements": [\n-    { "id": "R1", "text": "An upload that fails with a network error or a 5xx response is retried, up to five times." },\n+    { "id": "R1", "text": "An upload that fails with a network error, a 429 or a 5xx response is retried, up to three times." },\n     { "id": "R2", "text": "A retry resumes where the upload stopped." },',
 };
 
 const PR_DETAIL = {
@@ -351,7 +422,7 @@ const PR_DETAIL = {
   authorAssociation: "MEMBER",
   baseRefName: "main",
   headRefName: "alice/upload-retries",
-  headRefOid: "9f3c2a1b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a",
+  headRefOid: PR_HEAD,
   isCrossRepository: false,
   headRepository: { nameWithOwner: "acme/rocket" },
   additions: 21,
@@ -783,7 +854,7 @@ function newPullData(op: string, variables: Record<string, unknown>): unknown {
 function comparison(spec: string) {
   const [base, head] = decodeURIComponent(spec).split("...");
   if (head === undefined || head === "" || head.replace(/^[\w-]+:/, "") === base) {
-    return { status: "identical", ahead_by: 0, behind_by: 0, total_commits: 0, commits: [], files: [] };
+    return { status: "identical", ahead_by: 0, behind_by: 0, total_commits: 0, commits: [], files: [], merge_base_commit: { sha: base } };
   }
   const commits = [0, 1].map((i) => ({
     sha: `c0ffee${i}`.padEnd(40, "0"),
@@ -794,7 +865,7 @@ function comparison(spec: string) {
     },
     author: { login: "octocat", avatar_url: viewer.avatarUrl },
   }));
-  return { status: "ahead", ahead_by: 2, behind_by: 1, total_commits: 2, commits, files: FILES };
+  return { status: "ahead", ahead_by: 2, behind_by: 1, total_commits: 2, commits, files: FILES, merge_base_commit: { sha: "ba5eba11" } };
 }
 
 const EXISTING_PULL = { number: 482, title: PR_DETAIL.title, created_at: ago(60 * 30), user: { login: "alice" } };
@@ -812,6 +883,11 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
   if (method !== "GET") return undefined;
   const compare = /\/compare\/(.+)$/.exec(path);
   if (compare) return comparison(group(compare));
+  const tree = /\/git\/trees\/(.+)$/.exec(path);
+  if (tree) {
+    const version = SPEC_VERSIONS[decodeURIComponent(group(tree)).replace(/^tree:/, "")];
+    return version ? { sha: group(tree), url: "", tree: specListing(version), truncated: false } : NOT_FOUND;
+  }
   if (/^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
     const head = request.query?.head;
     return typeof head === "string" && head.includes("upload-retries") ? [EXISTING_PULL] : [];
@@ -973,16 +1049,25 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       const drafting = variables.owner === "octocat" && variables.name === "drafting" && variables.expression === `${PR_DETAIL.headRefOid}:.review-rules`;
       return { repository: { object: rocket || drafting ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
     }
-    case "Spec": {
-      if (variables.owner !== "acme" || variables.name !== "rocket") return { repository: { object: null } };
-      if (variables.expression === "main:.spec") return { repository: { object: specTree(ROCKET_SPEC) } };
-      if (variables.expression === "staging:.spec") {
-        return { repository: { object: specTree({ ...ROCKET_SPEC, "cli.json": { title: "Command line", sumary: "The `rocket` command." } }) } };
-      }
-      if (variables.expression === "eng-629-retries:.spec" || variables.expression === `${PR_DETAIL.headRefOid}:.spec`) {
-        return { repository: { object: specTree(ROCKET_SPEC_NEXT, "2") } };
-      }
-      return { repository: { object: null } };
+    case "SpecRoot": {
+      const ref = str(variables.expression).replace(/:\.spec$/, "");
+      // So tests can see which version of a spec was asked for.
+      console.info(`[mock] spec-root ${ref}`);
+      const version = `${str(variables.owner)}/${str(variables.name)}@${ref}`;
+      return { repository: { object: SPEC_VERSIONS[version] ? { oid: `tree:${version}` } : null } };
+    }
+    case "SpecBlobs": {
+      const wanted = Object.entries(variables).filter(([name]) => /^o\d+$/.test(name));
+      // So tests can see how much of a spec was read.
+      console.info(`[mock] spec-blobs ${new Set(wanted.map(([, oid]) => oid)).size.toString()}`);
+      return {
+        repository: Object.fromEntries(
+          wanted.map(([name, oid]) => {
+            const text = SPEC_OBJECTS.get(str(oid));
+            return [`b${name.slice(1)}`, text === undefined ? null : { oid, text, isTruncated: false }];
+          }),
+        ),
+      };
     }
     case "PullFiles":
       return {
@@ -1142,7 +1227,8 @@ function restBody(request: RestRequest): unknown {
   const releases = releasesBody(path);
   if (releases !== undefined) return releases;
   if (path.endsWith("/pulls/483/files")) return [...FILES, RULES_CHANGE];
-  if (path.endsWith("/pulls/484/files")) return [...FILES, SPEC_CHANGE];
+  // Pull request 484 also changes the spec, from what's on main to ROCKET_SPEC_NEXT.
+  if (path.endsWith("/pulls/484/files")) return [...FILES, ...specFileChanges(ROCKET_SPEC, ROCKET_SPEC_NEXT)];
   if (/\/pulls\/\d+\/files$/.test(path)) return FILES;
   if (path.endsWith("/readme")) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';
@@ -1177,10 +1263,14 @@ function restBody(request: RestRequest): unknown {
         { type: "file", name: "client.rs", path: `${dir}client.rs` },
       ].map((e) => ({ ...e, sha: "x", size: 100, url: "", html_url: "", git_url: "", download_url: null, _links: {} }));
     }
-    if (p.startsWith(".spec/") && p in ROCKET_SPEC_FILES) {
-      const value = ROCKET_SPEC_FILES[p];
-      const text = value === null ? "" : JSON.stringify(value, null, 2);
-      const picture = value === null ? (request.query?.ref === "main" ? BACKOFF_PICTURE : BACKOFF_PICTURE_NEXT) : null;
+    const specRepo = /^\/repos\/([^/]+\/[^/]+)\//.exec(path);
+    const refName = request.query?.ref;
+    const version = specRepo && typeof refName === "string" ? SPEC_VERSIONS[`${group(specRepo)}@${refName}`] : undefined;
+    const specPath = p.startsWith(".spec/") ? p.slice(".spec/".length) : null;
+    if (version && specPath !== null && specPath in version.files) {
+      const value = version.files[specPath];
+      const text = value === null ? "" : specText(value);
+      const picture = value === null ? (version.pictures === "1" ? BACKOFF_PICTURE : BACKOFF_PICTURE_NEXT) : null;
       return { type: "file", name: p.split("/").pop(), path: p, size: text.length, encoding: "base64", content: btoa(text), download_url: picture, html_url: "" };
     }
     if (request.accept?.includes("html") === true) return "<h1>Rocket</h1><p>Rendered markdown preview.</p>";

@@ -13,7 +13,7 @@ import {
 } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
@@ -22,8 +22,11 @@ import {
   searchSpec,
   SPEC_DIR,
   specCounts,
+  specFilesAround,
   specTextBlocks,
   specTrail,
+  splitSpecRef,
+  unloadedBelow,
   type Spec,
   type SpecFigure,
   type SpecNode,
@@ -31,11 +34,11 @@ import {
   type SpecStatus,
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
-import { useCopySpecPrompt, useSpec } from "../queries/spec";
+import { useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
-import { CenterSpinner, EmptyState, ErrorView, SkeletonList } from "../components/ui";
+import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
 
 const route = getRouteApi("/$owner/$repo/spec");
 
@@ -61,6 +64,13 @@ export function SpecScreen() {
   const spec = loaded.spec;
   const node = spec?.nodes.get(id) ?? null;
   const place: Place = { owner, repo, gitRef };
+  // What this page shows: the item, the folders above it, what it links to. Its children ask for themselves as they show.
+  const around = useMemo(() => {
+    if (node === null || spec === null) return [];
+    const related = (node.item?.related ?? []).flatMap((ref) => spec.nodes.get(splitSpecRef(ref).id) ?? []);
+    return [node, ...specFilesAround(node).filter((n) => n.parent !== node), ...related];
+  }, [spec, node]);
+  useSpecContents(loaded, around);
   const copyPrompt = useCopySpecPrompt();
 
   return (
@@ -120,13 +130,21 @@ export function SpecScreen() {
               Nothing on {gitRef} is called <span className="mono">{id}</span>. <Link {...to.spec(owner, repo, gitRef)}>Open the outline</Link>
             </EmptyState>
           ) : id === "" ? (
-            <Outline spec={spec} place={place} initialFilter={search.q ?? ""} />
+            <Outline spec={spec} loaded={loaded} place={place} initialFilter={search.q ?? ""} />
           ) : (
             <>
               <Trail node={node} place={place} />
-              <Item spec={spec} node={node} place={place} current={search.r} />
-              <Children node={node} place={place} heading="In this part" />
+              {node.loaded ? <Item spec={spec} node={node} place={place} current={search.r} /> : <SkeletonList rows={4} />}
+              <Children node={node} loaded={loaded} place={place} heading="In this part" />
             </>
+          )}
+          {loaded.contentsError !== null && (
+            <div className="banner banner-danger">
+              <span className="grow">Some items couldn't be read.</span>
+              <button className="btn btn-sm" onClick={loaded.retry}>
+                Retry
+              </button>
+            </div>
           )}
         </>
       )}
@@ -137,9 +155,14 @@ export function SpecScreen() {
 // ----------------------------------------------------------------- outline
 
 /** The spec's first page: what it is, a filter over everything in it, and its top-level parts. */
-function Outline({ spec, place, initialFilter }: { spec: Spec; place: Place; initialFilter: string }) {
+function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: LoadedSpec; place: Place; initialFilter: string }) {
   const nav = useNav();
   const [filter, setFilter] = useState(initialFilter);
+  const filtering = filter.trim() !== "";
+  // Filtering looks at every item, so a large spec is read in full the first time it is filtered.
+  const unread = useMemo(() => (filtering ? unloadedBelow(spec.root) : []), [filtering, spec]);
+  useSpecContents(loaded, unread);
+  const [shown, setShown] = useState(PAGE);
   // The filter is in the URL too, so coming back from a result shows the results again.
   const change = (next: string) => {
     setFilter(next);
@@ -168,11 +191,18 @@ function Outline({ spec, place, initialFilter }: { spec: Spec; place: Place; ini
           </button>
         )}
       </div>
-      {filter.trim() !== "" ? (
+      {filtering && unread.length > 0 && (
+        <p className="spec-counts muted small" role="status">
+          Reading the spec: {(counts.items - unread.length).toLocaleString()} of {plural(counts.items, "item")} so far…
+        </p>
+      )}
+      {filtering ? (
         matches.length === 0 ? (
-          <EmptyState title="Nothing matches">No item or requirement contains “{filter.trim()}”.</EmptyState>
+          unread.length > 0 ? null : (
+            <EmptyState title="Nothing matches">No item or requirement contains “{filter.trim()}”.</EmptyState>
+          )
         ) : (
-          matches.map(({ node, requirements }) =>
+          matches.slice(0, shown).map(({ node, requirements }) =>
             requirements.length === 0 ? (
               <NodeRow key={node.id} node={node} place={place} showPath />
             ) : (
@@ -192,22 +222,29 @@ function Outline({ spec, place, initialFilter }: { spec: Spec; place: Place; ini
             ),
           )
         )
-      ) : (
+      ) : null}
+      {filtering && <LoadMore hasMore={matches.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />}
+      {filtering ? null : (
         <>
           <Problems spec={spec} place={place} />
           <Item spec={spec} node={spec.root} place={place} current={undefined} />
           <p className="spec-counts muted small">
-            {plural(counts.items, "item")} · {plural(counts.requirements, "requirement")}
-            {counts.requirements > 0 && ` · ${counts.implemented} implemented`}
+            {plural(counts.items, "item")}
+            {/* Requirements are counted once everything is read; a large spec is read as it is looked at. */}
+            {counts.unloaded === 0 && ` · ${plural(counts.requirements, "requirement")}`}
+            {counts.unloaded === 0 && counts.requirements > 0 && ` · ${counts.implemented} implemented`}
           </p>
-          <Children node={spec.root} place={place} heading="Parts" />
+          <Children node={spec.root} loaded={loaded} place={place} heading="Parts" />
         </>
       )}
     </>
   );
 }
 
-const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+const plural = (count: number, noun: string) => `${count.toLocaleString()} ${noun}${count === 1 ? "" : "s"}`;
+
+/** Lists show this many rows at a time: a folder can hold thousands of items. */
+const PAGE = 100;
 
 /** Files that couldn't be read and references that lead nowhere. */
 function Problems({ spec, place }: { spec: Spec; place: Place }) {
@@ -451,14 +488,22 @@ function Figure({ figure, place }: { figure: SpecFigure; place: Place }) {
 
 // ---------------------------------------------------------------- children
 
-function Children({ node, place, heading }: { node: SpecNode; place: Place; heading: string }) {
+function Children({ node, loaded, place, heading }: { node: SpecNode; loaded: LoadedSpec; place: Place; heading: string }) {
+  const [shown, setShown] = useState(PAGE);
+  // The rows on screen need their titles and summaries; the rest wait until they're scrolled to.
+  const visible = useMemo(() => node.children.slice(0, shown), [node, shown]);
+  useSpecContents(loaded, visible);
   if (node.children.length === 0) return null;
   return (
     <section aria-label={heading}>
-      <div className="section-title">{heading}</div>
-      {node.children.map((child) => (
+      <div className="section-title">
+        {heading}
+        {node.children.length > PAGE && ` · ${node.children.length.toLocaleString()}`}
+      </div>
+      {visible.map((child) => (
         <NodeRow key={child.id} node={child} place={place} />
       ))}
+      <LoadMore hasMore={node.children.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />
     </section>
   );
 }
@@ -474,7 +519,7 @@ function NodeRow({ node, place, showPath = false }: { node: SpecNode; place: Pla
       </span>
       <span className="row-body">
         {showPath && trail.length > 0 && <span className="row-meta ellipsis">{trail.map((n) => n.title).join(" / ")}</span>}
-        <span className="row-title" style={{ display: "block" }}>
+        <span className={`row-title${node.loaded ? "" : " spec-unread"}`} style={{ display: "block" }}>
           {node.title}
         </span>
         {summary !== undefined && summary !== "" && <span className="spec-row-summary">
@@ -484,7 +529,7 @@ function NodeRow({ node, place, showPath = false }: { node: SpecNode; place: Pla
         <span className="row-meta">
           {node.item?.status !== undefined && <StatusPill status={node.item.status} />}
           <span>
-            {[counts.items > 0 ? plural(counts.items, "item") : "", counts.requirements > 0 ? plural(counts.requirements, "requirement") : ""]
+            {[counts.items > 0 ? plural(counts.items, "item") : "", counts.unloaded === 0 && counts.requirements > 0 ? plural(counts.requirements, "requirement") : ""]
               .filter((part) => part !== "")
               .join(" · ")}
           </span>

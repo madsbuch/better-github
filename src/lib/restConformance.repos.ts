@@ -7,6 +7,7 @@ import type { components } from "@octokit/openapi-types";
 import type { z } from "zod";
 import type { RestBranch, RestLatestRelease, RestOwner, RestRateLimit, RestRepo, RestRepoDetail } from "../queries/guest";
 import type { RestComparison, RestCreatedPull, RestPullSimple } from "../queries/newPull";
+import type { RestGitTree, RestMergeBase } from "../queries/spec";
 import type { DiffEntry, RestCommit, RestCommitListItem, RestContentFile, RestContentItem, RestContents } from "../queries/repos";
 
 type Fits<Api, Schema extends z.ZodType> = Api extends z.input<Schema> ? true : false;
@@ -39,3 +40,7 @@ export const fullRepoFits: Fits<Schemas["full-repository"], typeof RestRepoDetai
 export const latestReleaseFits: Fits<Schemas["release"], typeof RestLatestRelease> = true;
 export const shortBranchFits: Fits<Schemas["short-branch"], typeof RestBranch> = true;
 export const rateLimitFits: Fits<Schemas["rate-limit-overview"], typeof RestRateLimit> = true;
+
+// The spec folder: its files, and where a pull request's branch started.
+export const gitTreeFits: Fits<Schemas["git-tree"], typeof RestGitTree> = true;
+export const mergeBaseFits: Fits<Schemas["commit-comparison"], typeof RestMergeBase> = true;

@@ -128,3 +128,56 @@ test("the prompt for a repository with a spec hands over its outline and problem
   await expect.poll(() => copied().length).toBe(2);
   expect(copied()[1]).toContain('- .spec/cli.json: Unrecognized key: "sumary"');
 });
+
+test("a huge spec opens at once and is read as it is looked at", async ({ page }) => {
+  const errors = trackErrors(page);
+  // How many files' contents were asked for, in how many requests.
+  const read: number[] = [];
+  page.on("console", (message) => {
+    const match = /^\[mock\] spec-blobs (\d+)$/.exec(message.text());
+    if (match) read.push(Number(match[1]));
+  });
+  const files = () => read.reduce((sum, count) => sum + count, 0);
+
+  // acme/atlas has 3,041 items in 40 areas.
+  await open(page, "/acme/atlas/spec?ref=main");
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Atlas");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("3,040 items");
+  await expect(rows(page)).toHaveCount(40);
+  await expect(rows(page).nth(0)).toContainText("Area 1");
+  await expect(rows(page).nth(0)).toContainText("75 items");
+  // The outline needed the root and its 40 areas, not the 3,000 items below them.
+  expect(files()).toBe(41);
+
+  // An area reads its own items; long lists come a page at a time.
+  await rows(page).nth(6).click();
+  await expect(screenTitle(page)).toHaveText("Area 7");
+  await expect(rows(page).nth(0).locator(".row-title")).toHaveText("Feature 7.1");
+  await expect(rows(page).nth(0)).toContainText("2 requirements");
+  expect(files()).toBe(41 + 75);
+
+  // Filtering looks everywhere, so it reads the rest, and says so while it does.
+  await page.goBack();
+  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("needle");
+  await expect(rows(page)).toHaveCount(40);
+  await expect(rows(page).nth(0)).toContainText("Feature 1.42");
+  expect(files()).toBe(3041);
+  // Never more than a batch per request.
+  expect(Math.max(...read)).toBeLessThanOrEqual(40);
+  expect(errors).toEqual([]);
+});
+
+test("comparing two versions of a huge spec reads only what differs", async ({ page }) => {
+  const read: number[] = [];
+  page.on("console", (message) => {
+    const match = /^\[mock\] spec-blobs (\d+)$/.exec(message.text());
+    if (match) read.push(Number(match[1]));
+  });
+  await open(page, "/acme/atlas/spec-diff?base=main&head=next");
+  const changed = activeScreen(page).locator(".spec-change");
+  await expect(changed.locator(".spec-change-title")).toHaveText(["Feature 7.1", "Feature 7.2", "Feature 7.3", "Feature 7.new"]);
+  await expect(changed.nth(0).locator(".dir")).toHaveText("Area 7 / ");
+  await expect(changed.nth(0).locator('.spec-diff-line[data-kind="added"] mark')).toHaveText("100");
+  // Three changed items on each side, one new, and the folders above them for their names: 9 of 6,083 files.
+  expect(read.reduce((sum, count) => sum + count, 0)).toBe(9);
+});

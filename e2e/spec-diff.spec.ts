@@ -3,21 +3,33 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 
 // acme/rocket's spec on eng-629-retries (src/dev/mock.ts) rewords, re-levels,
 // adds and removes requirements of Retries, adds Resuming and drops Command line.
-const items = (page: Page) => activeScreen(page).locator(".spec-diff-item");
-const item = (page: Page, id: string) => activeScreen(page).locator(`.spec-diff-item[data-id="${id}"]`);
+const items = (page: Page) => activeScreen(page).locator(".spec-change");
+const item = (page: Page, id: string) => activeScreen(page).locator(`.spec-change[data-id="${id}"]`);
 
 test("two branches' specs are compared by item and requirement", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
   await expect(screenTitle(page)).toHaveText("Spec changes");
   await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−16 requirements +2~2−2");
-  await expect(items(page).locator(".spec-diff-item-title")).toHaveText(["Retries", "Resuming", "Command line"]);
-  await expect(items(page).locator(".spec-diff-item-head .spec-diff-kind")).toHaveText(["Changed", "Added", "Removed"]);
+  // What a reviewer must not miss: where the spec now promises less.
+  const weakened = activeScreen(page).locator(".spec-weakened");
+  await expect(weakened).toContainText("3 changes make the spec promise less");
+  await expect(weakened.locator("li")).toHaveText([
+    "Retries Back from implemented to accepted.",
+    "Command line Removed, with 1 requirement that is no longer promised.",
+    "Command line C1 A must requirement is removed.",
+  ]);
+  await expect(items(page).locator(".spec-change-title")).toHaveText(["Retries", "Resuming", "Command line"]);
+  await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Added", "Removed"]);
 
   const retries = item(page, "uploads/retries");
-  await expect(retries.locator("> .spec-diff-move")).toHaveText("Status Implemented → Accepted");
+  await expect(retries.locator(".spec-part > .spec-diff-move")).toHaveText("Status Implemented → Accepted");
   const requirements = retries.locator(".spec-diff-req");
   await expect(requirements.locator(".spec-req-head")).toHaveText(["R1mustChanged", "R3mustChanged", "R4mayRemoved", "R5mustAdded"]);
+  // What it left alone is folded away, for context.
+  await expect(retries.locator('.spec-diff-req[data-kind="unchanged"]')).toHaveCount(0);
+  await retries.getByRole("button", { name: "1 unchanged requirement" }).click();
+  await expect(retries.locator('.spec-diff-req[data-kind="unchanged"] .spec-req-id')).toHaveText("R2");
   // A reworded requirement: both texts, with the words that differ marked.
   await expect(requirements.nth(0).locator('.spec-diff-line[data-kind="removed"] mark')).toHaveText(["five"]);
   await expect(requirements.nth(0).locator('.spec-diff-line[data-kind="added"] mark')).toContainText(["429", "three"]);
@@ -28,13 +40,13 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   // The picture changed: both versions show.
   const figure = retries.locator(".spec-diff-figure");
   await expect(figure.locator(".spec-diff-kind")).toHaveText("Picture changed");
-  await expect(figure.locator(".spec-diff-picture figcaption")).toHaveText(["On main", "On eng-629-retries"]);
+  await expect(figure.locator(".spec-diff-picture figcaption")).toHaveText(["Before", "After"]);
   await expect(figure.locator("img")).toHaveCount(2);
   await expect(retries.getByRole("region", { name: "Related" }).locator(".spec-diff-line")).toHaveText(["−cli", "+uploads/resume"]);
 
   // A new item has one status, and a removed one opens on the side that still has it.
-  await expect(item(page, "uploads/resume").locator("> .spec-diff-move")).toHaveText("Status Draft");
-  await item(page, "cli").locator(".spec-diff-item-head").click();
+  await expect(item(page, "uploads/resume").locator(".spec-part > .spec-diff-move")).toHaveText("Status Draft");
+  await item(page, "cli").getByRole("link", { name: "Open Command line in the spec" }).click();
   await expect(screenTitle(page)).toHaveText("Command line");
   await expect(activeScreen(page).locator(".appbar-sub")).toHaveText("acme/rocket · main");
   expect(errors).toEqual([]);
@@ -56,20 +68,25 @@ test("the spec browser leads to the comparison, where either side can be changed
   await expect(activeScreen(page)).toContainText("Pick a branch to compare");
 });
 
-test("a pull request that changes the spec links to what it changes", async ({ page }) => {
-  await open(page, "/acme/rocket/pull/484?tab=files");
-  await activeScreen(page).getByRole("link", { name: /This pull request changes the spec/ }).click();
-  await expect(screenTitle(page)).toHaveText("Spec changes");
-  await expect(items(page).locator(".spec-diff-item-title")).toHaveText(["Retries", "Resuming", "Command line"]);
-
-  // One that doesn't has no such link.
-  await open(page, "/acme/rocket/pull/482?tab=files");
-  await expect(activeScreen(page).locator(".diff-file").first()).toBeVisible();
-  await expect(activeScreen(page).locator(".spec-changes-link")).toHaveCount(0);
-});
-
 test("a branch without a spec loses all of it", async ({ page }) => {
   await open(page, "/acme/rocket/spec-diff?head=some-branch");
-  await expect(activeScreen(page).locator(".banner")).toHaveText("some-branch has no spec: all of it is removed.");
-  await expect(items(page).locator(".spec-diff-item-head .spec-diff-kind")).toHaveText(["Removed", "Removed", "Removed", "Removed", "Removed"]);
+  await expect(activeScreen(page).locator(".banner:not(.spec-weakened)")).toHaveText("some-branch has no spec: all of it is removed.");
+  await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Removed", "Removed", "Removed", "Removed", "Removed"]);
+});
+
+test("the changes can be narrowed to a kind, and to what promises less", async ({ page }) => {
+  await open(page, "/acme/atlas/spec-diff?base=main&head=next");
+  await expect(items(page)).toHaveCount(4);
+  const chips = activeScreen(page).getByRole("radiogroup", { name: "Show" });
+  await expect(chips.getByRole("radio")).toHaveText(["All 4", "Added 1", "Changed 3"]);
+  await chips.getByRole("radio", { name: /Added/ }).click();
+  await expect(items(page).locator(".spec-change-title")).toHaveText(["Feature 7.new"]);
+
+  await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
+  await activeScreen(page).getByRole("radio", { name: /Promises less/ }).click();
+  await expect(items(page).locator(".spec-change-title")).toHaveText(["Retries", "Command line"]);
+  // From the list of what promises less, straight to the item.
+  await activeScreen(page).locator(".spec-weakened").getByRole("button", { name: "Command line C1" }).click();
+  await expect(activeScreen(page).getByRole("radio", { name: /All/ })).toBeChecked();
+  await expect(item(page, "cli")).toBeInViewport();
 });

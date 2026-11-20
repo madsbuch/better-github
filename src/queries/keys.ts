@@ -77,6 +77,10 @@ export const keys = {
     reviewRulesAll: (owner: string, repo: string) => [...repoBase(owner, repo), "review-rules"] as const,
     /** The .spec folder on a branch (or a commit). */
     spec: (owner: string, repo: string, ref: string) => [...repoBase(owner, repo), "spec", ref] as const,
+    /** The files of a spec folder, by the id of its tree: the same tree never changes. */
+    specListing: (owner: string, repo: string, tree: string) => [...repoBase(owner, repo), "spec-listing", tree] as const,
+    /** The commit two refs both descend from. */
+    mergeBase: (owner: string, repo: string, base: string, head: string) => [...repoBase(owner, repo), "merge-base", base, head] as const,
     contents: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "contents", ref, path] as const,
     blob: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob", ref, path] as const,
     blobHtml: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "blob-html", ref, path] as const,

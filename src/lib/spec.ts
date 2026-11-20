@@ -21,8 +21,6 @@ import { z } from "zod";
 
 /** At the root of the repository. */
 export const SPEC_DIR = ".spec";
-/** How many folders deep items can be (`.spec/a/b/c/item.json`); see the SPEC query. */
-export const SPEC_MAX_DEPTH = 3;
 export const SPEC_SCHEMA_URL = "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json";
 
 // ------------------------------------------------------------------ schema
@@ -100,11 +98,14 @@ export function specJsonSchema(): unknown {
 export interface SpecFile {
   /** From the spec folder: "uploads/retries.json". */
   path: string;
-  /** Null for binary files. */
+  /**
+   * An item's JSON. Null for assets, and for an item whose contents haven't
+   * been loaded: a large spec is listed first and read as it is looked at.
+   */
   text: string | null;
   /** Too large for GitHub to send whole. */
-  truncated: boolean;
-  /** The file's git object id: the same for the same content. Used to tell when a picture changed. */
+  truncated?: boolean | undefined;
+  /** The file's git object id: the same for the same content, on any branch. */
   oid?: string | undefined;
 }
 
@@ -127,6 +128,10 @@ export interface SpecNode {
   file: string | null;
   /** Why `file` couldn't be read; it's also among the spec's problems. */
   error: string | null;
+  /** False while the item's file is known but its contents aren't loaded yet. */
+  loaded: boolean;
+  /** The file's git object id, when known. */
+  oid: string | null;
   parent: SpecNode | null;
   children: SpecNode[];
 }
@@ -141,8 +146,24 @@ export interface Spec {
 
 const inSpec = (path: string) => `${SPEC_DIR}/${path}`;
 
-function readItem(file: SpecFile): { item: SpecItem } | { error: string } {
-  if (file.truncated) return { error: "The file is too large to read." };
+type ReadItem = { item: SpecItem } | { error: string };
+
+/** What each file read as, by git object id: a spec is rebuilt as its files arrive, and most don't change. */
+const readItems = new Map<string, ReadItem>();
+const READ_ITEMS_MAX = 20_000;
+
+function readItem(file: SpecFile): ReadItem {
+  if (file.oid === undefined) return parseItem(file);
+  const known = readItems.get(file.oid);
+  if (known) return known;
+  const read = parseItem(file);
+  if (readItems.size >= READ_ITEMS_MAX) readItems.clear();
+  readItems.set(file.oid, read);
+  return read;
+}
+
+function parseItem(file: SpecFile): ReadItem {
+  if (file.truncated === true) return { error: "The file is too large to read." };
   let value: unknown;
   try {
     value = JSON.parse(file.text ?? "");
@@ -168,14 +189,13 @@ export function splitSpecRef(ref: string): { id: string; requirement: string | n
  * Builds the outline from the spec folder's files. Files that can't be read
  * and references that lead nowhere become problems; the rest still shows.
  */
-export function buildSpec(files: SpecFile[], tooDeep: string[] = []): Spec {
-  const root: SpecNode = { id: "", name: "", title: "Spec", item: null, file: null, error: null, parent: null, children: [] };
+export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
+  const root: SpecNode = { id: "", name: "", title: "Spec", item: null, file: null, error: null, loaded: true, oid: null, parent: null, children: [] };
   const nodes = new Map<string, SpecNode>([["", root]]);
   const assets = new Map<string, string | null>();
-  const problems: SpecProblem[] = tooDeep.map((path) => ({
-    file: inSpec(path),
-    message: `Items can be at most ${SPEC_MAX_DEPTH} folders deep. What's in this folder isn't shown.`,
-  }));
+  const problems: SpecProblem[] = listingCutOff
+    ? [{ file: SPEC_DIR, message: "The folder has more files than GitHub lists in one go. Some items are missing here." }]
+    : [];
 
   const nodeFor = (id: string): SpecNode => {
     const existing = nodes.get(id);
@@ -183,7 +203,7 @@ export function buildSpec(files: SpecFile[], tooDeep: string[] = []): Spec {
     const slash = id.lastIndexOf("/");
     const parent = nodeFor(slash === -1 ? "" : id.slice(0, slash));
     const name = id.slice(slash + 1);
-    const node: SpecNode = { id, name, title: name, item: null, file: null, error: null, parent, children: [] };
+    const node: SpecNode = { id, name, title: name, item: null, file: null, error: null, loaded: true, oid: null, parent, children: [] };
     nodes.set(id, node);
     parent.children.push(node);
     return node;
@@ -202,6 +222,12 @@ export function buildSpec(files: SpecFile[], tooDeep: string[] = []): Spec {
       continue;
     }
     node.file = inSpec(file.path);
+    node.oid = file.oid ?? null;
+    if (file.text === null && file.truncated !== true) {
+      // Listed, not read yet: it shows under its file's name until its contents arrive.
+      node.loaded = false;
+      continue;
+    }
     const read = readItem(file);
     if ("error" in read) {
       node.error = read.error;
@@ -229,6 +255,9 @@ export function buildSpec(files: SpecFile[], tooDeep: string[] = []): Spec {
       if (!assets.has(figure.src)) problems.push({ file, message: `Figure ${figure.src} isn't in ${SPEC_DIR}.` });
     }
     for (const ref of item.related ?? []) {
+      // Whether an item that isn't loaded has the requirement can't be said yet.
+      const target = nodes.get(splitSpecRef(ref).id);
+      if (target?.loaded === false) continue;
       if (resolveSpecRef({ nodes }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
     }
   }
@@ -260,11 +289,14 @@ export interface SpecCounts {
   requirements: number;
   /** How many of those are implemented. */
   implemented: number;
+  /** Items below (and the node itself) whose contents aren't loaded: their requirements aren't counted yet. */
+  unloaded: number;
 }
 
 export function specCounts(node: SpecNode): SpecCounts {
-  const counts: SpecCounts = { items: 0, requirements: 0, implemented: 0 };
+  const counts: SpecCounts = { items: 0, requirements: 0, implemented: 0, unloaded: 0 };
   const visit = (at: SpecNode) => {
+    if (!at.loaded) counts.unloaded++;
     for (const requirement of at.item?.requirements ?? []) {
       counts.requirements++;
       if ((requirement.status ?? at.item?.status) === "implemented") counts.implemented++;
@@ -335,3 +367,19 @@ export function specTextBlocks(text: string): SpecTextBlock[] {
 
 /** Whether a `code` entry is a pattern rather than one path. */
 export const isSpecPattern = (path: string) => path.includes("*");
+
+/** The files a node needs to show properly: its own, its children's, and those of the folders above it. */
+export function specFilesAround(node: SpecNode): SpecNode[] {
+  return [...specTrail(node), ...node.children, ...(node.id === "" ? [node] : [])];
+}
+
+/** Every item below `node` (and itself) that isn't loaded. */
+export function unloadedBelow(node: SpecNode): SpecNode[] {
+  const found: SpecNode[] = [];
+  const visit = (at: SpecNode) => {
+    if (!at.loaded) found.push(at);
+    at.children.forEach(visit);
+  };
+  visit(node);
+  return found;
+}

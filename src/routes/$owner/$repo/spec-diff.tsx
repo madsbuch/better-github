@@ -16,8 +16,8 @@ export const Route = createFileRoute("/$owner/$repo/spec-diff")({
     warm(
       queryClient,
       [
-        deps.base !== undefined ? query(specQueries.folder(owner, repo, deps.base)) : query(repoQueries.detail(owner, repo)),
-        ...(deps.head !== undefined ? [query(specQueries.folder(owner, repo, deps.head))] : []),
+        deps.base !== undefined ? query(specQueries.root(owner, repo, deps.base)) : query(repoQueries.detail(owner, repo)),
+        ...(deps.head !== undefined ? [query(specQueries.root(owner, repo, deps.head))] : []),
       ],
       { preload },
     ),

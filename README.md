@@ -147,8 +147,8 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
 
 - **The folders are the outline.** An item's id is its path without `.spec/` and
   `.json` (`uploads/retries`). A folder's own item is its `index.json`; a folder
-  without one is still a group, named after the folder. Folders nest up to three
-  deep.
+  without one is still a group, named after the folder. Folders nest as deep as
+  the product needs.
 - Only `title` is required. `status` is `draft`, `accepted`, `implemented` or
   `deprecated`. `order` places an item among its siblings; the rest follow by
   title.
@@ -174,12 +174,38 @@ spec, it also carries the outline and the problems the app found.
 ### Comparing two specs
 
 The compare button in the spec browser shows what differs between the specs of
-two branches, by meaning rather than by line: which items were added, removed
-or changed, and in a changed item which fields, requirements, figures and
+two branches, by meaning rather than by line: which items were added, removed,
+moved or changed, and in a changed item which fields, requirements, figures and
 lists. Items are matched by id and requirements by their id within the item, so
 a reworded requirement shows its old and new text with the differing words
-marked, and a figure whose file changed shows both pictures. A pull request
-that touches `.spec` links to the changes between its base branch and its head.
+marked, and a figure whose file changed shows both pictures.
+
+Above the changes is a list of what makes the spec **promise less**: a removed
+requirement, a level lowered from must to should, a status that went back, an
+item removed with live requirements. Each is marked on its item too, and the
+changes can be narrowed to those.
+
+### Reviewing spec changes in a pull request
+
+In a pull request's Files tab, each spec item's file is shown as what changed in
+that item instead of as a JSON diff (the file's menu switches back). The card
+has the file's *Viewed* toggle and review verdict. Every changed requirement and
+field takes a comment: it goes on the line of the file that part is on, so it is
+an ordinary review comment on GitHub, and here it shows at the requirement it is
+about. A summary above the files counts what changed in the spec and lists what
+promises less. The changes are measured against the commit the branch started
+from, so what happened on the base branch since doesn't show up as the pull
+request's doing.
+
+### Large specs
+
+A spec's size doesn't matter. The app lists the folder's files in one request and
+reads their contents in batches of 40, by git object id, only for what is being
+looked at: the outline of a 3,000-item spec reads the root and the top-level
+folders. A file that is the same on two branches is read once, so comparing two
+versions reads only the items that differ. Specs of up to 300 items are read
+whole; filtering a larger one reads the rest the first time. Long lists show 100
+rows at a time.
 
 The schema file is generated from the one the app reads with
 (`src/lib/spec.ts`): run `npm run spec:schema` after changing it. A test fails
@@ -330,6 +356,7 @@ src/                  React app
   lib/spec.ts         .spec: the item schema, the outline built from the folder, filtering
   lib/desktop.ts      keyboard shortcuts and mouse behavior for desktop windows
   lib/specDiff.ts     what changed between two specs, by item and requirement
+  lib/specLines.ts    where a requirement is in its file, to put review comments on its lines
   lib/specPrompt.ts   the prompt for a coding agent to write or improve a spec
   screens/            one file per screen; pull/ and actions/ hold their screens' parts
   dev/mock.ts         fixtures for VITE_MOCK=1

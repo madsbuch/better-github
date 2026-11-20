@@ -1,4 +1,5 @@
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { clearSpecContents } from "./spec";
 import { QueryClient } from "@tanstack/react-query";
 import { persistQueryClient } from "@tanstack/react-query-persist-client";
 import { createStore, del, get, set } from "idb-keyval";
@@ -70,5 +71,6 @@ export async function restoreCache(): Promise<void> {
 /** Forgets everything cached, in memory and on the device (on sign-out). */
 export async function clearCache(): Promise<void> {
   queryClient.clear();
+  clearSpecContents();
   await persister.removeClient();
 }

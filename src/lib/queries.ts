@@ -4,7 +4,6 @@
 
 import type { z } from "zod";
 import { gql, type GraphQLDocument } from "./schema";
-import { SPEC_MAX_DEPTH } from "./spec";
 import {
   Acknowledged,
   AddCommentResult,
@@ -26,7 +25,9 @@ import {
   RepoResult,
   ResolveThreadResult,
   ReviewRulesResult,
-  SpecResult,
+  SPEC_BLOB_BATCH,
+  SpecBlobsResult,
+  SpecRootResult,
   SearchBranchesResult,
   SearchCountsResult,
   SearchIssuesResult,
@@ -1027,23 +1028,32 @@ export const REVIEW_RULES = gql(
 `,
 );
 
-// A folder's files with their text, and its folders `depth` levels down; the
-// level below that only lists names, to tell when a spec is nested too deep.
-const specEntries = (depth: number): string =>
-  depth === 0
-    ? "entries { name }"
-    : `entries { name object { ... on Blob { oid text isTruncated } ... on Tree { ${specEntries(depth - 1)} } } }`;
-
-/** A repository's spec folder (src/lib/spec.ts), as "<branch>:.spec": every file in it, in one request. */
-export const SPEC = gql(
-  SpecResult,
+/** A repository's spec folder (src/lib/spec.ts), as "<branch>:.spec": the id of its tree, which changes when anything in it does. */
+export const SPEC_ROOT = gql(
+  SpecRootResult,
   /* GraphQL */ `
-  query Spec($owner: String!, $name: String!, $expression: String!) {
+  query SpecRoot($owner: String!, $name: String!, $expression: String!) {
     repository(owner: $owner, name: $name) {
       object(expression: $expression) {
-        ... on Blob { text isTruncated }
-        ... on Tree { ${specEntries(SPEC_MAX_DEPTH + 1)} }
+        ... on Tree { oid }
       }
+    }
+  }
+`,
+);
+
+const specBlobSlots = Array.from({ length: SPEC_BLOB_BATCH }, (_, i) => i);
+
+/**
+ * The contents of up to SPEC_BLOB_BATCH files, by git object id ($o0, $o1, ...).
+ * Every slot needs an id: repeat one to fill a short batch.
+ */
+export const SPEC_BLOBS = gql(
+  SpecBlobsResult,
+  /* GraphQL */ `
+  query SpecBlobs($owner: String!, $name: String!, ${specBlobSlots.map((i) => `$o${i}: GitObjectID!`).join(", ")}) {
+    repository(owner: $owner, name: $name) {
+      ${specBlobSlots.map((i) => `b${i}: object(oid: $o${i}) { ... on Blob { oid text isTruncated } }`).join("\n      ")}
     }
   }
 `,
@@ -1119,7 +1129,8 @@ export const ALL_DOCUMENTS: Record<string, GraphQLDocument<z.ZodType>> = {
   REPO_BRANCHES,
   SEARCH_BRANCHES,
   REVIEW_RULES,
-  SPEC,
+  SPEC_ROOT,
+  SPEC_BLOBS,
   NEW_PULL,
   ASSIGNABLE_USERS,
 };

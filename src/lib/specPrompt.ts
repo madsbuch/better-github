@@ -3,7 +3,7 @@
 // the agent knows nothing about this app or the format, and may not be able
 // to fetch the schema, so the schema is part of the prompt.
 
-import { SPEC_DIR, SPEC_MAX_DEPTH, SPEC_SCHEMA_URL, specCounts, specJsonSchema, type Spec, type SpecNode } from "./spec";
+import { SPEC_DIR, SPEC_SCHEMA_URL, specCounts, specJsonSchema, type Spec, type SpecNode } from "./spec";
 
 export interface SpecPromptInput {
   /** "owner/name". */
@@ -44,9 +44,15 @@ export const SPEC_PROMPT_EXAMPLE = {
 function outline(node: SpecNode, depth = 0): string[] {
   return node.children.flatMap((child) => {
     const count = child.item?.requirements?.length ?? 0;
-    const note = child.error !== null ? " (can't be read)" : child.file === null ? " (a folder without an index.json)" : count > 0 ? ` (${count} requirement${count === 1 ? "" : "s"})` : "";
+    const note = !child.loaded ? "" : child.error !== null ? " (can't be read)" : child.file === null ? " (a folder without an index.json)" : count > 0 ? ` (${count} requirement${count === 1 ? "" : "s"})` : "";
     return [`${"  ".repeat(depth)}- ${child.id}: ${child.title}${note}`, ...outline(child, depth + 1)];
   });
+}
+
+/** A huge spec's outline would drown the prompt: its first lines, and how many more there are. */
+const OUTLINE_MAX = 400;
+function capped(lines: string[]): string[] {
+  return lines.length <= OUTLINE_MAX ? lines : [...lines.slice(0, OUTLINE_MAX), `- ... and ${lines.length - OUTLINE_MAX} more`];
 }
 
 export function specPrompt({ repo, branch, current }: SpecPromptInput): string {
@@ -72,7 +78,7 @@ ${indent(`${SPEC_DIR}/
     backoff.png         a picture an item shows`)}
 
 - Every \`.json\` file in \`${SPEC_DIR}\` is one item. Anything else in the folder is an asset, such as a picture.
-- The folders are the outline. An item's id is its path without \`${SPEC_DIR}/\` and \`.json\`: \`uploads/retries\`. A folder's own item is its \`index.json\` (id \`uploads\`; the root's is the empty id). Folders nest at most ${SPEC_MAX_DEPTH} deep.
+- The folders are the outline. An item's id is its path without \`${SPEC_DIR}/\` and \`.json\`: \`uploads/retries\`. A folder's own item is its \`index.json\` (id \`uploads\`; the root's is the empty id). Folders nest as deep as the product needs.
 - All items follow one schema. This is \`${SPEC_DIR}/uploads/retries.json\`:
 
 ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE, null, 2))}
@@ -115,9 +121,9 @@ ${indent(JSON.stringify(specJsonSchema(), null, 2))}`,
     const counts = specCounts(current.root);
     sections.push(`## The current spec (on ${branch})
 
-${counts.items} item${counts.items === 1 ? "" : "s"} and ${counts.requirements} requirement${counts.requirements === 1 ? "" : "s"}, in \`${SPEC_DIR}\`. Read the files themselves; this is their outline:
+${counts.items} item${counts.items === 1 ? "" : "s"}${counts.unloaded === 0 ? ` and ${counts.requirements} requirement${counts.requirements === 1 ? "" : "s"}` : ""}, in \`${SPEC_DIR}\`. Read the files themselves; this is their outline:
 
-${indent([`- (root): ${current.root.title}${current.root.file === null ? " (no index.json)" : ""}`, ...outline(current.root, 1)].join("\n"))}`);
+${indent(capped([`- (root): ${current.root.title}${current.root.file === null ? " (no index.json)" : ""}`, ...outline(current.root, 1)]).join("\n"))}`);
     if (current.problems.length > 0) {
       sections.push(`The app found these problems. Fix them:
 

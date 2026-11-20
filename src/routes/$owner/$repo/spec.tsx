@@ -17,6 +17,6 @@ export const Route = createFileRoute("/$owner/$repo/spec")({
   }),
   loaderDeps: ({ search }) => ({ ref: search.ref }),
   loader: ({ context: { queryClient }, params: { owner, repo }, deps, preload }) =>
-    warm(queryClient, [deps.ref !== undefined ? query(specQueries.folder(owner, repo, deps.ref)) : query(repoQueries.detail(owner, repo))], { preload }),
+    warm(queryClient, [deps.ref !== undefined ? query(specQueries.root(owner, repo, deps.ref)) : query(repoQueries.detail(owner, repo))], { preload }),
   component: SpecScreen,
 });

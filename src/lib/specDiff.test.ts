@@ -59,7 +59,7 @@ describe("diffSpecs", () => {
       ["uploads/retries", "changed"],
       ["cli", "removed"],
     ]);
-    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1 }, requirements: { added: 2, removed: 2, changed: 2 } });
+    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, requirements: { added: 2, removed: 2, changed: 2 }, weakened: 3 });
   });
 
   it("says which fields of an item changed", () => {
@@ -104,5 +104,66 @@ describe("diffSpecs", () => {
   it("says when an item stopped being readable", () => {
     const broken = diffSpecs(buildSpec(BASE), buildSpec([...BASE.filter((f) => f.path !== "cli.json"), file("cli.json", { titel: "Command line" })]));
     expect(broken.items.map((item) => [item.id, item.kind, item.unreadable?.side])).toEqual([["cli", "changed", "after"]]);
+  });
+
+  it("points out what makes the spec promise less", () => {
+    // R4 (a must) is removed; Command line goes with its one requirement.
+    expect(retries?.requirements.map((r) => [r.id, r.weakened])).toEqual([
+      ["R1", null],
+      // should -> must is stronger.
+      ["R3", null],
+      ["R4", "A must requirement is removed."],
+      ["R5", null],
+    ]);
+    expect(retries?.weakened).toBeNull();
+    expect(diff.items[2]?.weakened).toBe("Removed, with 1 requirement that is no longer promised.");
+    expect(retries?.unchanged.map((r) => r.id)).toEqual(["R2"]);
+
+    const item = (requirements: unknown[], status?: string) => buildSpec([file("a.json", { title: "A", status, requirements })]);
+    const weaker = diffSpecs(
+      item([{ id: "1", text: "x" }, { id: "2", text: "y", status: "implemented" }, { id: "3", text: "z", level: "may" }, { id: "4", text: "w" }], "implemented"),
+      item([{ id: "1", text: "x", level: "should" }, { id: "2", text: "y", status: "draft" }, { id: "4", text: "w", status: "deprecated" }], "accepted"),
+    );
+    expect(weaker.items[0]?.weakened).toBe("Back from implemented to accepted.");
+    expect(weaker.items[0]?.requirements.map((r) => [r.id, r.weakened])).toEqual([
+      ["1", "Lowered from must to should."],
+      ["2", "Back from implemented to draft."],
+      // Dropping an optional requirement takes nothing away.
+      ["3", null],
+      ["4", "Deprecated."],
+    ]);
+    expect(weaker.counts.weakened).toBe(4);
+  });
+
+  it("skips files that are the same on both sides without reading them, and waits for the ones that differ", () => {
+    const listed = (path: string, oid: string): SpecFile => ({ path, text: null, oid });
+    const read = (path: string, oid: string, value: unknown): SpecFile => ({ ...file(path, value), oid });
+    const old = buildSpec([listed("index.json", "root"), listed("a.json", "a1"), listed("b.json", "b1"), read("c.json", "c1", { title: "C" })]);
+    const next = buildSpec([listed("index.json", "root"), listed("a.json", "a1"), listed("b.json", "b2"), read("c.json", "c2", { title: "See" })]);
+    expect(diffSpecs(old, next).items.map((item) => [item.id, item.kind, item.pending])).toEqual([
+      ["b", "changed", true],
+      ["c", "changed", false],
+    ]);
+  });
+
+  it("shows a moved item once, by its unchanged contents or by what the pull request says", () => {
+    const read = (path: string, oid: string, value: unknown): SpecFile => ({ ...file(path, value), oid });
+    const cli = { title: "Command line", requirements: [{ id: "C1", text: "Exits with 1." }] };
+    const old = buildSpec([read("cli.json", "x", cli), read("keep.json", "k", { title: "Keep" })]);
+    const sameContents = diffSpecs(old, buildSpec([read("tools/cli.json", "x", cli), read("keep.json", "k", { title: "Keep" })]));
+    expect(sameContents.items.map((item) => [item.id, item.kind, item.movedFrom, item.requirements.length])).toEqual([["tools/cli", "moved", "cli", 0]]);
+    expect(sameContents.counts.items).toEqual({ added: 0, removed: 0, changed: 0, moved: 1 });
+
+    // Moved and reworded: only the pull request knows it's the same file.
+    const edited = buildSpec([read("tools/cli.json", "y", { ...cli, title: "CLI" }), read("keep.json", "k", { title: "Keep" })]);
+    expect(diffSpecs(old, edited).items.map((item) => item.kind)).toEqual(["added", "removed"]);
+    const renamed = diffSpecs(old, edited, new Map([["tools/cli.json", "cli.json"]]));
+    expect(renamed.items.map((item) => [item.id, item.kind, item.movedFrom, item.fields])).toEqual([
+      ["tools/cli", "moved", "cli", [{ field: "title", before: "Command line", after: "CLI" }]],
+    ]);
+
+    // A copy isn't a move.
+    const copied = diffSpecs(old, buildSpec([read("cli.json", "x", cli), read("tools/cli.json", "x", cli), read("keep.json", "k", { title: "Keep" })]));
+    expect(copied.items.map((item) => [item.id, item.kind])).toEqual([["tools/cli", "added"]]);
   });
 });

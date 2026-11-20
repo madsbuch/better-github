@@ -1,0 +1,58 @@
+{
+  "$schema": "../../schema/spec.schema.json",
+  "title": "Reviewing spec changes",
+  "summary": "In a pull request, spec files are reviewed by what they change in the spec.",
+  "status": "implemented",
+  "order": 3,
+  "description": "A change to the spec is a change to what the product promises. Reading it as a JSON diff hides that: a reworded requirement, a lowered level and a moved file all look like lines.\n\nIn a pull request's Files tab, each spec item's file is shown as what changed in that item. Everything else about reviewing a file still applies to it.",
+  "requirements": [
+    {
+      "id": "SR1",
+      "text": "Each changed item file is a card showing its changed fields, requirements, figures and lists, in place of its JSON diff. The file's menu switches to the JSON diff and back."
+    },
+    {
+      "id": "SR2",
+      "text": "The changes are measured against the commit the pull request's branch started from, not the base branch as it is now. If that commit can't be found, the base branch is used."
+    },
+    {
+      "id": "SR3",
+      "text": "Above the files, a summary counts the changed items and requirements and lists what makes the spec promise less. Each entry leads to its item."
+    },
+    {
+      "id": "SR4",
+      "text": "A card has the file's viewed state, review verdict and checks, and folds away when viewed."
+    },
+    {
+      "id": "SR5",
+      "text": "A changed requirement, field or list takes a comment. The comment goes on a line of the file within that part: one the pull request changed if there is one, on the old side for what was removed."
+    },
+    {
+      "id": "SR6",
+      "text": "Review threads and pending comments on the file show at the requirement or field their line belongs to. Those on other lines, and outdated ones, follow the changes."
+    },
+    {
+      "id": "SR7",
+      "text": "Comments made on a card and on the JSON diff are the same comments: switching views loses none."
+    },
+    {
+      "id": "SR8",
+      "text": "Assets, such as pictures, stay ordinary files."
+    }
+  ],
+  "questions": [
+    "Should unchanged requirements take comments too, when the diff reaches their lines?",
+    "Should a suggestion be offered for a requirement's text, as it is for a line of code?"
+  ],
+  "code": [
+    "src/screens/pull/FilesTab.tsx",
+    "src/components/SpecChanges.tsx",
+    "src/lib/specLines.ts",
+    "src/queries/spec.ts",
+    "e2e/spec-review.spec.ts"
+  ],
+  "related": [
+    "pull-requests/reviewing",
+    "pull-requests/review-rules",
+    "repositories/spec-diff"
+  ]
+}

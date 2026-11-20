@@ -4,21 +4,24 @@ import { useQuery } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
-import { anchorKey, suggestionBody } from "../../lib/diff";
+import { anchorKey, parsePatch, suggestionBody } from "../../lib/diff";
 import type { DraftComment, useReviewDraft } from "../../lib/drafts";
 import { to, useNav } from "../../lib/nav";
 import { usePrefs } from "../../lib/prefs";
 import { useToast } from "../../lib/toast";
 import { SPEC_DIR } from "../../lib/spec";
+import type { ItemChange } from "../../lib/specDiff";
 import { reviewGuide, riskRank, RULES_FILE, type FileReview, type Risk } from "../../lib/reviewRules";
 import type { FileViewedState, PullDetail, ReviewThread } from "../../lib/types";
 import { DiffFile, type LineTarget } from "../../components/DiffView";
 import { FileReviewSheet, ReviewGuideSheet, ReviewStrip, RiskBadge } from "../../components/ReviewRules";
 import { ActionSheet, Sheet } from "../../components/Sheet";
 import { ThreadCard, type ThreadActions } from "../../components/Timeline";
+import { SpecChangeCard, SpecChangesSummary, type PlacedComment, type SpecFileReview } from "../../components/SpecChanges";
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
 import { pullQueries, useInlineComment, useToggleViewed, type RestPullFile } from "../../queries/pulls";
 import { useCopyRulesPrompt, useRecheckReviewRules, type PullReview } from "../../queries/reviewRules";
+import { mergeBaseQuery, specFileText, useSpecDiff } from "../../queries/spec";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
 
@@ -76,6 +79,35 @@ export function FilesTab({
     return [...changed].sort((a, b) => rank(b) - rank(a));
   }, [patches.data, verdicts]);
   const viewedCount = files.filter((f) => viewed.data?.[f.filename] === "VIEWED").length;
+
+  // The spec files of a pull request are reviewed by what they say, not as JSON:
+  // which items and requirements it adds, removes, rewords or weakens.
+  const inSpec = (path: string | undefined) => path?.startsWith(`${SPEC_DIR}/`) === true;
+  const touchesSpec = files.some((file) => inSpec(file.filename) || inSpec(file.previous_filename));
+  const mergeBase = useQuery({ ...mergeBaseQuery(owner, repo, pr.baseRefName, pr.headRefOid), enabled: touchesSpec });
+  // Should that fail, the base branch as it is now is the next best thing.
+  const specBase = !touchesSpec ? "" : (mergeBase.data ?? (mergeBase.isError ? pr.baseRefName : ""));
+  const renames = useMemo(() => {
+    const moved = new Map<string, string>();
+    for (const file of files) {
+      if (inSpec(file.filename) && inSpec(file.previous_filename)) {
+        moved.set(file.filename.slice(SPEC_DIR.length + 1), (file.previous_filename ?? "").slice(SPEC_DIR.length + 1));
+      }
+    }
+    return moved;
+  }, [files]);
+  const specDiff = useSpecDiff(owner, repo, specBase, touchesSpec ? pr.headRefOid : "", renames);
+  const specChanges = useMemo(() => {
+    const byFile = new Map<string, ItemChange>();
+    for (const change of specDiff.diff?.items ?? []) {
+      const file = (change.after ?? change.before)?.file;
+      if (file !== null && file !== undefined) byFile.set(file, change);
+    }
+    return byFile;
+  }, [specDiff.diff]);
+  // Files switched back to their JSON diff.
+  const [asJson, setAsJson] = useState<Record<string, boolean>>({});
+  const specSides = useMemo(() => ({ owner, repo, base: specBase, head: pr.headRefOid }), [owner, repo, specBase, pr.headRefOid]);
   const guide = useMemo(() => reviewGuide(verdicts, files.map((f) => f.filename)), [verdicts, files]);
   const copyPrompt = useCopyRulesPrompt();
 
@@ -109,11 +141,13 @@ export function FilesTab({
     await inlineComment.mutateAsync({ body, commitId: pr.headRefOid, path: line.path, line: line.number, side: line.side });
   };
 
-  const scrollToFile = (path: string) => {
+  /** Opens a file and brings it into view; `or` is tried when no file has the first path. */
+  const scrollToFile = (path: string, or?: string) => {
     onJumpClose();
-    setCollapsed((c) => ({ ...c, [path]: false }));
+    const target = or !== undefined && !files.some((file) => file.filename === path) ? or : path;
+    setCollapsed((c) => ({ ...c, [target]: false }));
     window.setTimeout(() => {
-      const el = document.querySelector(`.screen .diff-file[data-path="${CSS.escape(path)}"]`);
+      const el = document.querySelector(`.screen .diff-file[data-path="${CSS.escape(target)}"]`);
       el?.scrollIntoView({ block: "start" });
     }, 80);
   };
@@ -145,47 +179,44 @@ export function FilesTab({
         baseRef={pr.baseRefName}
         onOpenGuide={() => setGuideOpen(true)}
       />
-      {files.some((file) => file.filename.startsWith(`${SPEC_DIR}/`) || file.previous_filename?.startsWith(`${SPEC_DIR}/`) === true) && (
-        // The JSON diffs below say which lines changed; this says what changed in the spec.
-        <Link {...to.specDiff(owner, repo, pr.baseRefName, pr.headRefOid)} className="spec-changes-link">
-          <NoteIcon size={16} className="c-accent" />
-          <span className="grow">
-            <span className="bold">This pull request changes the spec</span>
-            <span className="muted small" style={{ display: "block" }}>
-              See which items and requirements it adds, removes and rewords.
-            </span>
-          </span>
-          <ChevronRightIcon size={16} className="c-muted" />
-        </Link>
+      {touchesSpec && specDiff.diff !== null && specDiff.diff.items.length > 0 && (
+        <div className="spec-review-summary">
+          <div className="row-flex" style={{ padding: "10px 16px 0" }}>
+            <NoteIcon size={16} className="c-accent" />
+            <span className="bold grow">Spec changes</span>
+            <Link {...to.specDiff(owner, repo, specBase, pr.headRefOid)} className="small">
+              Open on their own <ChevronRightIcon size={12} />
+            </Link>
+          </div>
+          <SpecChangesSummary diff={specDiff.diff} onShow={(id) => scrollToFile(`${SPEC_DIR}/${id}.json`, `${SPEC_DIR}/${id === "" ? "index" : `${id}/index`}.json`)} />
+        </div>
       )}
       {files.map((file) => {
         const path = file.filename;
-        return (
-          <FileWithComments
-            key={path}
-            file={file}
-            wrap={prefs.wrapDiff}
-            collapsed={isCollapsed(path)}
-            onToggleCollapsed={() => setCollapsed((c) => ({ ...c, [path]: !isCollapsed(path) }))}
-            viewed={viewed.data?.[path] === "VIEWED"}
-            review={verdicts.get(path)}
-            onOpenReview={() => setChecksFor(path)}
-            onToggleViewed={() => {
-              const next = viewed.data?.[path] !== "VIEWED";
-              toggleViewed.mutate({ pullRequestId: pr.id, path, viewed: next });
-              setCollapsed((c) => ({ ...c, [path]: next }));
-            }}
-            onMenu={() => setFileMenu(file)}
-            threads={threadsByFile.get(path)}
-            drafts={draftsByFile.get(path)}
-            threadActions={threadActions}
-            viewerLogin={viewerLogin}
-            selectedKey={target?.line.path === path ? anchorKey(target.line.side, target.line.number) : null}
-            onLineSelect={(line) => setTarget({ line })}
-            onEditDraft={(draft, line) => setTarget({ line, draft })}
-            onDeleteDraft={(draft) => drafts.removeComment(draft.id)}
-          />
-        );
+        const change = asJson[path] === true ? undefined : specChanges.get(path);
+        const shared = {
+          collapsed: isCollapsed(path),
+          onToggleCollapsed: () => setCollapsed((c) => ({ ...c, [path]: !isCollapsed(path) })),
+          viewed: viewed.data?.[path] === "VIEWED",
+          review: verdicts.get(path),
+          onOpenReview: () => setChecksFor(path),
+          onToggleViewed: () => {
+            const next = viewed.data?.[path] !== "VIEWED";
+            toggleViewed.mutate({ pullRequestId: pr.id, path, viewed: next });
+            setCollapsed((c) => ({ ...c, [path]: next }));
+          },
+          onMenu: () => setFileMenu(file),
+          threads: threadsByFile.get(path),
+          drafts: draftsByFile.get(path),
+          threadActions,
+          viewerLogin,
+          selectedKey: target?.line.path === path ? anchorKey(target.line.side, target.line.number) : null,
+          onLineSelect: (line: LineTarget) => setTarget({ line }),
+          onEditDraft: (draft: DraftComment, line: LineTarget) => setTarget({ line, draft }),
+          onDeleteDraft: (draft: DraftComment) => drafts.removeComment(draft.id),
+        };
+        if (change) return <SpecFileCard key={path} file={file} change={change} sides={specSides} {...shared} />;
+        return <FileWithComments key={path} file={file} wrap={prefs.wrapDiff} {...shared} />;
       })}
       {files.length === 0 && <div className="center">No files changed.</div>}
 
@@ -251,6 +282,12 @@ export function FilesTab({
             icon: <FileIcon size={18} />,
             hidden: fileMenu?.status === "removed",
             onSelect: () => fileMenu && nav.navigate(to.blob(owner, repo, pr.headRefOid, fileMenu.filename)),
+          },
+          {
+            label: fileMenu !== null && asJson[fileMenu.filename] === true ? "Show what changed in the spec" : "Show the JSON diff",
+            icon: <NoteIcon size={18} />,
+            hidden: fileMenu === null || !specChanges.has(fileMenu.filename),
+            onSelect: () => fileMenu && setAsJson((current) => ({ ...current, [fileMenu.filename]: current[fileMenu.filename] !== true })),
           },
           {
             label: "Copy path",
@@ -383,6 +420,116 @@ const FileWithComments = memo(function FileWithComments({
       inline={inline}
       top={top}
       badge={review && <RiskBadge risk={review.risk} />}
+    />
+  );
+}, sameData);
+
+/**
+ * A spec item's file in a pull request, shown as what changed in the spec.
+ * Comments are still on lines of the file, as GitHub needs them; each shows
+ * at the requirement or field its line belongs to.
+ */
+const SpecFileCard = memo(function SpecFileCard({
+  file,
+  change,
+  sides,
+  review,
+  onOpenReview,
+  threads,
+  drafts,
+  threadActions,
+  viewerLogin,
+  selectedKey,
+  onLineSelect,
+  onEditDraft,
+  onDeleteDraft,
+  collapsed,
+  onToggleCollapsed,
+  viewed,
+  onToggleViewed,
+  onMenu,
+}: {
+  file: RestPullFile;
+  change: ItemChange;
+  sides: { owner: string; repo: string; base: string; head: string };
+  review: FileReview | undefined;
+  onOpenReview: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  viewed: boolean;
+  onToggleViewed: () => void;
+  onMenu: () => void;
+  threads: ReviewThread[] | undefined;
+  drafts: DraftComment[] | undefined;
+  threadActions: ThreadActions;
+  viewerLogin: string;
+  selectedKey: string | null;
+  onLineSelect: (line: LineTarget) => void;
+  onEditDraft: (draft: DraftComment, line: LineTarget) => void;
+  onDeleteDraft: (draft: DraftComment) => void;
+}) {
+  const hunks = useMemo(() => parsePatch(file.patch), [file.patch]);
+  const [beforeOid, afterOid] = [change.before?.oid, change.after?.oid];
+  const fileReview = useMemo((): SpecFileReview => {
+    const comments: PlacedComment[] = [];
+    const outdated: ReviewThread[] = [];
+    for (const thread of threads ?? []) {
+      if (thread.isOutdated || thread.line === null || thread.subjectType === "FILE") outdated.push(thread);
+      else {
+        comments.push({
+          key: thread.id,
+          side: thread.diffSide,
+          line: thread.line,
+          node: <ThreadCard key={thread.id} thread={thread} actions={threadActions} showContext={false} viewerLogin={viewerLogin} />,
+        });
+      }
+    }
+    for (const draft of drafts ?? []) {
+      const line = { kind: draft.side === "LEFT" ? ("del" as const) : ("ctx" as const), text: "", oldNo: null, newNo: null };
+      comments.push({
+        key: draft.id,
+        side: draft.side,
+        line: draft.line,
+        node: (
+          <DraftCard
+            key={draft.id}
+            draft={draft}
+            onEdit={() => onEditDraft(draft, { path: draft.path, side: draft.side, number: draft.line, line })}
+            onDelete={() => onDeleteDraft(draft)}
+          />
+        ),
+      });
+    }
+    return {
+      hunks,
+      // Read by now: the card isn't shown while its item is on its way.
+      text: { before: specFileText(beforeOid), after: specFileText(afterOid) },
+      comments,
+      outdated:
+        outdated.length > 0 ? (
+          <>
+            {outdated.map((thread) => (
+              <ThreadCard key={thread.id} thread={thread} actions={threadActions} showContext viewerLogin={viewerLogin} defaultOpen={false} />
+            ))}
+          </>
+        ) : undefined,
+      selectedKey,
+      onComment: (line) => onLineSelect({ path: file.filename, side: line.side, number: line.number, line: line.line }),
+    };
+  }, [hunks, beforeOid, afterOid, threads, drafts, threadActions, viewerLogin, selectedKey, onLineSelect, onEditDraft, onDeleteDraft, file.filename]);
+
+  return (
+    <SpecChangeCard
+      change={change}
+      sides={sides}
+      collapsed={collapsed}
+      onToggleCollapsed={onToggleCollapsed}
+      viewed={viewed}
+      onToggleViewed={onToggleViewed}
+      onMenu={onMenu}
+      badge={review && <RiskBadge risk={review.risk} />}
+      top={review && <ReviewStrip review={review} onOpen={onOpenReview} />}
+      review={fileReview}
     />
   );
 }, sameData);

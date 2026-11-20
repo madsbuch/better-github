@@ -47,9 +47,13 @@ by path (Actions: `actionsBody`; releases: `releasesBody`; new pull requests:
 branches over three pages, with an old `staging` last, to exercise paging and
 ranking. `ROCKET_REVIEW_RULES` is acme/rocket's `.review-rules` on
 main: pull request 482 gets one file of each verdict, and pull request 483 also
-edits the rules. `ROCKET_SPEC` is acme/rocket's `.spec` folder on main (on
-`staging` one item can't be read; `eng-629-retries` and pull request 484's head
-have `ROCKET_SPEC_NEXT`, which changes it in every way the spec diff shows). After changing the item schema in
+edits the rules. `SPEC_VERSIONS` holds every fixture spec by `owner/repo@ref`: acme/rocket's on
+main, on `staging` (one item can't be read) and on `eng-629-retries` (changed in
+every way the spec diff shows), and acme/atlas's 3,041 items on main and `next`.
+Pull request 484 changes the spec from main's to `eng-629-retries`'s; its patches
+are generated from the two, so line numbers are real. The mock logs
+`[mock] spec-blobs <n>` per batch of files read and `[mock] spec-root <ref>` per
+version asked for, which the e2e tests count. After changing the item schema in
 `src/lib/spec.ts`, run `npm run spec:schema` and commit `schema/spec.schema.json`.
 Android-only bridges (`window.GhCommanderDownloads`)
 are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or

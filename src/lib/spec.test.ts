@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import committedSchema from "../../schema/spec.schema.json";
-import { buildSpec, searchSpec, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, type SpecFile } from "./spec";
+import { buildSpec, searchSpec, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, unloadedBelow, type SpecFile } from "./spec";
 
 const file = (path: string, value: unknown): SpecFile => ({ path, text: typeof value === "string" ? value : JSON.stringify(value), truncated: false });
 
@@ -43,14 +43,32 @@ describe("buildSpec", () => {
   });
 
   it("counts items and requirements below a node", () => {
-    expect(specCounts(spec.root)).toEqual({ items: 4, requirements: 3, implemented: 1 });
-    expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, implemented: 1 });
+    expect(specCounts(spec.root)).toEqual({ items: 4, requirements: 3, implemented: 1, unloaded: 0 });
+    expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, implemented: 1, unloaded: 0 });
   });
 
   it("resolves references to items and requirements", () => {
     expect(resolveSpecRef(spec, "cli#C1")?.requirement?.text).toBe("Exits with 1 when an upload fails.");
     expect(resolveSpecRef(spec, "uploads")?.node.title).toBe("Uploads");
     expect(resolveSpecRef(spec, "cli#C9")).toBeNull();
+  });
+
+  it("lists items whose contents aren't loaded yet under their file's name, without calling them broken", () => {
+    const partial = buildSpec([
+      file("index.json", { title: "Rocket" }),
+      { path: "uploads/index.json", text: null, oid: "a" },
+      { ...file("uploads/retries.json", { title: "Retries", requirements: [{ id: "R1", text: "x" }], related: ["uploads/limits#L9", "cli"] }), oid: "b" },
+      { path: "uploads/limits.json", text: null, oid: "c" },
+      { path: "a/b/c/d/e/deep.json", text: null, oid: "d" },
+    ]);
+    expect(partial.problems).toEqual([{ file: ".spec/uploads/retries.json", message: 'Nothing in the spec is called "cli".' }]);
+    const uploads = partial.nodes.get("uploads") ?? partial.root;
+    expect([uploads.title, uploads.loaded, uploads.oid]).toEqual(["uploads", false, "a"]);
+    expect(uploads.children.map((n) => [n.title, n.loaded])).toEqual([["limits", false], ["Retries", true]]);
+    expect(specCounts(partial.root)).toEqual({ items: 4, requirements: 1, implemented: 0, unloaded: 3 });
+    expect(unloadedBelow(uploads).map((n) => n.id)).toEqual(["uploads", "uploads/limits"]);
+    // Folders nest as deep as they like.
+    expect(partial.nodes.get("a/b/c/d/e/deep")?.file).toBe(".spec/a/b/c/d/e/deep.json");
   });
 
   it("keeps what it can read and reports the rest", () => {
@@ -65,7 +83,7 @@ describe("buildSpec", () => {
         file("dup/index.json", { title: "Other" }),
         { path: "huge.json", text: '{"title":', truncated: true },
       ],
-      ["a/b/c/d"],
+      true,
     );
     expect(broken.root.children.map((n) => [n.id, n.item !== null])).toEqual([
       ["bad", false],
@@ -77,7 +95,7 @@ describe("buildSpec", () => {
       ["typo", false],
     ]);
     expect(broken.problems.map((p) => `${p.file}: ${p.message}`)).toEqual([
-      ".spec/a/b/c/d: Items can be at most 3 folders deep. What's in this folder isn't shown.",
+      ".spec: The folder has more files than GitHub lists in one go. Some items are missing here.",
       ".spec/bad.json: The file isn't valid JSON.",
       `.spec/dup/index.json: .spec/dup.json already describes "dup". This file isn't shown.`,
       ".spec/empty.json: title: Too small: expected string to have >=1 characters",
