@@ -21,7 +21,7 @@ test("a pull request's spec files are reviewed by what they change in the spec",
   // Before any file: how much of the spec changes, and where it now promises less.
   const summary = activeScreen(page).locator(".spec-review-summary");
   await expect(summary.locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−24 values +1~2−1");
-  await expect(summary.locator(".spec-weakened li")).toHaveCount(6);
+  await expect(summary.locator(".spec-weakened li")).toHaveCount(5);
 
   // Each item's file is a card saying what changed, with the file's verdict and viewed state.
   const retries = await shown(page, "uploads/retries");
@@ -90,8 +90,8 @@ test("a comment on a requirement lands on its line of the file and shows at the 
   await expect(r2.locator(".draft-comment")).toContainText("Still true with 429s?");
 
   // So does a field of the item.
-  await retries.getByRole("button", { name: "Comment on the status" }).click();
-  await expect(sheet.locator(".dl.add")).toContainText('"status": "draft"');
+  await retries.getByRole("button", { name: "Comment on the description" }).click();
+  await expect(sheet.locator(".dl.add")).toContainText('"description":');
   await page.keyboard.press("Escape");
 
   // The same comments are on the file's lines when it is shown as JSON.

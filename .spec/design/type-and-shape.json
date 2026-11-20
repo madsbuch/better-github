@@ -2,7 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
   "title": "Type and shape",
   "summary": "Fonts, corners and the height of the bars.",
-  "status": "accepted",
   "order": 2,
   "requirements": [
     {

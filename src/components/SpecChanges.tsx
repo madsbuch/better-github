@@ -12,7 +12,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { anchorKey, type Hunk, type Segment, type Side } from "../lib/diff";
 import { to } from "../lib/nav";
 import { setPref, useMediaQuery, usePrefs } from "../lib/prefs";
-import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue } from "../lib/spec";
+import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStory, type SpecValue } from "../lib/spec";
 import { VALUE_TYPE_LABEL } from "../lib/specValues";
 import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange, ValueChange } from "../lib/specDiff";
 import { commentLine, entrySpan, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
@@ -336,7 +336,7 @@ function CardBody({ change, sides, review }: CardProps) {
             const talk = discuss(`field:${field.field}`, lines.field(field.field), `the ${FIELD_LABEL[field.field].toLowerCase()}`);
             return (
               <div key={field.field} className="spec-part" data-selected={talk.selected}>
-                <Field change={field} whole={whole} action={talk.button} />
+                <Field change={field} action={talk.button} />
                 {talk.comments}
               </div>
             );
@@ -662,15 +662,10 @@ function TextChange({ before, after }: { before: string | undefined; after: stri
 const FIELD_LABEL: Record<FieldChange["field"], string> = {
   title: "Title",
   summary: "Summary",
-  status: "Status",
   description: "Description",
   order: "Position",
   deprecation: "Why it is deprecated",
 };
-
-const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", deprecated: "Deprecated" };
-const isStatus = (value: string): value is SpecStatus => value in STATUS_LABEL;
-const statusLabel = (value: string | undefined) => (value === undefined ? "none" : isStatus(value) ? STATUS_LABEL[value] : value);
 
 /** A short value that changed, as "old → new". */
 function Move({ label, before, after, action }: { label: string; before: string; after: string; action?: ReactNode }) {
@@ -684,21 +679,8 @@ function Move({ label, before, after, action }: { label: string; before: string;
   );
 }
 
-/** `whole`: the item itself was added or removed, so every field is on one side only. */
-function Field({ change, whole, action }: { change: FieldChange; whole: boolean; action: ReactNode }) {
+function Field({ change, action }: { change: FieldChange; action: ReactNode }) {
   const label = FIELD_LABEL[change.field];
-  // A new or removed item has one status, not a move from or to nothing.
-  if (change.field === "status" && (change.before === undefined || change.after === undefined) && whole) {
-    return (
-      <div className="spec-diff-move">
-        <span className="grow">
-          <span className="muted">{label}</span> {statusLabel(change.after ?? change.before)}
-        </span>
-        {action}
-      </div>
-    );
-  }
-  if (change.field === "status") return <Move label={label} before={statusLabel(change.before)} after={statusLabel(change.after)} action={action} />;
   if (change.field === "order") return <Move label={label} before={change.before ?? "by title"} after={change.after ?? "by title"} action={action} />;
   return (
     <Section title={label} action={action}>
@@ -763,9 +745,6 @@ function Value({ change, action, comments, selected }: { change: ValueChange; ac
           <CheckText text={shown.description} />
         </div>
       )}
-      {before !== null && after !== null && before.status !== after.status && (
-        <Move label="Status" before={before.status === undefined ? "its item's" : statusLabel(before.status)} after={after.status === undefined ? "its item's" : statusLabel(after.status)} />
-      )}
       {after?.deprecation !== undefined && before?.deprecation?.reason !== after.deprecation.reason && (
         <div className="spec-diff-same small">
           <span className="bold">Why it is deprecated</span> <CheckText text={after.deprecation.reason} />
@@ -819,9 +798,6 @@ function Story({ change, action, comments, selected }: { change: StoryChange; ac
       {before !== null && after !== null && (
         <>
           {refs(before) !== refs(after) && <Move label="Made true by" before={refs(before) === "" ? "nothing" : refs(before)} after={refs(after) === "" ? "nothing" : refs(after)} />}
-          {before.status !== after.status && (
-            <Move label="Status" before={before.status === undefined ? "its item's" : statusLabel(before.status)} after={after.status === undefined ? "its item's" : statusLabel(after.status)} />
-          )}
         </>
       )}
       {(before === null || after === null) && refs(shown) !== "" && (
@@ -910,10 +886,6 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
       {before !== null && after !== null && (
         <>
           {levelOf(before) !== levelOf(after) && <Move label="Level" before={levelOf(before)} after={levelOf(after)} />}
-          {before.status !== after.status && (
-            // Without one of its own, a requirement has its item's status.
-            <Move label="Status" before={before.status === undefined ? "its item's" : statusLabel(before.status)} after={after.status === undefined ? "its item's" : statusLabel(after.status)} />
-          )}
         </>
       )}
       {after?.deprecation !== undefined && (

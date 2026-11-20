@@ -2,7 +2,6 @@
   "$schema": "../../schema/spec.schema.json",
   "title": "Spec changes",
   "summary": "What differs between the specs of two branches, by item and requirement.",
-  "status": "accepted",
   "order": 2,
   "description": "A line diff of the JSON files says which lines changed. This says what changed in the spec: which items and requirements were added, removed or reworded.\n\nIt compares a base (by default the default branch) with another branch or commit.",
   "stories": [
@@ -42,7 +41,16 @@
     },
     {
       "id": "D3",
-      "text": "A requirement whose level or status changed shows the old and the new value. Leaving `level` out and writing `must` are the same."
+      "text": "A requirement whose level changed shows the old and the new level. Leaving `level` out and writing `must` are the same.",
+      "history": [
+        {
+          "version": 1,
+          "text": "A requirement whose level or status changed shows the old and the new value. Leaving `level` out and writing `must` are the same.",
+          "reason": "The format no longer has statuses: the deprecation record alone marks what was dropped.",
+          "date": "2026-11-20"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "D4",
@@ -101,13 +109,19 @@
     },
     {
       "id": "D11",
-      "text": "Changes that take something away from the spec are pointed out, in a list above the changes and on each item and requirement: a deleted requirement or item (it should have been deprecated), a deprecation with its reason, a lowered level, a status that went back.",
-      "version": 2,
+      "text": "Changes that take something away from the spec are pointed out, in a list above the changes and on each item and requirement: a deleted requirement or item (it should have been deprecated), a deprecation with its reason, a lowered level.",
+      "version": 3,
       "history": [
         {
           "version": 1,
           "text": "Changes that make the spec promise less are pointed out, in a list above the changes and on each item and requirement: a removed must or should requirement, a lowered level, a status that went back, a removed item with live requirements.",
           "reason": "Nothing is deleted from a spec any more: what is no longer wanted is deprecated. So every deletion is pointed out, not only those of must and should requirements.",
+          "date": "2026-11-20"
+        },
+        {
+          "version": 2,
+          "text": "Changes that take something away from the spec are pointed out, in a list above the changes and on each item and requirement: a deleted requirement or item (it should have been deprecated), a deprecation with its reason, a lowered level, a status that went back.",
+          "reason": "The format no longer has statuses, so none can go back.",
           "date": "2026-11-20"
         }
       ]

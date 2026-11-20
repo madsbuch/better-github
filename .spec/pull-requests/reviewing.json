@@ -2,7 +2,6 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Reviewing",
   "summary": "Commenting on lines, suggesting changes and submitting a review.",
-  "status": "accepted",
   "order": 2,
   "stories": [
     {

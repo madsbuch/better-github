@@ -67,7 +67,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   await sheet(page).getByLabel("What has to be true").fill("A retry gives up after a minute.");
   await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
   await expect(requirement(page, "R5").locator(".rework-mark")).toHaveText("New");
-  // It says what is wanted, nothing about what is built: no status of its own.
+  // It says what is wanted, and nothing about where it stands: there is no status.
   await expect(requirement(page, "R5").locator(".spec-req-head")).toHaveText("R5must");
 
   // A user story: who wants it. It gets an id nothing in the spec has, and its requirements have to exist.
@@ -112,7 +112,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   // The file it hands over is a valid item: the app would read it back.
   const json = /### `\.spec\/uploads\/retries\.json`\n\n([\s\S]*?)\n\n## What to do/.exec(handover)?.[1] ?? "";
   const written: unknown = JSON.parse(json.replace(/^ {4}/gm, ""));
-  expect(written).toMatchObject({ title: "Retries", requirements: [{ id: "R1", version: 2 }, { id: "R2", status: "deprecated" }, { id: "R3" }, { id: "R4" }, { id: "R5" }] });
+  expect(written).toMatchObject({ title: "Retries", requirements: [{ id: "R1", version: 2 }, { id: "R2", deprecation: { reason: "Uploads restart cheaply now." } }, { id: "R3" }, { id: "R4" }, { id: "R5" }] });
   expect(errors).toEqual([]);
 });
 
@@ -159,7 +159,7 @@ test("a part is edited, deprecated with a reason, and new parts are added", asyn
   await sheet(page).getByLabel("Summary").fill("Picking up where it stopped.");
   await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
   await expect(screenTitle(page)).toHaveText("Resuming uploads");
-  await expect(activeScreen(page).locator(".spec-item h2")).toContainText("Draft");
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Resuming uploads");
   await activeScreen(page).getByRole("button", { name: "Add a requirement" }).click();
   // Its first requirement gets a prefix from its name.
   await expect(sheet(page).getByLabel("Id")).toHaveValue("RES-1");
@@ -169,7 +169,7 @@ test("a part is edited, deprecated with a reason, and new parts are added", asyn
   // An existing part: its own text, and deprecating it needs a reason.
   await open(page, "/acme/rocket/spec?ref=main&id=cli");
   await activeScreen(page).getByRole("button", { name: "Edit this part" }).click();
-  await sheet(page).getByLabel("Status").selectOption("deprecated");
+  await sheet(page).getByRole("checkbox", { name: /^Deprecated/ }).check();
   await expect(sheet(page).getByRole("button", { name: "Save" })).toBeDisabled();
   await sheet(page).getByLabel("Why it is no longer wanted").fill("There is an app now.");
   await sheet(page).getByRole("button", { name: "Save" }).click();

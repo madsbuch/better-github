@@ -26,7 +26,6 @@ import {
   type SpecLevel,
   type SpecNode,
   type SpecRequirement,
-  type SpecStatus,
   type SpecStory,
   type SpecValue,
   valueText,
@@ -69,7 +68,7 @@ export function reviseRequirement(original: SpecRequirement, revision: Revision,
 
 /** A requirement as deprecated: it stays, with why. */
 export function deprecateRequirement(original: SpecRequirement, reason: string, replacedBy: string[], date = today()): SpecRequirement {
-  return { ...original, status: "deprecated", deprecation: { reason, ...(replacedBy.length > 0 ? { replacedBy } : {}), date } };
+  return { ...original, deprecation: { reason, ...(replacedBy.length > 0 ? { replacedBy } : {}), date } };
 }
 
 /** `item` with one requirement replaced (or, with null, taken out again: only for ones the draft added). */
@@ -100,7 +99,7 @@ export function withStory(item: SpecItem, id: string, story: SpecStory | null): 
 
 /** A user story as deprecated: it stays, with why. */
 export function deprecateStory(original: SpecStory, reason: string, date = today()): SpecStory {
-  return { ...original, status: "deprecated", deprecation: { reason, date } };
+  return { ...original, deprecation: { reason, date } };
 }
 
 /** An id for a new user story that nothing in the spec has: "US-1", "US-2", continuing the highest in use. */
@@ -131,8 +130,8 @@ const valueCore = (value: SpecValue) => JSON.stringify([value.type, value.value,
  * history with the reason; a change to its description alone leaves no record.
  */
 export function reviseValue(original: SpecValue, next: SpecValue, reason: string, date = today()): SpecValue {
-  const { history: _history, status, deprecation, ...own } = next;
-  const kept = { ...(original.status !== undefined ? { status: original.status } : status !== undefined ? { status } : {}), ...(deprecation !== undefined ? { deprecation } : {}) };
+  const { history: _history, deprecation, ...own } = next;
+  const kept = deprecation !== undefined ? { deprecation } : {};
   if (valueCore(original) === valueCore(next)) return { ...own, ...kept, ...(original.history !== undefined ? { history: original.history } : {}) };
   const was = { value: original.value, ...(original.type === "color" && original.dark !== undefined ? { dark: original.dark } : {}), reason, date };
   return { ...own, ...kept, history: [...(original.history ?? []), was] };
@@ -140,28 +139,28 @@ export function reviseValue(original: SpecValue, next: SpecValue, reason: string
 
 /** A named value as deprecated: it stays, with why. */
 export function deprecateValue(original: SpecValue, reason: string, date = today()): SpecValue {
-  return { ...original, status: "deprecated", deprecation: { reason, date } };
+  return { ...original, deprecation: { reason, date } };
 }
 
 export interface ItemFields {
   title: string;
   summary: string;
   description: string;
-  status: SpecStatus | undefined;
-  /** Why, when the status is deprecated. */
+  /** Dropped from the spec, and kept so it doesn't come back. */
+  deprecated: boolean;
+  /** Why, when it is deprecated. */
   deprecationReason: string;
 }
 
 /** `item` with its own fields edited. Empty text removes the field. */
 export function withFields(item: SpecItem, fields: ItemFields, date = today()): SpecItem {
-  const { summary: _summary, description: _description, status: _status, deprecation, ...rest } = item;
+  const { summary: _summary, description: _description, deprecation, ...rest } = item;
   return {
     ...rest,
     title: fields.title,
     ...(fields.summary !== "" ? { summary: fields.summary } : {}),
-    ...(fields.status !== undefined ? { status: fields.status } : {}),
     // The record of an earlier deprecation is kept as it is unless its reason changes.
-    ...(fields.status === "deprecated"
+    ...(fields.deprecated
       ? { deprecation: deprecation?.reason === fields.deprecationReason ? deprecation : { reason: fields.deprecationReason, date } }
       : {}),
     ...(fields.description !== "" ? { description: fields.description } : {}),
@@ -339,15 +338,14 @@ function requirementLine(change: RequirementChange): string {
   if (after === null) return `- ${change.id}: deleted.`;
   const level = after.level ?? "must";
   if (before === null) return `- ${change.id}: new (${level}). ${quote(after.text)}`;
-  if (after.status === "deprecated" && before.status !== "deprecated") {
-    const replaced = (after.deprecation?.replacedBy ?? []).join(", ");
-    return `- ${change.id}: deprecated. Why: ${after.deprecation?.reason ?? "no reason given"}${replaced !== "" ? ` Replaced by ${replaced}.` : ""}`;
+  if (after.deprecation !== undefined && before.deprecation === undefined) {
+    const replaced = (after.deprecation.replacedBy ?? []).join(", ");
+    return `- ${change.id}: deprecated. Why: ${after.deprecation.reason}${replaced !== "" ? ` Replaced by ${replaced}.` : ""}`;
   }
   const parts: string[] = [];
   if (change.version?.kind === "bumped") parts.push(`version ${change.version.from} to ${change.version.to}`);
   if (before.text !== after.text) parts.push(`was ${quote(before.text)}, now ${quote(after.text)}`);
   if ((before.level ?? "must") !== level) parts.push(`${before.level ?? "must"} to ${level}`);
-  if (before.status !== after.status) parts.push(`status ${before.status ?? "the item's"} to ${after.status ?? "the item's"}`);
   const why = change.version?.kind === "bumped" && change.version.reason !== null ? ` Why: ${change.version.reason}` : "";
   const wording = change.version?.kind === "same" ? " A wording fix: what it means is the same." : "";
   return `- ${change.id}: ${parts.join("; ")}.${why}${wording}`;
@@ -357,7 +355,7 @@ function storyLine(change: ItemChange["stories"][number]): string {
   const { before, after } = change;
   if (after === null) return `- ${change.id}: user story deleted.`;
   if (before === null) return `- ${change.id}: new user story. ${quote(storySentence(after))}`;
-  if (after.status === "deprecated" && before.status !== "deprecated") return `- ${change.id}: user story deprecated. Why: ${after.deprecation?.reason ?? "no reason given"}`;
+  if (after.deprecation !== undefined && before.deprecation === undefined) return `- ${change.id}: user story deprecated. Why: ${after.deprecation.reason}`;
   return `- ${change.id}: user story was ${quote(storySentence(before))}, now ${quote(storySentence(after))}.`;
 }
 
@@ -367,7 +365,7 @@ function valueLine(change: ItemChange["values"][number]): string {
   const { before, after } = change;
   if (after === null) return `- ${change.id}: value deleted.`;
   if (before === null) return `- ${change.id}: new ${after.type} value, ${shownValue(after)}.${after.description !== undefined ? ` ${after.description}` : ""}`;
-  if (after.status === "deprecated" && before.status !== "deprecated") return `- ${change.id}: value deprecated. Why: ${after.deprecation?.reason ?? "no reason given"}`;
+  if (after.deprecation !== undefined && before.deprecation === undefined) return `- ${change.id}: value deprecated. Why: ${after.deprecation.reason}`;
   if (shownValue(before) === shownValue(after)) return `- ${change.id}: its description changed; what it is stays ${shownValue(after)}.`;
   return `- ${change.id}: was ${shownValue(before)}, now ${shownValue(after)}.${change.reason !== null ? ` Why: ${change.reason}` : ""}`;
 }
@@ -435,9 +433,9 @@ ${files.map((file) => `### \`${file.path}\`${file.isNew ? " (new)" : ""}\n\n${fi
 2. Write the files above.
 3. Then bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}${values.length > 0 ? `, and value by value: ${values.join(", ")}. A named value is decided in the spec: wherever the product has it (a constant, a theme file, copy), make it what the spec says` : ""}. The spec says what it must do, not where or how that is built: find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove the behavior it described unless its reason says otherwise.
 4. Keep the spec's rules:
-   - The spec doesn't say what is built. It has no status for that and names no files; don't add either.
+   - The spec has no statuses and names no files; don't add either.
    - A requirement's \`id\` is unique in the whole spec and never changes or gets reused.
-   - A requirement is never deleted. One that is no longer wanted has \`"status": "deprecated"\` and a \`deprecation\` with the \`reason\`.
+   - A requirement is never deleted. One that is no longer wanted gets a \`deprecation\` with the \`reason\`, and stays.
    - When what a requirement means changes, its \`version\` goes up by one and what it said goes into its \`history\`, with the \`reason\`. History is never edited.
    - Every file fits the schema. Unknown keys are errors.
    The full format is at ${SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt")}.

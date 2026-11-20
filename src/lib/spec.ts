@@ -26,12 +26,19 @@ export const SPEC_SCHEMA_URL = "https://raw.githubusercontent.com/madsbuch/bette
 
 // ------------------------------------------------------------------ schema
 
-export const SpecStatus = z
-  .enum(["draft", "accepted", "deprecated"])
-  .describe(
-    'Where this stands as part of the spec. draft: still being worked out. accepted: agreed on; this is what the product is to do. deprecated: no longer wanted; kept, with a "deprecation" saying why. Whether something is built is not for the spec to say: that is found out by comparing the product with it.',
-  );
-export type SpecStatus = z.infer<typeof SpecStatus>;
+/**
+ * The one thing a spec says about where something stands: it was dropped.
+ * Whatever has a \`deprecation\` is deprecated; everything else is the spec.
+ * There is nothing for "draft", "accepted" or "built": planning lives where
+ * the product is managed, and whether something is built is found out by
+ * comparing the product with the spec.
+ */
+export type SpecStatus = "deprecated";
+
+/** "deprecated" for what carries the record of being dropped. */
+export function specStatus(entry: { deprecation?: unknown } | null | undefined): SpecStatus | undefined {
+  return entry?.deprecation !== undefined ? "deprecated" : undefined;
+}
 
 export const SpecLevel = z.enum(["must", "should", "may"]).describe("How binding a requirement is. Defaults to must.");
 export type SpecLevel = z.infer<typeof SpecLevel>;
@@ -59,7 +66,7 @@ export const SpecDeprecation = z
       .describe("When it was deprecated, as YYYY-MM-DD."),
   })
   .describe(
-    'The record of a deprecation. Goes with "status": "deprecated": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again.',
+    'Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again.',
   );
 export type SpecDeprecation = z.infer<typeof SpecDeprecation>;
 
@@ -88,7 +95,6 @@ export const SpecRequirement = z
       ),
     text: Text.min(1).describe("One statement that can be checked against the product."),
     level: SpecLevel.optional(),
-    status: SpecStatus.optional().describe("Defaults to the item's status."),
     version: z
       .number()
       .int()
@@ -117,7 +123,6 @@ export const SpecStory = z
       .array(z.string().min(1))
       .optional()
       .describe('The requirements that together make this story true, by id: "#RET-1". They can be in any item.'),
-    status: SpecStatus.optional().describe("Defaults to the item's status."),
     deprecation: SpecDeprecation.optional(),
   })
   .describe("A user story: who wants what, and why. It says what the product is for; requirements say what it must do to deliver that.");
@@ -156,7 +161,6 @@ export type SpecValueChange = z.infer<typeof SpecValueChange>;
 const valueCommon = {
   id: valueId,
   description: z.string().optional().describe("What it is for, in a line."),
-  status: SpecStatus.optional().describe("Defaults to the item's status."),
   deprecation: SpecDeprecation.optional(),
   history: z.array(SpecValueChange).optional().describe("Everything it was before, oldest first, each with why it changed."),
 };
@@ -208,7 +212,6 @@ export const SpecItem = z
     $schema: z.string().optional().describe("Where this schema lives, so editors can check the file."),
     title: z.string().min(1),
     summary: z.string().optional().describe("One line, shown wherever the item is listed."),
-    status: SpecStatus.optional(),
     deprecation: SpecDeprecation.optional(),
     order: z.number().optional().describe("Position among its siblings, lowest first. Items without one come last, by title."),
     description: Text.optional().describe("What this part does and why."),
@@ -303,20 +306,21 @@ type ReadItem = { item: SpecItem; notes: string[] } | { error: string };
 const LEGACY_CODE = "`code` is no longer part of the format: a spec has no list of code references. Remove it.";
 
 /**
- * "implemented" used to be a status. Whether something is built is found out
- * by comparing the product with the spec, not recorded in it. What says so is
- * read as accepted, which it must have been.
- */
-/**
  * Items used to hold open questions. What isn't decided is tracked where the
  * product is managed, not in the spec, which says what was decided.
  */
 const LEGACY_QUESTIONS = "`questions` is no longer part of the format: open questions belong with product management, not in the spec. Remove them.";
 
-const LEGACY_IMPLEMENTED = '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".';
+/**
+ * Items, requirements, stories and values used to have a \`status\`: draft,
+ * accepted, deprecated, and once implemented. A spec doesn't track planning or
+ * what is built, and what is dropped says so with its \`deprecation\`. A file
+ * that still has statuses is read without them, and says so.
+ */
+const LEGACY_STATUS = "`status` is no longer part of the format: what is in a spec is what the product is to do, and what was dropped has a `deprecation`. Remove it.";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-const acceptedIfImplemented = <T extends Record<string, unknown>>(value: T) => (value.status === "implemented" ? { ...value, status: "accepted" } : value);
+const ENTRY_LISTS = ["requirements", "stories", "values"] as const;
 
 /** What each file read as, by git object id: a spec is rebuilt as its files arrive, and most don't change. */
 const readItems = new Map<string, ReadItem>();
@@ -351,16 +355,28 @@ function parseItem(file: SpecFile): ReadItem {
     value = rest;
     notes.push(LEGACY_QUESTIONS);
   }
+  const dropped: string[] = [];
   if (isRecord(value)) {
-    const requirements: unknown = value.requirements;
-    const old = value.status === "implemented" || (Array.isArray(requirements) && requirements.some((r: unknown) => isRecord(r) && r.status === "implemented"));
-    if (old) {
-      value = {
-        ...acceptedIfImplemented(value),
-        ...(Array.isArray(requirements) ? { requirements: requirements.map((r: unknown) => (isRecord(r) ? acceptedIfImplemented(r) : r)) } : {}),
-      };
-      notes.push(LEGACY_IMPLEMENTED);
+    // Statuses go; one that said "deprecated" without the record is pointed out, since nothing says so now.
+    const seen = { status: false };
+    const strip = (entry: unknown, what: string): unknown => {
+      if (!isRecord(entry) || !("status" in entry)) return entry;
+      seen.status = true;
+      const { status, ...rest } = entry;
+      if (status === "deprecated" && rest.deprecation === undefined) dropped.push(what);
+      return rest;
+    };
+    const own = strip(value, "The item");
+    const next: Record<string, unknown> = isRecord(own) ? { ...own } : {};
+    for (const list of ENTRY_LISTS) {
+      const entries: unknown = next[list];
+      if (!Array.isArray(entries)) continue;
+      const label = list === "requirements" ? "Requirement" : list === "stories" ? "User story" : "Value";
+      next[list] = entries.map((entry: unknown) => strip(entry, `${label} ${isRecord(entry) && typeof entry.id === "string" ? entry.id : "?"}`));
     }
+    value = next;
+    if (seen.status) notes.push(LEGACY_STATUS);
+    for (const what of dropped) notes.push(`${what} was marked deprecated without saying why. Add "deprecation": { "reason": "..." }.`);
   }
   const result = SpecItem.safeParse(value);
   if (result.success) return { item: result.data, notes };
@@ -484,7 +500,6 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
         });
       }
     }
-    // Deprecated things stay, with the reason: a status and its record go together.
     // A story names the requirements that make it true; each has to be one.
     for (const story of item.stories ?? []) {
       for (const ref of story.requirements ?? []) {
@@ -496,17 +511,12 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       }
     }
     const records = [
-      { what: "The item", status: item.status, deprecation: item.deprecation },
-      ...(item.stories ?? []).map((story) => ({ what: `User story ${story.id}`, status: story.status, deprecation: story.deprecation })),
-      ...(item.requirements ?? []).map((r) => ({ what: `Requirement ${r.id}`, status: r.status, deprecation: r.deprecation })),
-      ...(item.values ?? []).map((v) => ({ what: `Value ${v.id}`, status: v.status, deprecation: v.deprecation })),
+      { what: "The item", deprecation: item.deprecation },
+      ...(item.stories ?? []).map((story) => ({ what: `User story ${story.id}`, deprecation: story.deprecation })),
+      ...(item.requirements ?? []).map((r) => ({ what: `Requirement ${r.id}`, deprecation: r.deprecation })),
+      ...(item.values ?? []).map((v) => ({ what: `Value ${v.id}`, deprecation: v.deprecation })),
     ];
-    for (const { what, status, deprecation } of records) {
-      if (status === "deprecated" && deprecation === undefined) {
-        problems.push({ file, message: `${what} is deprecated without saying why. Add "deprecation": { "reason": "..." }.` });
-      } else if (status !== "deprecated" && deprecation !== undefined) {
-        problems.push({ file, message: `${what} has a deprecation, but its status isn't "deprecated".` });
-      }
+    for (const { what, deprecation } of records) {
       for (const ref of deprecation?.replacedBy ?? []) {
         const { id, requirement } = splitSpecRef(ref);
         if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
@@ -563,9 +573,9 @@ export function specTrail(node: SpecNode): SpecNode[] {
 /** Which version a requirement is at: 1 unless it says otherwise. */
 export const requirementVersion = (requirement: SpecRequirement) => requirement.version ?? 1;
 
-/** A requirement's status: its own, or its item's. Everything in a deprecated item is deprecated. */
-export function requirementStatus(item: SpecItem | null | undefined, requirement: { status?: SpecStatus | undefined }): SpecStatus | undefined {
-  return item?.status === "deprecated" ? "deprecated" : (requirement.status ?? item?.status);
+/** Whether something in an item is deprecated: by its own record, or with its item. */
+export function requirementStatus(item: SpecItem | null | undefined, entry: { deprecation?: unknown }): SpecStatus | undefined {
+  return specStatus(item) ?? specStatus(entry);
 }
 
 export interface SpecCounts {

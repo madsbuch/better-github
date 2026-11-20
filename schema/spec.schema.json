@@ -15,15 +15,6 @@
       "description": "One line, shown wherever the item is listed.",
       "type": "string"
     },
-    "status": {
-      "type": "string",
-      "enum": [
-        "draft",
-        "accepted",
-        "deprecated"
-      ],
-      "description": "Where this stands as part of the spec. draft: still being worked out. accepted: agreed on; this is what the product is to do. deprecated: no longer wanted; kept, with a \"deprecation\" saying why. Whether something is built is not for the spec to say: that is found out by comparing the product with it."
-    },
     "deprecation": {
       "type": "object",
       "properties": {
@@ -50,7 +41,7 @@
         "reason"
       ],
       "additionalProperties": false,
-      "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+      "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
     },
     "order": {
       "description": "Position among its siblings, lowest first. Items without one come last, by title.",
@@ -94,15 +85,6 @@
               "minLength": 1
             }
           },
-          "status": {
-            "description": "Defaults to the item's status.",
-            "type": "string",
-            "enum": [
-              "draft",
-              "accepted",
-              "deprecated"
-            ]
-          },
           "deprecation": {
             "type": "object",
             "properties": {
@@ -129,7 +111,7 @@
               "reason"
             ],
             "additionalProperties": false,
-            "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+            "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
           }
         },
         "required": [
@@ -164,15 +146,6 @@
               "may"
             ],
             "description": "How binding a requirement is. Defaults to must."
-          },
-          "status": {
-            "description": "Defaults to the item's status.",
-            "type": "string",
-            "enum": [
-              "draft",
-              "accepted",
-              "deprecated"
-            ]
           },
           "version": {
             "description": "Which version of the requirement this is. Defaults to 1. It goes up by one each time what the requirement means changes; the id stays.",
@@ -252,7 +225,7 @@
               "reason"
             ],
             "additionalProperties": false,
-            "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+            "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
           }
         },
         "required": [
@@ -280,15 +253,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -315,7 +279,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",
@@ -397,15 +361,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -432,7 +387,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",
@@ -509,15 +464,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -544,7 +490,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",
@@ -621,15 +567,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -656,7 +593,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",
@@ -736,15 +673,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -771,7 +699,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",
@@ -847,15 +775,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -882,7 +801,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",
@@ -959,15 +878,6 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
-              "status": {
-                "description": "Defaults to the item's status.",
-                "type": "string",
-                "enum": [
-                  "draft",
-                  "accepted",
-                  "deprecated"
-                ]
-              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -994,7 +904,7 @@
                   "reason"
                 ],
                 "additionalProperties": false,
-                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                "description": "Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
               },
               "history": {
                 "description": "Everything it was before, oldest first, each with why it changed.",

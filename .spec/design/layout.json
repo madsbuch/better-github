@@ -2,7 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
   "title": "Layout",
   "summary": "The window widths at which the layout changes.",
-  "status": "accepted",
   "order": 3,
   "stories": [
     {

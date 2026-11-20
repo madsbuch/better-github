@@ -134,14 +134,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
   "title": "Retries",
   "summary": "A failed upload is tried again, with growing pauses.",
-  "status": "accepted",
   "description": "Networks drop. An upload that fails for a reason that may pass is tried again.",
   "stories": [
     { "id": "US-1", "as": "a commuter sending a file from a train", "want": "the upload to survive the tunnel", "soThat": "I don't have to start it again", "requirements": ["#RET-1"] }
   ],
   "requirements": [
     { "id": "RET-1", "text": "An upload that fails with a 5xx response is retried, up to five times." },
-    { "id": "RET-2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "draft" }
+    { "id": "RET-2", "text": "The pause before a retry doubles each time.", "level": "should" }
   ],
   "figures": [{ "src": "assets/backoff.png", "caption": "Pauses double between attempts." }],
   "related": ["#ERR-1"]
@@ -152,10 +151,10 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   `.json` (`uploads/retries`). A folder's own item is its `index.json`; a folder
   without one is still a group, named after the folder. Folders nest as deep as
   the product needs.
-- Only `title` is required. `status` says where something stands as part of
-  the spec: `draft`, `accepted` or `deprecated`. There is no status for what is
-  built: whether the product meets a requirement is found out by comparing the
-  two, not recorded in the spec. `order` places an item among its siblings; the
+- Only `title` is required. There is no status: everything in a spec is what
+  the product is to do, except what was dropped (below). Planning states such
+  as draft or accepted live where the product is managed, and whether the
+  product meets a requirement is found out by comparing the two. `order` places an item among its siblings; the
   rest follow by title.
 - **User stories** say who wants what, and why: `as`, `want` and optionally
   `soThat`, read as "As ..., I want ..., so that ...". A story can name the
@@ -174,8 +173,7 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   and doesn't change: code, tests and other items refer to a requirement by
   that id alone, and the comparison follows it when it moves to another item.
   A prefix per item (`RET-1`, `RET-2`) keeps ids apart. An id used twice is
-  listed as a problem. `level` is `must` (the default), `should` or `may`;
-  `status` defaults to the item's.
+  listed as a problem. `level` is `must` (the default), `should` or `may`.
 - **Requirements have versions.** When what a requirement means changes, its
   id stays and its `version` goes up by one; what it said before goes into
   `history` with the `reason` it changed (and optionally the `date`). A
@@ -183,13 +181,12 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   don't agree are listed as a problem. A wording fix that changes nothing needs
   no new version. `#RET-1@2` refers to one version. The browser shows a
   requirement's version and, on tap, its earlier versions with their reasons.
-- **Nothing is deleted.** A requirement that is no longer wanted stays, with
-  `"status": "deprecated"` and a `deprecation` that says why (`reason`, and
-  optionally `replacedBy` and `date`), so the spec keeps the record that it
-  existed, that it was dropped, and for what reason. A whole item is deprecated
-  the same way. The status without the record, or the record without the
-  status, is listed as a problem. Deprecated requirements are folded away under
-  the live ones and aren't counted among them.
+- **Deprecated means deleted, and kept.** A requirement that is no longer
+  wanted stays in its file with a `deprecation` that says why (`reason`, and
+  optionally `replacedBy` and `date`). It no longer holds; it is kept so that
+  it is known why it went, and so that it doesn't come back unnoticed. Stories,
+  values and whole items are deprecated the same way. Deprecated requirements
+  are folded away under the live ones and aren't counted among them.
 - Text is plain: a blank line starts a paragraph, lines starting with `- ` form
   a list, and `` `backticks` `` mark code.
 - `figures` name pictures by their path from `.spec`. `related` lists ids of

@@ -11,10 +11,9 @@ const FILES: SpecFile[] = [
   file("uploads/index.json", { title: "Uploads", order: 1 }),
   file("uploads/retries.json", {
     title: "Retries",
-    status: "accepted",
     requirements: [
       { id: "R1", text: "A failed upload is retried up to five times." },
-      { id: "R2", text: "Retries wait twice as long each time.", level: "should", status: "draft" },
+      { id: "R2", text: "Retries wait twice as long each time.", level: "should" },
     ],
     figures: [{ src: "assets/timeline.png", caption: "Backoff" }],
     related: ["uploads/limits", "cli#C1"],
@@ -60,33 +59,28 @@ describe("buildSpec", () => {
     expect([...clash.requirements.keys()]).toEqual(["R1", "A-2", "r1"]);
   });
 
-  it("keeps deprecated requirements, with why, and wants the status and the record to go together", () => {
+  it("keeps deprecated requirements, with why: what has the record is deprecated", () => {
     const kept = buildSpec([
       file("a.json", {
         title: "A",
-        status: "accepted",
         requirements: [
           { id: "A-1", text: "Still wanted." },
-          { id: "A-2", text: "Dropped.", status: "deprecated", deprecation: { reason: "Nobody used it.", replacedBy: ["#A-1", "b"], date: "2026-03-01" } },
-          { id: "A-3", text: "Dropped without a word.", status: "deprecated" },
-          { id: "A-4", text: "Not deprecated at all.", deprecation: { reason: "A leftover.", replacedBy: ["#A-9"] } },
+          { id: "A-2", text: "Dropped.",  deprecation: { reason: "Nobody used it.", replacedBy: ["#A-1", "b"], date: "2026-03-01" } },
+          { id: "A-4", text: "Dropped for something that isn't there.", deprecation: { reason: "Replaced.", replacedBy: ["#A-9"] } },
         ],
       }),
-      file("b.json", { title: "B", status: "deprecated", deprecation: { reason: "Folded into A." }, requirements: [{ id: "B-1", text: "Goes with its item." }] }),
-      file("c.json", { title: "C", status: "deprecated" }),
+      file("b.json", { title: "B",  deprecation: { reason: "Folded into A." }, requirements: [{ id: "B-1", text: "Goes with its item." }] }),
+      file("c.json", { title: "C" }),
     ]);
     expect(kept.problems.map((p) => `${p.file}: ${p.message}`)).toEqual([
-      '.spec/a.json: Requirement A-3 is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
-      '.spec/a.json: Requirement A-4 has a deprecation, but its status isn\'t "deprecated".',
       '.spec/a.json: Requirement A-4 is replaced by "#A-9", which isn\'t in the spec.',
-      '.spec/c.json: The item is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
     ]);
     // Deprecated requirements aren't counted among the requirements; a deprecated item's are all deprecated.
-    expect(specCounts(kept.root)).toEqual({ items: 3, requirements: 2, deprecated: 3, stories: 0, values: 0, unloaded: 0 });
+    expect(specCounts(kept.root)).toEqual({ items: 3, requirements: 1, deprecated: 3, stories: 0, values: 0, unloaded: 0 });
     // They are still there to be found, by what they said and by why they went.
     expect(searchSpec(kept, "nobody used").map((m) => m.requirements.map((r) => r.id))).toEqual([["A-2"]]);
     expect(SpecItem.safeParse({ title: "X", deprecation: { reason: "" } }).success).toBe(false);
-    expect(SpecItem.safeParse({ title: "X", status: "deprecated", deprecation: { reason: "Why.", date: "March" } }).success).toBe(false);
+    expect(SpecItem.safeParse({ title: "X",  deprecation: { reason: "Why.", date: "March" } }).success).toBe(false);
   });
 
   it("keeps a requirement's earlier versions, each with why it changed", () => {
@@ -131,32 +125,34 @@ describe("buildSpec", () => {
     expect(SpecItem.safeParse({ title: "A", code: ["src/a.ts"] }).success).toBe(false);
   });
 
-  it("has no status for what is built, and reads one that claims it as accepted", () => {
-    expect(SpecItem.safeParse({ title: "A", status: "implemented" }).success).toBe(false);
+  it("has no statuses, and reads a file that still has them without them", () => {
+    expect(SpecItem.safeParse({ title: "A", status: "accepted" }).success).toBe(false);
     const old = buildSpec([
-      file("a.json", { title: "A", status: "implemented", requirements: [{ id: "A-1", text: "x", status: "implemented" }, { id: "A-2", text: "y", status: "draft" }] }),
-      file("b.json", { title: "B", requirements: [{ id: "B-1", text: "z", status: "implemented" }] }),
-      file("c.json", { title: "C", status: "accepted" }),
+      file("a.json", { title: "A", status: "implemented", requirements: [{ id: "A-1", text: "x", status: "draft" }, { id: "A-2", text: "y", status: "deprecated", deprecation: { reason: "Gone." } }] }),
+      file("b.json", { title: "B", stories: [{ id: "US-1", as: "a", want: "b", status: "deprecated" }], values: [{ id: "v", type: "text", value: "x", status: "accepted" }] }),
+      file("c.json", { title: "C" }),
     ]);
-    expect(old.nodes.get("a")?.item).toEqual({ title: "A", status: "accepted", requirements: [{ id: "A-1", text: "x", status: "accepted" }, { id: "A-2", text: "y", status: "draft" }] });
-    expect(old.nodes.get("b")?.item?.requirements?.[0]?.status).toBe("accepted");
-    // Said once per file, and not for a file that never had it.
+    expect(old.nodes.get("a")?.item).toEqual({ title: "A", requirements: [{ id: "A-1", text: "x" }, { id: "A-2", text: "y", deprecation: { reason: "Gone." } }] });
+    const note = "`status` is no longer part of the format: what is in a spec is what the product is to do, and what was dropped has a `deprecation`. Remove it.";
     expect(old.problems).toEqual([
-      { file: ".spec/a.json", message: '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".' },
-      { file: ".spec/b.json", message: '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".' },
+      { file: ".spec/a.json", message: note },
+      { file: ".spec/b.json", message: note },
+      // It said deprecated and nothing says so now: the record is missing.
+      { file: ".spec/b.json", message: 'User story US-1 was marked deprecated without saying why. Add "deprecation": { "reason": "..." }.' },
     ]);
+    // What carries the record is deprecated; nothing else says where it stands.
+    expect(specCounts(old.root)).toMatchObject({ requirements: 1, deprecated: 1, stories: 1, values: 1 });
   });
 
   it("has user stories: who wants what and why, and the requirements that make it true", () => {
     const told = buildSpec([
       file("uploads.json", {
         title: "Uploads",
-        status: "accepted",
         stories: [
           { id: "US-1", as: "a commuter uploading on a train", want: "to send a file without watching it", soThat: "I can put the phone away", requirements: ["#RET-1", "retries#RET-2"] },
           { id: "US-2", as: "a caller", want: "to know when an upload failed for good" },
-          { id: "US-3", as: "an admin", want: "a log of every byte", status: "deprecated", deprecation: { reason: "Nobody read it." } },
-          { id: "US-4", as: "a tester", want: "something vague", requirements: ["#RET-9", "#US-1"], status: "deprecated" },
+          { id: "US-3", as: "an admin", want: "a log of every byte",  deprecation: { reason: "Nobody read it." } },
+          { id: "US-4", as: "a tester", want: "something vague", requirements: ["#RET-9", "#US-1"] },
           // Stories and requirements share one set of ids.
           { id: "RET-1", as: "a duplicate", want: "trouble" },
         ],
@@ -174,14 +170,13 @@ describe("buildSpec", () => {
       // A story's requirements have to be requirements: not missing, and not another story.
       '.spec/uploads.json: User story US-4 names "#RET-9", which isn\'t a requirement in the spec.',
       '.spec/uploads.json: User story US-4 names "#US-1", which isn\'t a requirement in the spec.',
-      '.spec/uploads.json: User story US-4 is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
       // A story has no versions.
       '.spec/uploads.json: Nothing in the spec is called "#US-1@2".',
     ]);
     expect(resolveSpecRef(told, "#US-1")?.story?.as).toBe("a commuter uploading on a train");
     expect(resolveSpecRef(told, "#RET-1")?.requirement?.text).toBe("Retried five times.");
     // Deprecated stories aren't counted among the stories.
-    expect(specCounts(told.root).stories).toBe(3);
+    expect(specCounts(told.root).stories).toBe(4);
     expect(searchSpec(told, "put the phone away").map((m) => [m.node.id, m.stories.map((story) => story.id)])).toEqual([["uploads", ["US-1"]]]);
     expect(SpecItem.safeParse({ title: "X", stories: [{ id: "US-1", as: "a user" }] }).success).toBe(false);
   });
@@ -308,7 +303,7 @@ describe("this repository's own .spec", () => {
           { id: "space.gutter", type: "dimension", value: "16px" },
           { id: "toast.stay", type: "duration", value: "4s" },
           { id: "roles", type: "list", value: ["admin", "member"] },
-          { id: "old.name", type: "text", value: "Rocket Pro", status: "deprecated" },
+          { id: "old.name", type: "text", value: "Rocket Pro", deprecation: { reason: "Renamed." } },
           // One set of ids, for values too.
           { id: "RET-1", type: "text", value: "clash" },
         ],
@@ -318,7 +313,6 @@ describe("this repository's own .spec", () => {
     ]);
     expect(named.problems.map((p) => p.message)).toEqual([
       "Value id RET-1 is already in .spec/retries.json. Ids are unique in the whole spec.",
-      'Value old.name is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
       'Nothing in the spec is called "#nope.value".',
     ]);
     expect(resolveSpecRef(named, "#retry.max")?.value?.value).toBe(3);

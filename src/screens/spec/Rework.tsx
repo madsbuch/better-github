@@ -8,7 +8,7 @@ import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
 import { useOpenSpecPull } from "../../queries/specPull";
 import { to, useNav } from "../../lib/nav";
-import { requirementStatus, SPEC_VALUE_TYPES, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue, type SpecValueType } from "../../lib/spec";
+import { requirementStatus, specStatus, SPEC_VALUE_TYPES, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStory, type SpecValue, type SpecValueType } from "../../lib/spec";
 import { draftOf, emptyDraft, VALUE_TYPE_LABEL, valueOf, type ValueDraft } from "../../lib/specValues";
 import { ValueInput } from "../../components/SpecValues";
 import { diffSpecs } from "../../lib/specDiff";
@@ -52,7 +52,6 @@ export const ReworkContext = createContext<Reworking | null>(null);
 export const useReworking = () => useContext(ReworkContext);
 
 const LEVELS: SpecLevel[] = ["must", "should", "may"];
-const STATUSES: SpecStatus[] = ["draft", "accepted", "deprecated"];
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The requirement as the repository has it; undefined for one the draft added. */
@@ -94,7 +93,7 @@ export function RequirementTools({ node, requirement }: { node: SpecNode; requir
   const original = originalOf(state, node, requirement.id);
   const changed = original === undefined || !same(original.requirement, requirement);
   const deprecated = requirementStatus(item, requirement) === "deprecated";
-  const label = original === undefined ? "New" : !changed ? null : deprecated && original.requirement.status !== "deprecated" ? "Deprecated here" : "Revised";
+  const label = original === undefined ? "New" : !changed ? null : deprecated && specStatus(original.requirement) !== "deprecated" ? "Deprecated here" : "Revised";
   const commit = (next: SpecRequirement | null) => state.rework.setItem(node.id, withRequirement(item, requirement.id, next));
 
   return (
@@ -367,7 +366,7 @@ export function StoryTools({ node, story }: { node: SpecNode; story: SpecStory }
   const original = state.original.nodes.get(node.id)?.item?.stories?.find((candidate) => candidate.id === story.id);
   const changed = original === undefined || !same(original, story);
   const deprecated = requirementStatus(item, story) === "deprecated";
-  const label = original === undefined ? "New" : !changed ? null : deprecated && original.status !== "deprecated" ? "Deprecated here" : "Revised";
+  const label = original === undefined ? "New" : !changed ? null : deprecated && specStatus(original) !== "deprecated" ? "Deprecated here" : "Revised";
   const commit = (next: SpecStory | null) => state.rework.setItem(node.id, withStory(item, story.id, next));
   return (
     <div className="rework-tools">
@@ -519,7 +518,7 @@ export function ValueTools({ node, value }: { node: SpecNode; value: SpecValue }
   const original = state.original.nodes.get(node.id)?.item?.values?.find((candidate) => candidate.id === value.id);
   const changed = original === undefined || !same(original, value);
   const deprecated = requirementStatus(item, value) === "deprecated";
-  const label = original === undefined ? "New" : !changed ? null : deprecated && original.status !== "deprecated" ? "Deprecated here" : "Revised";
+  const label = original === undefined ? "New" : !changed ? null : deprecated && specStatus(original) !== "deprecated" ? "Deprecated here" : "Revised";
   const commit = (next: SpecValue | null) => state.rework.setItem(node.id, withValue(item, value.id, next));
   return (
     <div className="rework-tools">
@@ -701,9 +700,8 @@ function ItemForm({ item, onSave, onClose }: { item: SpecItem; onSave: (fields: 
   const [title, setTitle] = useState(item.title);
   const [summary, setSummary] = useState(item.summary ?? "");
   const [description, setDescription] = useState(item.description ?? "");
-  const [status, setStatus] = useState<SpecStatus | "">(item.status ?? "");
+  const [deprecated, setDeprecated] = useState(item.deprecation !== undefined);
   const [reason, setReason] = useState(item.deprecation?.reason ?? "");
-  const deprecated = status === "deprecated";
   return (
     <div className="rework-form">
       <Field label="Title">
@@ -715,18 +713,11 @@ function ItemForm({ item, onSave, onClose }: { item: SpecItem; onSave: (fields: 
       <Field label="Description" hint="What this part does and why. A blank line starts a paragraph; lines starting with “- ” form a list.">
         <textarea className="textarea" value={description} onChange={(e) => setDescription(e.target.value)} style={{ minHeight: 140 }} />
       </Field>
-      <Field label="Status">
-        <select className="select" value={status} onChange={(e) => setStatus(STATUSES.find((option) => option === e.target.value) ?? "")}>
-          <option value="">None</option>
-          {STATUSES.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <label className="spec-value-check">
+        <input type="checkbox" checked={deprecated} onChange={(e) => setDeprecated(e.target.checked)} /> Deprecated: dropped from the spec, and kept for the record
+      </label>
       {deprecated && (
-        <Field label="Why it is no longer wanted" hint="The part and its requirements stay, marked deprecated.">
+        <Field label="Why it is no longer wanted" hint="The part and everything in it stay in the file, marked deprecated, so they don't come back unnoticed.">
           <textarea className="textarea" value={reason} onChange={(e) => setReason(e.target.value)} style={{ minHeight: 80 }} />
         </Field>
       )}
@@ -734,7 +725,7 @@ function ItemForm({ item, onSave, onClose }: { item: SpecItem; onSave: (fields: 
         className="btn btn-primary btn-block"
         disabled={title.trim() === "" || (deprecated && reason.trim() === "")}
         onClick={() => {
-          onSave({ title: title.trim(), summary: summary.trim(), description: description.trim(), status: status === "" ? undefined : status, deprecationReason: reason.trim() });
+          onSave({ title: title.trim(), summary: summary.trim(), description: description.trim(), deprecated, deprecationReason: reason.trim() });
           onClose();
         }}
       >
@@ -775,7 +766,7 @@ export function AddItem({ node }: { node: SpecNode }) {
             className="btn btn-primary btn-block"
             disabled={title.trim() === ""}
             onClick={() => {
-              state.rework.setItem(id, { title: title.trim(), ...(summary.trim() !== "" ? { summary: summary.trim() } : {}), status: "draft" });
+              state.rework.setItem(id, { title: title.trim(), ...(summary.trim() !== "" ? { summary: summary.trim() } : {}) });
               setOpen(false);
               setTitle("");
               setSummary("");

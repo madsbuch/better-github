@@ -2,7 +2,6 @@
   "$schema": "../../schema/spec.schema.json",
   "title": "Reworking a spec",
   "summary": "Revise, deprecate and add requirements while reading, then hand the changes to a coding agent.",
-  "status": "accepted",
   "order": 3,
   "description": "Reading a spec is when what is wrong with it shows. The spec browser can be switched to reworking: the same pages, with the means to change them.\n\nThe app never writes to the repository. What it produces is a handover: the change to the spec, for a coding agent to make together with the change to the code.",
   "stories": [
@@ -39,12 +38,20 @@
     },
     {
       "id": "RW6",
-      "text": "A part's title, summary, description and status can be edited, and a new part added below any part. Deprecating a part needs a reason."
+      "text": "A part's title, summary and description can be edited, and a new part added below any part. A part can be deprecated, which needs a reason.",
+      "history": [
+        {
+          "version": 1,
+          "text": "A part's title, summary, description and status can be edited, and a new part added below any part. Deprecating a part needs a reason.",
+          "reason": "The format no longer has statuses: the deprecation record alone marks what was dropped.",
+          "date": "2026-11-20"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "RW7",
       "text": "A requirement that was implemented and gets a new version, and a new requirement in an implemented part, are marked accepted: the code doesn't do them yet.",
-      "status": "deprecated",
       "deprecation": {
         "reason": "The spec no longer says what is built: there is no implemented status to step back from. Whether the product meets a requirement is found out by comparing the two.",
         "replacedBy": [

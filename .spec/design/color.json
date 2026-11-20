@@ -2,7 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
   "title": "Color",
   "summary": "Every color the app draws with, for light and for dark.",
-  "status": "accepted",
   "order": 1,
   "description": "The palette follows GitHub's, so what is green, red or purple on github.com is the same here.",
   "stories": [

@@ -23,7 +23,6 @@ const file = (path: string, value: unknown): SpecFile => ({ path, text: JSON.str
 const RETRIES = {
   $schema: "../../schema/spec.schema.json",
   title: "Retries",
-  status: "accepted",
   requirements: [
     { id: "RET-1", text: "Retried five times." },
     { id: "RET-2", text: "Pauses doubel.", level: "should" },
@@ -51,7 +50,7 @@ describe("editing a requirement", () => {
     });
     // From a later version, the history grows; the level it had is on record.
     const again = reviseRequirement(requirement("RET-3"), { text: "Can be cancelled at any time.", level: "should", reason: "Made optional." }, "2026-11-20");
-    expect([again.version, again.level, again.status, again.history?.map((h) => h.version)]).toEqual([3, "should", undefined, [1, 2]]);
+    expect([again.version, again.level, again.history?.map((h) => h.version)]).toEqual([3, "should", [1, 2]]);
     const lowered = reviseRequirement(requirement("RET-2"), { text: "Pauses double.", level: "may", reason: "Not worth requiring." }, "2026-11-20");
     expect(lowered.history).toEqual([{ version: 1, text: "Pauses doubel.", level: "should", reason: "Not worth requiring.", date: "2026-11-20" }]);
   });
@@ -68,7 +67,6 @@ describe("editing a requirement", () => {
     expect(deprecateRequirement(requirement("RET-1"), "Nobody retries.", ["#RET-2"], "2026-11-20")).toEqual({
       id: "RET-1",
       text: "Retried five times.",
-      status: "deprecated",
       deprecation: { reason: "Nobody retries.", replacedBy: ["#RET-2"], date: "2026-11-20" },
     });
   });
@@ -82,16 +80,15 @@ describe("editing a requirement", () => {
   });
 
   it("edits an item's own fields, and deprecates it with a reason", () => {
-    const edited = withFields(item, { title: "Retrying", summary: "Trying again.", description: "", status: "deprecated", deprecationReason: "Uploads resume now." }, "2026-11-20");
-    expect([edited.title, edited.summary, edited.description, edited.status, edited.deprecation]).toEqual([
+    const edited = withFields(item, { title: "Retrying", summary: "Trying again.", description: "", deprecated: true, deprecationReason: "Uploads resume now." }, "2026-11-20");
+    expect([edited.title, edited.summary, edited.description, edited.deprecation]).toEqual([
       "Retrying",
       "Trying again.",
       undefined,
-      "deprecated",
       { reason: "Uploads resume now.", date: "2026-11-20" },
     ]);
-    // Back to a live status, the record goes.
-    expect(withFields(edited, { title: "Retrying", summary: "", description: "", status: "accepted", deprecationReason: "" }).deprecation).toBeUndefined();
+    // Wanted again, the record goes.
+    expect(withFields(edited, { title: "Retrying", summary: "", description: "", deprecated: false, deprecationReason: "" }).deprecation).toBeUndefined();
   });
 });
 
@@ -189,7 +186,7 @@ describe("reworking a named value", () => {
   it("keeps a color's dark value in the record, and deprecates with why", () => {
     const color: SpecValue = { id: "c", type: "color", value: "#000000", dark: "#ffffff" };
     expect(reviseValue(color, { id: "c", type: "color", value: "#111111" }, "Softer.", "2026-11-20").history).toEqual([{ value: "#000000", dark: "#ffffff", reason: "Softer.", date: "2026-11-20" }]);
-    expect(deprecateValue(original, "Unlimited now.", "2026-11-20")).toMatchObject({ status: "deprecated", deprecation: { reason: "Unlimited now.", date: "2026-11-20" } });
+    expect(deprecateValue(original, "Unlimited now.", "2026-11-20")).toMatchObject({  deprecation: { reason: "Unlimited now.", date: "2026-11-20" } });
   });
 
   it("puts a value into an item, replaces it, and takes a new one out again", () => {

@@ -30,12 +30,12 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await rows(page).nth(0).click();
 
   await expect(activeScreen(page).locator(".breadcrumbs")).toHaveText("Spec/Uploads/Retries");
-  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Retries Accepted");
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Retries");
   // Who it is for comes before what it must do.
   const stories = activeScreen(page).locator(".spec-story");
   await expect(stories.locator(".spec-req-head .spec-req-id")).toHaveText(["US-1", "US-2"]);
   await expect(stories.nth(0).locator(".spec-story-text")).toHaveText("As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again.");
-  await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4mayDraft"]);
+  await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4may"]);
   // Named values show as what they are, and a requirement that names one shows what it is.
   const values = activeScreen(page).locator(".spec-val");
   await expect(values.locator(".spec-req-id")).toHaveText(["retry.max", "retry.first-pause", "color.retrying", "retry.label"]);

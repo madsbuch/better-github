@@ -198,12 +198,10 @@ const ROCKET_SPEC: Record<string, unknown> = {
     title: "Uploads",
     summary: "Sending a file, whatever the network does.",
     order: 1,
-    status: "accepted",
   },
   "uploads/retries.json": {
     title: "Retries",
     summary: "A failed upload is tried again, with growing pauses.",
-    status: "accepted",
     order: 1,
     description:
       "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has\n\nA retry is never visible to the caller, except as time.\n\nWhat counts as a reason that may pass is decided by the server's answer, not by the client's guess.\n\nRetries stop when the caller cancels.\n\nAn upload that still fails after the last retry fails the caller with the last error.",
@@ -215,7 +213,7 @@ const ROCKET_SPEC: Record<string, unknown> = {
       { id: "R1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
       { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
       { id: "R3", text: "The pause before a retry doubles each time, starting at `retry.first-pause` and never exceeding 30 s.", level: "should" },
-      { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may", status: "draft" },
+      { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may" },
     ],
     values: [
       { id: "retry.max", type: "number", value: 5, unit: "times", description: "How often a failed upload is tried again." },
@@ -229,7 +227,6 @@ const ROCKET_SPEC: Record<string, unknown> = {
   "uploads/errors.json": {
     title: "Errors",
     summary: "What the caller is told when an upload fails for good.",
-    status: "accepted",
     order: 2,
     requirements: [
       { id: "E1", text: "When the last retry fails, the caller gets the server's message as `UploadError::Server`." },
@@ -245,7 +242,6 @@ const ROCKET_SPEC: Record<string, unknown> = {
       {
         id: "E3",
         text: "A failed upload writes the server's reply to a log file.",
-        status: "deprecated",
         deprecation: { reason: "The reply could hold the upload token. `E1` hands the message to the caller instead.", replacedBy: ["#E1"], date: "2026-09-14" },
       },
     ],
@@ -254,7 +250,6 @@ const ROCKET_SPEC: Record<string, unknown> = {
     title: "Command line",
     summary: "The `rocket` command.",
     order: 2,
-    status: "draft",
     requirements: [{ id: "C1", text: "`rocket upload <file>` exits with 1 when the upload fails." }],
   },
   "assets/backoff.png": null,
@@ -269,7 +264,6 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
   "uploads/retries.json": {
     title: "Retries",
     summary: "A failed upload is tried again, with growing pauses.",
-    status: "draft",
     order: 1,
     description:
       "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has\n- a retry waits as long as the server asks\n\nA retry is never visible to the caller, except as time.\n\nWhat counts as a reason that may pass is decided by the server's answer, not by the client's guess.\n\nRetries stop when the caller cancels.\n\nAn upload that still fails after the third retry fails the caller with the first error it met.",
@@ -279,7 +273,6 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
         id: "US-2",
         as: "a developer calling `upload`",
         want: "to stop an upload that is waiting to retry",
-        status: "deprecated",
         deprecation: { reason: "Nobody asked for it once retries took seconds instead of minutes." },
       },
       { id: "US-3", as: "someone running the server", want: "clients to back off when I ask them to", soThat: "a restart isn't met by a stampede", requirements: ["#R5"] },
@@ -320,7 +313,6 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
   "uploads/resume.json": {
     title: "Resuming",
     summary: "Picking an upload up where it stopped.",
-    status: "draft",
     order: 3,
     requirements: [{ id: "U1", text: "Before a retry, the client asks the server how many bytes it has." }],
   },
@@ -363,7 +355,6 @@ function atlasSpec(next: boolean): Record<string, unknown> {
       files[`${area}/item-${i.toString().padStart(3, "0")}.json`] = {
         title: `Feature ${a}.${i}`,
         summary: i === 42 ? "The one with the needle in it." : `What feature ${a}.${i} does.`,
-        status: "accepted",
         order: i,
         requirements: [
           // Ids are unique in the whole spec: each carries its area and item.
@@ -373,7 +364,7 @@ function atlasSpec(next: boolean): Record<string, unknown> {
       };
     }
   }
-  if (next) files["area-07/item-new.json"] = { title: "Feature 7.new", status: "draft", requirements: [{ id: "F7-new-A", text: "It exists." }] };
+  if (next) files["area-07/item-new.json"] = { title: "Feature 7.new",  requirements: [{ id: "F7-new-A", text: "It exists." }] };
   return files;
 }
 

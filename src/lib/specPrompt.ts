@@ -28,7 +28,6 @@ export const SPEC_PROMPT_EXAMPLE = {
   $schema: SPEC_SCHEMA_URL,
   title: "Retries",
   summary: "A failed upload is tried again, with growing pauses.",
-  status: "accepted",
   order: 1,
   description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has",
   stories: [
@@ -55,11 +54,10 @@ export const SPEC_PROMPT_EXAMPLE = {
       ],
     },
     { id: "RET-2", text: "The pause before a retry doubles each time, starting at `retry.first-pause`.", level: "should" },
-    { id: "RET-3", text: "The caller can cancel while a retry is waiting.", level: "may", status: "draft" },
+    { id: "RET-3", text: "The caller can cancel while a retry is waiting.", level: "may" },
     {
       id: "RET-4",
       text: "A retry starts the upload over from the first byte.",
-      status: "deprecated",
       deprecation: { reason: "Large uploads never finished on bad networks. Uploads resume instead.", replacedBy: ["#RES-1"], date: "2026-03-02" },
     },
   ],
@@ -145,7 +143,7 @@ ${indent(`${SPEC_DIR}/
 ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE, null, 2))}
 
 - Only \`title\` is required. Unknown keys are errors: the app won't show an item that has one.
-- \`status\` says where something stands as part of the spec: \`draft\` (still being worked out), \`accepted\` (agreed on: this is what the product is to do) or \`deprecated\` (no longer wanted, see below). A requirement's \`status\` defaults to its item's. There is no status for "built": whether the product meets a requirement is found out by comparing the product with the spec, and is not recorded in it.
+- There is no status. Everything in a spec is what the product is to do, except what carries a \`deprecation\` (below). A spec has no "draft", "accepted" or "built": what is still being decided is tracked where the product is planned, and whether the product meets a requirement is found out by comparing the two.
 - A requirement's \`level\` is \`must\` (the default), \`should\` or \`may\`. Its \`id\` is unique in the whole spec, not just in its item, and never changes or gets reused: everything that refers to a requirement does so by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (\`RET-1\`, \`RET-2\` in Retries; \`ERR-1\` in Errors) so ids don't collide.
 - A user story has an \`id\` (\`US-1\`), \`as\` (who), \`want\` (what) and optionally \`soThat\` (why); the app reads them as "As ..., I want ..., so that ...". Its \`requirements\` name the requirements that make it true (\`#RET-1\`), in any item; each has to exist. Stories and requirements share one set of ids: no id is used twice, whichever of the two has it. A story has no level and no versions: reword it freely, and deprecate it when nobody wants it any more.
 - A named value has an \`id\`, a \`type\` and a \`value\` in that type's form: \`color\` (\`"#0969da"\`, with an optional \`dark\` for dark mode), \`dimension\` (\`"16px"\`, \`"1.5rem"\`), \`duration\` (\`"250ms"\`, \`"30s"\`, \`"14d"\`), \`number\` (a JSON number, with an optional \`unit\` such as \`"times"\`), \`text\` (wording), \`font\` (a family or stack) and \`list\` (an array of names). Its id shares the one set of ids with stories and requirements; dotted names group values (\`color.accent\`, \`color.danger\`). Text names a value by its id in backticks, and the app shows what it is next to the name.
@@ -174,16 +172,16 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[0], null, 2))}
 
     `## Nothing is deleted: deprecation
 
-A requirement that is no longer wanted is not deleted. It stays in its item with \`"status": "deprecated"\` and a \`deprecation\` that says why, so the spec keeps the record that it existed, that it was dropped, and for what reason:
+A requirement that is no longer wanted is not deleted. It stays in its item and gets a \`deprecation\` that says why. Deprecated means deleted: it no longer holds, the product no longer has to do it, and the app folds it away. It is kept only as a record, so that it is known that it existed and why it was dropped, and so that it doesn't come back unnoticed:
 
 ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 
-- \`deprecation.reason\` is required with the status: what changed, in a sentence or two someone reading it in a year will understand. \`replacedBy\` names what takes its place, if anything: requirements (\`#RES-1\`) or items. \`date\` is the day it was deprecated, as \`YYYY-MM-DD\`.
-- The status and the record go together: \`"status": "deprecated"\` without a \`deprecation\`, or a \`deprecation\` without the status, is an error.
+- \`deprecation.reason\` is required: what changed, in a sentence or two someone reading it in a year will understand. \`replacedBy\` names what takes its place, if anything: requirements (\`#RES-1\`) or items. \`date\` is the day it was deprecated, as \`YYYY-MM-DD\`.
 - Leave a deprecated requirement's \`text\` and \`level\` as they were: they are the record of what was promised.
-- A user story is deprecated the same way: \`status\` and \`deprecation\` on the story.
-- A whole item is deprecated the same way, with \`status\` and \`deprecation\` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
+- A user story and a named value are deprecated the same way: a \`deprecation\` on it.
+- A whole item is deprecated the same way, with a \`deprecation\` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
 - A deprecated requirement's id is never given to another requirement.
+- Before adding a requirement, look among the deprecated ones for the same idea. If it is there, its reason says why it was dropped: don't bring it back without the person you work for saying so.
 - To change what a requirement means, give it a new version (above). To replace it with a different promise altogether, deprecate it and add a new requirement with a new id.
 - The app flags every deleted requirement and item when a pull request is reviewed.`,
 
@@ -261,11 +259,11 @@ A spec says what the code is meant to do, in a form people and agents can read, 
 
 1. Get to know the repository: its README and docs, its layout, its tests (they say what is promised), its public interfaces, and recent pull requests and issues.
 2. Decide which case this is:
-   - The repository has code. Write down what the product does today, as you find it from the code and its tests, with \`status: "accepted"\`. Where the code and the docs disagree, or the behavior looks unintended, don't pick one silently: write the requirement the way the product behaves and tell the person you are working for.
-   - The repository is new or nearly empty. Write what it is meant to do, from the README, the issues and whatever brief you were given, with \`status: "draft"\`. Ask the person you are working for about anything the spec depends on that you can't find; leave out what stays open.
+   - The repository has code. Write down what the product does today, as you find it from the code and its tests. Where the code and the docs disagree, or the behavior looks unintended, don't pick one silently: write the requirement the way the product behaves and tell the person you are working for.
+   - The repository is new or nearly empty. Write what it is meant to do, from the README, the issues and whatever brief you were given. Ask the person you are working for about anything the spec depends on that you can't find; leave out what stays open.
 3. ${current ? `Edit \`${SPEC_DIR}\`. Keep what is right, fix what is wrong or out of date, and fill in what is missing. Keep the ids of existing items and requirements; give new requirements ids no other requirement in the spec has or had. Don't delete what is no longer wanted: deprecate it, with the reason.` : `Write \`${SPEC_DIR}/index.json\` first (what the product is, and for whom), then the items below it.`}
 4. Check your work: ${CHECKS}.
-5. Read each requirement against the product once more. One you can't see it doing is either not something it does (take it out, or keep it as a \`draft\`) or not checkable (rewrite it).
+5. Read each requirement against the product once more. One you can't see it doing is either not something it does (take it out) or not checkable (rewrite it).
 6. Open a pull request with the change. The app reads the spec from the branch being looked at, here ${branch}.`,
   ];
 

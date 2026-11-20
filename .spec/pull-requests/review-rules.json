@@ -2,7 +2,6 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Review rules",
   "summary": "A `.review-rules` file says how risky each changed file is and what to check in it.",
-  "status": "accepted",
   "order": 1,
   "description": "Not every file deserves the same attention. A repository's `.review-rules` gives each path a risk (low, medium or high) and instructions for whoever reviews a change to it. The app shows the verdict on every changed file and puts the riskiest files first.",
   "stories": [

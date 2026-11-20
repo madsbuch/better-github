@@ -3,7 +3,6 @@
   "title": "Foundations",
   "summary": "Rules every screen keeps.",
   "order": 1,
-  "status": "accepted",
   "description": "These hold everywhere in the app. A change that breaks one of them is a bug, whatever feature it belongs to.",
   "stories": [
     {

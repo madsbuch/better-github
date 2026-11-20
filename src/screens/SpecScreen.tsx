@@ -19,6 +19,7 @@ import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
   requirementStatus,
+  specStatus,
   requirementVersion,
   resolveSpecRef,
   searchSpec,
@@ -340,15 +341,9 @@ function Trail({ node, place }: { node: SpecNode; place: Place }) {
 
 // -------------------------------------------------------------------- item
 
-const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", deprecated: "Deprecated" };
-const STATUS_PILL: Record<SpecStatus, string> = {
-  draft: "pill",
-  accepted: "pill pill-success",
-  deprecated: "pill pill-attention",
-};
-
-function StatusPill({ status }: { status: SpecStatus }) {
-  return <span className={`${STATUS_PILL[status]} spec-status`}>{STATUS_LABEL[status]}</span>;
+/** The one mark a part, story, requirement or value can carry: it was dropped, and is kept for the record. */
+function StatusPill() {
+  return <span className="pill pill-attention spec-status">Deprecated</span>;
 }
 
 function SpecText({ text }: { text: string }) {
@@ -400,7 +395,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
     <article className="spec-item">
       <header>
         <h2>
-          {node.title} {item?.status !== undefined && <StatusPill status={item.status} />}
+          {node.title} {specStatus(item) !== undefined && <StatusPill />}
         </h2>
         {item?.summary !== undefined && item.summary !== "" && <p className="spec-summary">
             <CheckText text={item.summary} />
@@ -421,7 +416,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
           </div>
         </div>
       )}
-      {item?.status === "deprecated" && (
+      {item?.deprecation !== undefined && (
         <div className="banner banner-attention spec-deprecation" style={{ margin: "12px 0" }}>
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="bold">This part is deprecated</div>
@@ -438,7 +433,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
         <section aria-label="User stories">
           <h3>User stories</h3>
           {stories.map((story) => (
-            <Story key={story.id} spec={spec} place={place} node={node} story={story} inherited={item?.status} current={story.id === current} />
+            <Story key={story.id} spec={spec} place={place} node={node} story={story} inherited={specStatus(item)} current={story.id === current} />
           ))}
           <AddStory node={node} />
         </section>
@@ -447,7 +442,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
         <section aria-label="Requirements">
           <h3>Requirements</h3>
           {live.map((requirement) => (
-            <Requirement key={requirement.id} spec={spec} place={place} node={node} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
+            <Requirement key={requirement.id} spec={spec} place={place} node={node} requirement={requirement} inherited={specStatus(item)} current={requirement.id === current} />
           ))}
           <AddRequirement node={node} />
         </section>
@@ -460,7 +455,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
           </button>
           {deprecatedOpen &&
             deprecated.map((requirement) => (
-              <Requirement key={requirement.id} spec={spec} place={place} node={node} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
+              <Requirement key={requirement.id} spec={spec} place={place} node={node} requirement={requirement} inherited={specStatus(item)} current={requirement.id === current} />
             ))}
         </section>
       )}
@@ -469,7 +464,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
         <section aria-label="Values">
           <h3>Values</h3>
           {values.map((value) => (
-            <Value key={value.id} spec={spec} place={place} node={node} value={value} inherited={item?.status} current={value.id === current} />
+            <Value key={value.id} spec={spec} place={place} node={node} value={value} inherited={specStatus(item)} current={value.id === current} />
           ))}
           <AddValue node={node} />
         </section>
@@ -539,12 +534,12 @@ function Story({
   inherited: SpecStatus | undefined;
   current: boolean;
 }) {
-  const deprecated = story.status === "deprecated";
+  const deprecated = specStatus(story) === "deprecated";
   return (
     <div className="spec-req spec-story" data-story={story.id} data-current={current} data-deprecated={deprecated || inherited === "deprecated"}>
       <div className="spec-req-head">
         <span className="spec-req-id">{story.id}</span>
-        {story.status !== undefined && story.status !== inherited && <StatusPill status={story.status} />}
+        {specStatus(story) !== undefined && specStatus(story) !== inherited && <StatusPill />}
       </div>
       <p className="spec-req-text spec-story-text">
         As <strong>{story.as}</strong>, I want <strong>{story.want}</strong>
@@ -638,7 +633,7 @@ function Requirement({
 }) {
   const level = requirement.level ?? "must";
   // Deprecated with its item, it has no record of its own: the item's says why.
-  const deprecated = requirement.status === "deprecated";
+  const deprecated = specStatus(requirement) === "deprecated";
   const version = requirementVersion(requirement);
   const history = requirement.history ?? [];
   const [showHistory, setShowHistory] = useState(false);
@@ -649,7 +644,7 @@ function Requirement({
         <span className="spec-level" data-level={level}>
           {level}
         </span>
-        {requirement.status !== undefined && requirement.status !== inherited && <StatusPill status={requirement.status} />}
+        {specStatus(requirement) !== undefined && specStatus(requirement) !== inherited && <StatusPill />}
         {history.length > 0 && (
           <button className="spec-version" onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory} aria-label={`Version ${version}: show earlier versions`}>
             v{version} {showHistory ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
@@ -693,7 +688,7 @@ function Requirement({
 
 /** A named value: what it is called, what it is, and what it was before. */
 function Value({ spec, place, node, value, inherited, current }: { spec: Spec; place: Place; node: SpecNode; value: SpecValue; inherited: SpecStatus | undefined; current: boolean }) {
-  const deprecated = value.status === "deprecated";
+  const deprecated = specStatus(value) === "deprecated";
   const history = value.history ?? [];
   const [showHistory, setShowHistory] = useState(false);
   return (
@@ -701,7 +696,7 @@ function Value({ spec, place, node, value, inherited, current }: { spec: Spec; p
       <div className="spec-req-head">
         <span className="spec-req-id">{value.id}</span>
         <span className="spec-val-type">{VALUE_TYPE_LABEL[value.type]}</span>
-        {value.status !== undefined && value.status !== inherited && <StatusPill status={value.status} />}
+        {specStatus(value) !== undefined && specStatus(value) !== inherited && <StatusPill />}
         {history.length > 0 && (
           <button className="spec-version" onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory} aria-label={`${value.id}: show what it was before`}>
             {plural(history.length, "change")} {showHistory ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
@@ -803,7 +798,7 @@ function NodeRow({ node, place, showPath = false }: { node: SpecNode; place: Pla
           </span>}
         {node.error !== null && <span className="spec-row-summary c-danger">Couldn't be read</span>}
         <span className="row-meta">
-          {node.item?.status !== undefined && <StatusPill status={node.item.status} />}
+          {specStatus(node.item) !== undefined && <StatusPill />}
           <span>
             {[counts.items > 0 ? plural(counts.items, "item") : "", counts.unloaded === 0 && counts.requirements > 0 ? plural(counts.requirements, "requirement") : ""]
               .filter((part) => part !== "")

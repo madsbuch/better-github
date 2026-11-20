@@ -25,7 +25,8 @@ describe("specPrompt", () => {
 
   it("includes the schema itself, since the agent may not be able to fetch it", () => {
     expect(setup).toContain('"additionalProperties": false');
-    expect(setup).toContain('"deprecated"');
+    expect(setup).toContain('"deprecation"');
+    expect(setup).toContain("There is no status.");
   });
 
   it("asks for a new folder when there is none, for a project with or without code", () => {

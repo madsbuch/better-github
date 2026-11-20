@@ -2,7 +2,6 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Spec browser",
   "summary": "A `.spec` folder says what the code is meant to do. The app lets you read it.",
-  "status": "accepted",
   "order": 1,
   "description": "Code says what a program does, not what it was meant to do. A repository's `.spec` folder holds that: one JSON file per part of the product, all following one schema, next to the pictures they show.\n\nThe folders are the outline. An item's id is its path without `.spec/` and `.json`, and a folder's own item is its `index.json`.",
   "stories": [
@@ -69,7 +68,6 @@
     {
       "id": "S8",
       "text": "A path under an item's code opens that file or folder in the app.",
-      "status": "deprecated",
       "deprecation": {
         "reason": "Items no longer list code files. A spec says what the product does and isn't tied to any code base, so the format has no field that points into one.",
         "replacedBy": [
@@ -119,7 +117,16 @@
     },
     {
       "id": "S16",
-      "text": "A requirement or item that is no longer wanted is kept, with the status `deprecated` and a `deprecation` giving the reason and optionally what replaced it and when. The status without the record, or the record without the status, is listed as a problem."
+      "text": "A requirement, story, value or item that is no longer wanted is kept, with a `deprecation` giving the reason and optionally what replaced it and when. Deprecated means deleted: it no longer holds, and it stays only so that it is known why it went and doesn't come back unnoticed.",
+      "history": [
+        {
+          "version": 1,
+          "text": "A requirement or item that is no longer wanted is kept, with the status `deprecated` and a `deprecation` giving the reason and optionally what replaced it and when. The status without the record, or the record without the status, is listed as a problem.",
+          "reason": "The format no longer has statuses: the deprecation record alone marks what was dropped.",
+          "date": "2026-11-20"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "S17",
@@ -148,7 +155,16 @@
     },
     {
       "id": "S23",
-      "text": "A status says where something stands as part of the spec: draft, accepted or deprecated. There is none for what is built. An item or requirement that still says implemented is read as accepted, and listed as a problem that says to change it."
+      "text": "The format has no status. What carries a deprecation is deprecated; everything else is the spec. A file that still has statuses is read without them, and listed as a problem that says to remove them.",
+      "history": [
+        {
+          "version": 1,
+          "text": "A status says where something stands as part of the spec: draft, accepted or deprecated. There is none for what is built. An item or requirement that still says implemented is read as accepted, and listed as a problem that says to change it.",
+          "reason": "Draft and accepted were planning states, which belong where the product is managed. The only thing a spec records about an entry is that it was dropped.",
+          "date": "2026-11-20"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "S24",
@@ -202,8 +218,8 @@
   "figures": [
     {
       "src": "assets/spec-item.png",
-      "alt": "An item in the spec browser, with its requirements, a figure, code and related items",
-      "caption": "An item: status, requirements, pictures, and where it lives in the code."
+      "alt": "A part in the spec browser, with its requirements, a figure and related parts",
+      "caption": "A part: its requirements, pictures and what it relates to."
     }
   ],
   "related": [

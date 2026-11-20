@@ -14,9 +14,8 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−24 values +1~2−1");
   // What a reviewer must not miss: where the spec now promises less.
   const weakened = activeScreen(page).locator(".spec-weakened");
-  await expect(weakened).toContainText("6 changes take something away from the spec");
+  await expect(weakened).toContainText("5 changes take something away from the spec");
   await expect(weakened.locator("li")).toHaveText([
-    "Retries Back from accepted to draft.",
     "Retries US-2 Deprecated: Nobody asked for it once retries took seconds instead of minutes.",
     // Nothing is deleted from a spec: what is no longer wanted is deprecated, with the reason.
     "Retries R4 A may requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
@@ -28,7 +27,6 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Added", "Removed"]);
 
   const retries = item(page, "uploads/retries");
-  await expect(retries.locator(".spec-part > .spec-diff-move")).toHaveText("Status Accepted → Draft");
   // User stories come first: reworded in place, deprecated with why, and new.
   const stories = retries.locator(".spec-diff-story");
   await expect(stories.locator(".spec-req-id")).toHaveText(["US-1", "US-2", "US-3"]);
@@ -73,8 +71,7 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await expect(figure.locator("img")).toHaveCount(2);
   await expect(retries.getByRole("region", { name: "Related" }).locator(".spec-diff-line")).toHaveText(["−cli", "+uploads/resume"]);
 
-  // A new item has one status, and a removed one opens on the side that still has it.
-  await expect(item(page, "uploads/resume").locator(".spec-part > .spec-diff-move")).toHaveText("Status Draft");
+  // A removed one opens on the side that still has it.
   await item(page, "cli").getByRole("link", { name: "Open Command line in the spec" }).click();
   await expect(screenTitle(page)).toHaveText("Command line");
   await expect(activeScreen(page).locator(".appbar-sub")).toHaveText("acme/rocket · main");
