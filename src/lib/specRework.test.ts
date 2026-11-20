@@ -1,3 +1,4 @@
+import { specPullBranch } from "./specRework";
 import { describe, expect, it } from "vitest";
 import { buildSpec, SpecItem, type SpecFile } from "./spec";
 import { diffSpecs } from "./specDiff";
@@ -156,3 +157,12 @@ describe("a draft over a spec", () => {
     expect(prompt).not.toContain("cli.json");
   });
 });
+
+describe("a pull request for a rework", () => {
+  it("names its branch after the title, and stays a valid ref", () => {
+    expect(specPullBranch("Spec: Retries & Errors!", "1a2b3c")).toBe("spec/retries-errors-1a2b3c");
+    expect(specPullBranch("Spec: ", "1a2b3c")).toBe("spec/rework-1a2b3c");
+    expect(specPullBranch(`Spec: ${"long ".repeat(30)}`, "1a2b3c").length).toBeLessThanOrEqual(52);
+  });
+});
+

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { expect, test, type Page } from "@playwright/test";
 import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 
@@ -85,7 +86,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   // The bar counts it, and the review shows it like any change to the spec.
   await expect(bar(page)).toContainText("1 part changed");
   await expect(bar(page)).toContainText("4 requirements · not in the repository yet");
-  await bar(page).getByRole("button", { name: "Review & copy" }).click();
+  await bar(page).getByRole("button", { name: "Review & hand over" }).click();
   await expect(sheet(page).locator(".spec-diff-summary")).toHaveText("1 item ~11 user story +14 requirements +1~3");
   await expect(sheet(page).locator(".spec-diff-req:not(.spec-diff-story) .spec-req-id")).toHaveText(["R1", "R2", "R3", "R5"]);
   await expect(sheet(page).locator('.spec-diff-req[data-req="R1"]')).toContainText("Why it changed Five retries kept phones awake.");
@@ -173,7 +174,7 @@ test("a part is edited, deprecated with a reason, and new parts are added", asyn
   await expect(activeScreen(page).locator(".rework-item-tools .rework-mark")).toHaveText("Changed");
 
   await expect(bar(page)).toContainText("2 parts changed");
-  await bar(page).getByRole("button", { name: "Review & copy" }).click();
+  await bar(page).getByRole("button", { name: "Review & hand over" }).click();
   await expect(sheet(page).locator(".spec-change .spec-change-title")).toHaveText(["Resuming uploads", "Command line"]);
   await sheet(page).getByRole("button", { name: "Copy for my agent" }).click();
   await expect.poll(() => copied().length).toBe(1);
@@ -186,3 +187,39 @@ test("a part is edited, deprecated with a reason, and new parts are added", asyn
   await expect(bar(page)).toContainText("Reworking the spec");
   await expect(activeScreen(page).locator(".spec-deprecation")).toHaveCount(0);
 });
+
+test("a rework becomes a pull request that changes the spec and tells an agent what follows", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=cli");
+  await activeScreen(page).getByRole("button", { name: "Rework the spec" }).click();
+  await activeScreen(page).getByRole("button", { name: "Add a requirement" }).click();
+  await sheet(page).getByLabel("What has to be true").fill("`rocket --version` prints the version.");
+  await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
+  await bar(page).getByRole("button", { name: "Review & hand over" }).click();
+
+  // Titled after the part, into the branch that was read.
+  await expect(sheet(page).getByLabel("Pull request title")).toHaveValue("Spec: Command line");
+  await expect(sheet(page)).toContainText("Into main, from a new branch.");
+  await sheet(page).getByRole("button", { name: "Open a pull request" }).click();
+  await expect(page.locator(".toast", { hasText: "Pull request #483 opened. Point your coding agent at it." })).toBeVisible();
+  // The changes live in the pull request now: the draft is gone, and the app is at the pull request.
+  await expect(page).toHaveURL(/#\/acme\/rocket\/pull\/483/);
+
+  const sent = await page.evaluate(() => JSON.stringify(Reflect.get(window, "__specPull")));
+  const calls = z.array(z.object({ path: z.string(), body: z.record(z.string(), z.unknown()) })).parse(JSON.parse(sent));
+  expect(calls.map((call) => call.path.replace("/repos/acme/rocket", ""))).toEqual(["/git/trees", "/git/commits", "/git/refs", "/pulls"]);
+  // One commit with the changed file, whole, on a branch of its own.
+  const tree = z.object({ tree: z.array(z.object({ path: z.string(), content: z.string() })) }).parse(calls[0]?.body);
+  expect(tree.tree.map((entry) => entry.path)).toEqual([".spec/cli.json"]);
+  expect(JSON.parse(tree.tree[0]?.content ?? "")).toMatchObject({ title: "Command line", requirements: [{ id: "C1" }, { id: "C2", text: "`rocket --version` prints the version." }] });
+  expect(calls[2]?.body.ref).toMatch(/^refs\/heads\/spec\/command-line-[0-9a-f]{6}$/);
+  const pull = z.object({ title: z.string(), base: z.string(), head: z.string(), body: z.string() }).parse(calls[3]?.body);
+  expect(pull).toMatchObject({ title: "Spec: Command line", base: "main" });
+  expect(pull.head).toMatch(/^spec\/command-line-/);
+  // The description is the handover: what changed, and what the agent does in this same pull request.
+  expect(pull.body).toContain("### Command line (`.spec/cli.json`): changed");
+  expect(pull.body).toContain("- C2: new (must).");
+  expect(pull.body).toContain("## For the coding agent");
+  expect(pull.body).toContain("requirement by requirement: C2");
+  expect(pull.body).toContain("Push your commits to this branch.");
+});
+

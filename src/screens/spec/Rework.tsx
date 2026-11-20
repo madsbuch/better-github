@@ -2,10 +2,11 @@
 // forms that revise, deprecate and add requirements and items, and the bar
 // that reviews the changes and copies them for a coding agent.
 
-import { ArchiveIcon, CopyIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from "@primer/octicons-react";
+import { ArchiveIcon, CopyIcon, GitPullRequestIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from "@primer/octicons-react";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
+import { useOpenSpecPull } from "../../queries/specPull";
 import { to, useNav } from "../../lib/nav";
 import { requirementStatus, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory } from "../../lib/spec";
 import { diffSpecs } from "../../lib/specDiff";
@@ -14,6 +15,8 @@ import {
   deprecateStory,
   newItemId,
   reviseRequirement,
+  specPullBody,
+  specPullTitle,
   specReworkPrompt,
   suggestRequirementId,
   suggestStoryId,
@@ -643,6 +646,26 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
     }
   };
 
+  // The other way to hand it over: a pull request with the spec change, for the agent to add the implementation to.
+  const nav = useNav();
+  const openPull = useOpenSpecPull(owner, repo);
+  const suggested = useMemo(() => specPullTitle(diff), [diff]);
+  const [title, setTitle] = useState<string | null>(null);
+  const pullTitle = title ?? suggested;
+  const open = () =>
+    openPull.mutate(
+      { base: gitRef, title: pullTitle, body: specPullBody({ diff, files: reworked.files, note: rework.draft.note }), files: reworked.files.map((file) => ({ path: file.path, text: file.text })) },
+      {
+        onSuccess: (pull) => {
+          // The changes live in the pull request now.
+          rework.discard();
+          setReview(false);
+          toast.show(`Pull request #${pull.number} opened. Point your coding agent at it.`, "success");
+          nav.navigate(to.pull(owner, repo, pull.number));
+        },
+      },
+    );
+
   return (
     <div className="bottom-bar rework-bar">
       <div className="rework-bar-text">
@@ -657,7 +680,7 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
         </button>
       ) : (
         <button className="btn btn-primary" style={{ flex: "none" }} onClick={() => setReview(true)}>
-          Review &amp; copy
+          Review &amp; hand over
         </button>
       )}
       <Sheet
@@ -677,14 +700,17 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
             >
               Discard all
             </button>
-            <button className="btn btn-primary" onClick={() => void copy()}>
+            <button className="btn" onClick={() => void copy()}>
               <CopyIcon size={14} /> Copy for my agent
+            </button>
+            <button className="btn btn-primary" disabled={openPull.isPending || pullTitle.trim() === ""} onClick={open}>
+              <GitPullRequestIcon size={14} /> {openPull.isPending ? "Opening…" : "Open a pull request"}
             </button>
           </>
         }
       >
         <p className="muted small" style={{ margin: "0 0 4px" }}>
-          Nothing is written to {owner}/{repo}. Copying gives your coding agent what changed and why, the new files, and what to do about the code.
+Nothing is written to {owner}/{repo} yet. Open a pull request with these changes and point your coding agent at it: its description says what follows for the product. Or copy the same as text.
         </p>
         <div className="rework-review">
           <SpecChangesSummary diff={diff} />
@@ -692,6 +718,13 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
             <SpecChangeCard key={item.id} change={item} sides={{ owner, repo, base: gitRef, head: gitRef }} />
           ))}
         </div>
+        <label className="rework-field" style={{ marginTop: 12 }}>
+          <span className="field-label">Pull request title</span>
+          <input className="input" value={pullTitle} onChange={(e) => setTitle(e.target.value)} />
+          <span className="muted small">
+            Into <span className="mono">{gitRef}</span>, from a new branch. It changes the spec only; the implementation is added to it.
+          </span>
+        </label>
         <label className="rework-field" style={{ marginTop: 12 }}>
           <span className="field-label">Anything else the agent should know (optional)</span>
           <textarea className="textarea" value={rework.draft.note} onChange={(e) => rework.setNote(e.target.value)} style={{ minHeight: 80 }} />

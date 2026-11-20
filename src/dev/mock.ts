@@ -917,8 +917,18 @@ function comparison(spec: string) {
 
 const EXISTING_PULL = { number: 482, title: PR_DETAIL.title, created_at: ago(60 * 30), user: { login: "alice" } };
 
+/** What was sent to open pull requests, for tests to read back (window.__specPull). */
+const specPullRequests: { path: string; body: unknown }[] = [];
+if (typeof window !== "undefined") Object.assign(window, { __specPull: specPullRequests });
+
 function newPullRest(path: string, method: string, request: RestRequest): unknown {
+  // Opening a pull request from a reworked spec: a tree, a commit, a branch.
+  if (method === "POST" && /\/git\/(trees|commits|refs)$/.test(path)) {
+    specPullRequests.push({ path, body: request.body });
+    return { sha: path.endsWith("/trees") ? "7ree".padEnd(40, "0") : "c0ffee5".padEnd(40, "0") };
+  }
   if (method === "POST" && /^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
+    specPullRequests.push({ path, body: request.body });
     return { number: 483, html_url: "https://github.com/acme/rocket/pull/483" };
   }
   if (method === "POST" && path === "/markdown") {
@@ -928,6 +938,8 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
     return `<p>${text.replace(/[&<>]/g, (c) => escapes[c] ?? c)}</p>`;
   }
   if (method !== "GET") return undefined;
+  // The tip of a branch, to start a new one from.
+  if (/^\/repos\/[^/]+\/[^/]+\/commits\/[^/]+$/.test(path) && !/\/commits\/[0-9a-f]{7,40}$/.test(path)) return { sha: "ba5eba11".padEnd(40, "0"), commit: { tree: { sha: "7ree0".padEnd(40, "0") } } };
   const compare = /\/compare\/(.+)$/.exec(path);
   if (compare) return comparison(group(compare));
   const tree = /\/git\/trees\/(.+)$/.exec(path);

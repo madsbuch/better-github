@@ -250,14 +250,20 @@ changes what a requirement means becomes a new version and asks why, a wording
 fix doesn't, a deprecation asks why, and a new requirement gets an id nothing
 else in the spec has.
 
-Nothing is written to the repository. The changes are a draft on the device,
-laid over the spec you are reading, that survives leaving the app; turning the
-pencil off shows the repository's spec again. *Review & copy* shows the draft
-like any change to a spec (what changed, what takes something away) and copies
-a handover for your coding agent: what changed and why, the complete new
-contents of each changed file, and a request to bring the product in line with it. Once the agent's
-pull request is merged, the draft's changes are the repository's and drop out
-of the draft by themselves.
+The changes are a draft on the device, laid over the spec you are reading,
+that survives leaving the app; turning the pencil off shows the repository's
+spec again. Nothing is written to the repository until you hand the draft over.
+*Review & hand over* shows it like any change to a spec (what changed, what
+takes something away) and offers two ways out:
+
+- **Open a pull request.** One commit with the changed spec files, on a new
+  branch, into the branch you were reading. Its description says what changed
+  and why and tells a coding agent what to do: point your agent at the pull
+  request and it adds the implementation to it. The draft is then gone from
+  the device.
+- **Copy for my agent.** The same as text, with the complete new contents of
+  each changed file, for an agent that opens the pull request itself. Once that
+  is merged, the draft's changes drop out by themselves.
 
 The pull request also gets a **Spec tab**, between Files and Commits, for
 reading the spec changes and nothing else: no code and no JSON. It starts with

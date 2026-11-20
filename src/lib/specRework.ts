@@ -401,3 +401,57 @@ ${files.map((file) => `### \`${file.path}\`${file.isNew ? " (new)" : ""}\n\n${fi
   ];
   return `${sections.join("\n\n")}\n`;
 }
+
+/** A title for the pull request that carries a rework: the part it is about, or how many. */
+export function specPullTitle(diff: SpecDiff): string {
+  const parts = diff.items.map((item) => (item.after ?? item.before)?.title ?? item.id);
+  return parts.length === 1 ? `Spec: ${parts[0] ?? ""}` : `Spec: ${parts.length} parts`;
+}
+
+/** A branch name for it: "spec/retries-and-errors-1a2b". `salt` keeps two with one title apart. */
+export function specPullBranch(title: string, salt: string): string {
+  const slug = title
+    .replace(/^Spec:\s*/i, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+  return `spec/${slug === "" ? "rework" : slug}-${salt}`;
+}
+
+/**
+ * The description of a pull request that changes the spec and nothing else:
+ * what changed and why, and what a coding agent pointed at the pull request
+ * has to do to make the product follow. The files themselves are its diff.
+ */
+export function specPullBody({ diff, files, note }: Pick<ReworkPromptInput, "diff" | "files" | "note">): string {
+  const byId = new Map(files.map((file) => [file.id, file]));
+  const changes = diff.items.flatMap((change) => {
+    const file = byId.get(change.id);
+    return file ? [itemSection(change, file.path)] : [];
+  });
+  const affected = diff.items.flatMap((change) =>
+    change.requirements
+      .filter((r) => r.after !== null && (r.kind === "added" || r.version?.kind === "bumped" || requirementStatus(change.after?.item, r.after) === "deprecated"))
+      .map((r) => r.id),
+  );
+  const sections = [
+    `This pull request changes the spec (\`${SPEC_DIR}\`) and nothing else yet. The product has to follow: the implementation belongs in this same pull request.`,
+
+    `## What changed in the spec\n\n${changes.join("\n\n")}`,
+
+    ...(note.trim() !== "" ? [`## Also\n\n${note.trim()}`] : []),
+
+    `## For the coding agent
+
+1. Check out this pull request's branch. The spec files in it are final: don't rewrite them unless a step below says so.
+2. Bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. Find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove what it described unless its reason says otherwise.
+3. Push your commits to this branch. Don't open a second pull request.
+4. Keep the spec's rules if you have to touch it: ids never change or get reused, nothing is deleted (deprecate, with the reason), a change of meaning is a new version with its reason, and every file fits the schema. The full format is at ${SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt")}.
+5. If something can't be done, contradicts another requirement, or is unclear, don't guess: say so in a comment on this pull request and stop.
+6. When you are done, comment with the requirement ids this touches and, for each, whether the product now meets it.`,
+  ];
+  return `${sections.join("\n\n")}\n`;
+}
+
