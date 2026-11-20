@@ -206,6 +206,10 @@ const ROCKET_SPEC: Record<string, unknown> = {
     status: "accepted",
     order: 1,
     description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
+    stories: [
+      { id: "US-1", as: "a commuter sending a file from a train", want: "the upload to survive the tunnel", soThat: "I don't have to start it again", requirements: ["#R1", "#R2"] },
+      { id: "US-2", as: "a developer calling `upload`", want: "to stop an upload that is waiting to retry", requirements: ["#R4"] },
+    ],
     requirements: [
       { id: "R1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
       { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
@@ -213,7 +217,6 @@ const ROCKET_SPEC: Record<string, unknown> = {
       { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may", status: "draft" },
     ],
     figures: [{ src: "assets/backoff.png", alt: "Pauses of 250 ms, 500 ms, 1 s and 2 s between five attempts", caption: "Pauses double between attempts." }],
-    questions: ["Should a `429` count as retryable, honoring `Retry-After`?"],
     related: ["uploads/errors#E1", "cli"],
   },
   "uploads/errors.json": {
@@ -262,6 +265,17 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
     status: "draft",
     order: 1,
     description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
+    stories: [
+      { id: "US-1", as: "a commuter sending a file from a train", want: "the upload to survive the tunnel", soThat: "my phone can stay in my pocket", requirements: ["#R1", "#R2"] },
+      {
+        id: "US-2",
+        as: "a developer calling `upload`",
+        want: "to stop an upload that is waiting to retry",
+        status: "deprecated",
+        deprecation: { reason: "Nobody asked for it once retries took seconds instead of minutes." },
+      },
+      { id: "US-3", as: "someone running the server", want: "clients to back off when I ask them to", soThat: "a restart isn't met by a stampede", requirements: ["#R5"] },
+    ],
     requirements: [
       {
         id: "R1",

@@ -10,9 +10,9 @@ import { Link } from "@tanstack/react-router";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { anchorKey, inlineDiff, wordDiff, type Hunk, type Segment, type Side } from "../lib/diff";
 import { to } from "../lib/nav";
-import { SPEC_DIR, specTrail, type SpecFigure, type SpecRequirement, type SpecStatus } from "../lib/spec";
-import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff } from "../lib/specDiff";
-import { commentLine, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
+import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStatus, type SpecStory } from "../lib/spec";
+import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange } from "../lib/specDiff";
+import { commentLine, entrySpan, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
 import { repoQueries } from "../queries/repos";
 import { CheckText } from "./ReviewRules";
 
@@ -54,7 +54,7 @@ const ReadingContext = createContext(false);
 
 const KIND_LABEL: Record<ItemKind, string> = { added: "Added", removed: "Removed", changed: "Changed", moved: "Moved" };
 const KIND_SIGN: Record<ItemKind, string> = { added: "+", removed: "−", changed: "~", moved: "→" };
-const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+const plural = (count: number, noun: string) => `${count} ${count === 1 ? noun : noun.endsWith("y") ? `${noun.slice(0, -1)}ies` : `${noun}s`}`;
 
 // ----------------------------------------------------------------- summary
 
@@ -79,7 +79,7 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
   };
   const weakened = diff.items.flatMap((item) => [
     ...(item.weakened !== null ? [{ id: item.id, key: item.id, label: titleOf(item), why: item.weakened }] : []),
-    ...item.requirements
+    ...[...item.stories, ...item.requirements]
       .filter((r) => r.weakened !== null)
       .map((r) => ({ id: item.id, key: `${item.id}#${r.id}`, label: `${titleOf(item)} ${r.id}`, why: r.weakened ?? "" })),
   ]);
@@ -87,6 +87,7 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
     <>
       <div className="spec-diff-summary">
         {line(diff.counts.items, ["added", "changed", "moved", "removed"] as const, "item")}
+        {line(diff.counts.stories, ["added", "changed", "removed"] as const, "user story")}
         {line(diff.counts.requirements, ["added", "changed", "moved", "removed"] as const, "requirement")}
       </div>
       {weakened.length > 0 && (
@@ -152,8 +153,8 @@ export function SpecChangeCard(props: CardProps) {
   const ref = change.after !== null ? sides.head : sides.base;
   const trail = specTrail(node).slice(0, -1);
   const counts = { added: 0, changed: 0, removed: 0 };
-  for (const requirement of change.requirements) counts[requirement.kind]++;
-  const weakened = (change.weakened !== null ? 1 : 0) + change.requirements.filter((r) => r.weakened !== null).length;
+  for (const entry of [...change.stories, ...change.requirements]) counts[entry.kind]++;
+  const weakened = (change.weakened !== null ? 1 : 0) + [...change.stories, ...change.requirements].filter((r) => r.weakened !== null).length;
 
   return (
     <div className={`diff-file spec-change${viewed === true ? " viewed" : ""}${props.reading === true ? " reading" : ""}`} data-path={node.file ?? undefined} data-id={change.id} data-kind={change.kind}>
@@ -242,6 +243,10 @@ function CardBody({ change, sides, review }: CardProps) {
     const [old, current] = [before === null ? null : jsonLines(before), after === null ? null : jsonLines(after)];
     return {
       field: (name: string): Spans => ({ before: old?.get(name) ?? null, after: current?.get(name) ?? null }),
+      story: (id: string): Spans => ({
+        before: before !== null && old !== null ? entrySpan(before, old, "stories", id) : null,
+        after: after !== null && current !== null ? entrySpan(after, current, "stories", id) : null,
+      }),
       requirement: (id: string): Spans => ({
         before: before !== null && old !== null ? requirementSpan(before, old, id) : null,
         after: after !== null && current !== null ? requirementSpan(after, current, id) : null,
@@ -253,6 +258,7 @@ function CardBody({ change, sides, review }: CardProps) {
   const placed = useMemo(() => {
     const parts: { key: string; spans: Spans }[] = [
       ...change.fields.map((field) => ({ key: `field:${field.field}`, spans: lines.field(field.field) })),
+      ...change.stories.map((story) => ({ key: `story:${story.id}`, spans: lines.story(story.id) })),
       ...[...change.requirements.map((r) => r.id), ...change.unchanged.map((r) => r.id)].map((id) => ({ key: `requirement:${id}`, spans: lines.requirement(id) })),
       { key: "figures", spans: lines.field("figures") },
       ...change.lists.map((list) => ({ key: `list:${list.field}`, spans: lines.field(list.field) })),
@@ -293,7 +299,7 @@ function CardBody({ change, sides, review }: CardProps) {
       {change.movedFrom !== null && (
         <p className="spec-diff-note">
           Moved from <span className="mono small">{change.movedFrom}</span>
-          {change.fields.length + change.requirements.length + change.figures.length + change.lists.length === 0 && ", otherwise unchanged"}.
+          {change.fields.length + change.stories.length + change.requirements.length + change.figures.length + change.lists.length === 0 && ", otherwise unchanged"}.
         </p>
       )}
       {change.weakened !== null && (
@@ -317,6 +323,14 @@ function CardBody({ change, sides, review }: CardProps) {
               </div>
             );
           })}
+          {change.stories.length > 0 && (
+            <Section title="User stories">
+              {change.stories.map((story) => {
+                const talk = discuss(`story:${story.id}`, lines.story(story.id), story.id);
+                return <Story key={story.id} change={story} action={talk.button} comments={talk.comments} selected={talk.selected} />;
+              })}
+            </Section>
+          )}
           {(change.requirements.length > 0 || change.unchanged.length > 0) && (
             <Section title="Requirements">
               {change.requirements.map((requirement) => {
@@ -490,6 +504,61 @@ function Field({ change, whole, action }: { change: FieldChange; whole: boolean;
 const levelOf = (requirement: SpecRequirement) => requirement.level ?? "must";
 const REQUIREMENT_KIND: Record<ChangeKind, string> = { added: "Added", removed: "Removed", changed: "Changed" };
 
+function Story({ change, action, comments, selected }: { change: StoryChange; action: ReactNode; comments: ReactNode; selected: boolean }) {
+  const { before, after } = change;
+  const shown = after ?? before;
+  if (shown === null) return null;
+  const [was, is] = [before === null ? null : storySentence(before), after === null ? null : storySentence(after)];
+  const refs = (story: SpecStory) => (story.requirements ?? []).map((ref) => ref.replace(/^#/, "")).join(", ");
+  return (
+    <div className="spec-diff-req spec-diff-story" data-kind={change.kind} data-story={change.id} data-selected={selected}>
+      <div className="spec-req-head">
+        <span className="spec-req-id">{change.id}</span>
+        <span className="grow" />
+        {change.weakened !== null && (
+          <span className="spec-diff-kind" data-kind="weakened" title={change.weakened}>
+            <AlertIcon size={12} /> Takes away
+          </span>
+        )}
+        <span className="spec-diff-kind" data-kind={change.kind}>
+          {REQUIREMENT_KIND[change.kind]}
+        </span>
+        {action}
+      </div>
+      {was !== null && is !== null ? (
+        was !== is ? (
+          <TextChange before={was} after={is} />
+        ) : (
+          <div className="spec-diff-same">
+            <CheckText text={is} />
+          </div>
+        )
+      ) : (
+        <Line kind={after !== null ? "added" : "removed"} text={storySentence(shown)} />
+      )}
+      {before !== null && after !== null && (
+        <>
+          {refs(before) !== refs(after) && <Move label="Made true by" before={refs(before) === "" ? "nothing" : refs(before)} after={refs(after) === "" ? "nothing" : refs(after)} />}
+          {before.status !== after.status && (
+            <Move label="Status" before={before.status === undefined ? "its item's" : statusLabel(before.status)} after={after.status === undefined ? "its item's" : statusLabel(after.status)} />
+          )}
+        </>
+      )}
+      {(before === null || after === null) && refs(shown) !== "" && (
+        <div className="spec-diff-same small">
+          <span className="bold">Made true by</span> <span className="mono">{refs(shown)}</span>
+        </div>
+      )}
+      {after?.deprecation !== undefined && before?.deprecation?.reason !== after.deprecation.reason && (
+        <div className="spec-diff-same small">
+          <span className="bold">Why it is deprecated</span> <CheckText text={after.deprecation.reason} />
+        </div>
+      )}
+      {comments}
+    </div>
+  );
+}
+
 function Requirement({ change, action, comments, selected }: { change: RequirementChange; action: ReactNode; comments: ReactNode; selected: boolean }) {
   const { before, after } = change;
   const shown = after ?? before;
@@ -619,13 +688,12 @@ function Figure({ change, sides }: { change: FigureChange; sides: Sides }) {
   );
 }
 
-const LIST_LABEL: Record<ListChange["field"], string> = { questions: "Open questions", related: "Related" };
+const LIST_LABEL: Record<ListChange["field"], string> = { related: "Related" };
 
 function List({ change, action }: { change: ListChange; action: ReactNode }) {
-  const mono = change.field !== "questions";
   return (
     <Section title={LIST_LABEL[change.field]} action={action}>
-      <div className={mono ? "mono small" : undefined}>
+      <div className="mono small">
         {change.removed.map((entry) => (
           <Line key={`-${entry}`} kind="removed" text={entry} />
         ))}

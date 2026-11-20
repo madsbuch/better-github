@@ -18,7 +18,11 @@ const BASE: SpecFile[] = [
       { id: "R4", text: "Can be cancelled." },
     ],
     figures: [{ src: "assets/a.png" }, { src: "assets/b.png", caption: "Old" }, { src: "assets/gone.png" }],
-    questions: ["Retry on 429?"],
+    stories: [
+      { id: "US-1", as: "a commuter", want: "uploads to survive tunnels", requirements: ["#R1"] },
+      { id: "US-2", as: "a caller", want: "to cancel" },
+      { id: "US-3", as: "an operator", want: "quiet restarts" },
+    ],
   }),
   file("cli.json", { title: "Command line", requirements: [{ id: "C1", text: "Exits with 1." }] }),
   picture("assets/a.png", "1"),
@@ -32,6 +36,11 @@ const HEAD: SpecFile[] = [
   file("uploads/retries.json", {
     title: "Retries",
     status: "accepted",
+    stories: [
+      { id: "US-1", as: "a commuter", want: "uploads to survive tunnels", soThat: "the phone stays in the pocket", requirements: ["#R1"] },
+      { id: "US-2", as: "a caller", want: "to cancel", status: "deprecated", deprecation: { reason: "Nobody asked." } },
+      { id: "US-4", as: "a server", want: "clients to back off" },
+    ],
     requirements: [
       { id: "R1", text: "Retried up to three times." },
       // "must" is the default: not a change.
@@ -58,7 +67,7 @@ describe("diffSpecs", () => {
       ["uploads/retries", "changed"],
       ["cli", "removed"],
     ]);
-    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, requirements: { added: 2, removed: 2, changed: 2, moved: 0 }, weakened: 3 });
+    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, stories: { added: 1, removed: 1, changed: 2 }, requirements: { added: 2, removed: 2, changed: 2, moved: 0 }, weakened: 5 });
   });
 
   it("says which fields of an item changed", () => {
@@ -86,11 +95,18 @@ describe("diffSpecs", () => {
     ]);
   });
 
-  it("lists what was added to and removed from questions and related", () => {
-    expect(retries?.lists).toEqual([
-      { field: "questions", added: [], removed: ["Retry on 429?"] },
-      { field: "related", added: ["cli"], removed: [] },
+  it("lists what was added to and removed from related", () => {
+    expect(retries?.lists).toEqual([{ field: "related", added: ["cli"], removed: [] }]);
+  });
+
+  it("follows user stories by id: reworded, deprecated with why, added, and deleted, which takes something away", () => {
+    expect(retries?.stories.map((story) => [story.id, story.kind, story.weakened])).toEqual([
+      ["US-1", "changed", null],
+      ["US-2", "changed", "Deprecated: Nobody asked."],
+      ["US-4", "added", null],
+      ["US-3", "removed", "A user story is deleted. Deprecate it instead, with the reason, so the record stays."],
     ]);
+    expect(diff.counts.stories).toEqual({ added: 1, removed: 1, changed: 2 });
   });
 
   it("treats a missing spec as an empty one, and equal specs as no change", () => {

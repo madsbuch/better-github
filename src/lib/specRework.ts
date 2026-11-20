@@ -19,12 +19,14 @@ import {
   SPEC_SCHEMA_URL,
   SpecItem,
   specTrail,
+  storySentence,
   type Spec,
   type SpecFile,
   type SpecLevel,
   type SpecNode,
   type SpecRequirement,
   type SpecStatus,
+  type SpecStory,
 } from "./spec.ts";
 import type { ItemChange, RequirementChange, SpecDiff } from "./specDiff";
 
@@ -81,6 +83,32 @@ export function withNewRequirement(item: SpecItem, requirement: { id: string; te
     ...(requirement.level === "must" ? {} : { level: requirement.level }),
   };
   return { ...item, requirements: [...(item.requirements ?? []), added] };
+}
+
+/** `item` with one user story replaced, added (when it has none with that id) or, with null, taken out again. */
+export function withStory(item: SpecItem, id: string, story: SpecStory | null): SpecItem {
+  const stories = item.stories ?? [];
+  const has = stories.some((candidate) => candidate.id === id);
+  const next = has ? stories.flatMap((candidate) => (candidate.id === id ? (story === null ? [] : [story]) : [candidate])) : story === null ? stories : [...stories, story];
+  // Before the requirements: who it is for comes first.
+  const { stories: _stories, ...rest } = item;
+  return next.length === 0 ? rest : { ...rest, stories: next };
+}
+
+/** A user story as deprecated: it stays, with why. */
+export function deprecateStory(original: SpecStory, reason: string, date = today()): SpecStory {
+  return { ...original, status: "deprecated", deprecation: { reason, date } };
+}
+
+/** An id for a new user story that nothing in the spec has: "US-1", "US-2", continuing the highest in use. */
+export function suggestStoryId(spec: Spec): string {
+  let next = 1;
+  for (const id of spec.stories.keys()) {
+    const match = /^US-(\d+)$/.exec(id);
+    if (match) next = Math.max(next, Number(match[1]) + 1);
+  }
+  while (spec.stories.has(`US-${next}`) || spec.requirements.has(`US-${next}`)) next++;
+  return `US-${next}`;
 }
 
 export interface ItemFields {
@@ -293,6 +321,14 @@ function requirementLine(change: RequirementChange): string {
   return `- ${change.id}: ${parts.join("; ")}.${why}${wording}`;
 }
 
+function storyLine(change: ItemChange["stories"][number]): string {
+  const { before, after } = change;
+  if (after === null) return `- ${change.id}: user story deleted.`;
+  if (before === null) return `- ${change.id}: new user story. ${quote(storySentence(after))}`;
+  if (after.status === "deprecated" && before.status !== "deprecated") return `- ${change.id}: user story deprecated. Why: ${after.deprecation?.reason ?? "no reason given"}`;
+  return `- ${change.id}: user story was ${quote(storySentence(before))}, now ${quote(storySentence(after))}.`;
+}
+
 function itemSection(change: ItemChange, path: string): string {
   const node = change.after ?? change.before;
   const title = node ? specTrail(node).map((n) => n.title).join(" / ") : change.id;
@@ -302,6 +338,7 @@ function itemSection(change: ItemChange, path: string): string {
         ? null
         : `- ${field.field}: ${field.before !== undefined ? quote(field.before) : "none"} to ${field.after !== undefined ? quote(field.after) : "none"}.`,
     ),
+    ...change.stories.map(storyLine),
     ...change.requirements.map(requirementLine),
   ].filter((line) => line !== null);
   return `### ${title} (\`${path}\`): ${change.kind === "added" ? "new item" : "changed"}\n\n${lines.length > 0 ? lines.join("\n") : "- See the file below."}`;

@@ -30,6 +30,15 @@ export const SPEC_PROMPT_EXAMPLE = {
   status: "accepted",
   order: 1,
   description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has",
+  stories: [
+    {
+      id: "US-1",
+      as: "a commuter sending a file from a train",
+      want: "the upload to survive the tunnel",
+      soThat: "I don't have to start it again",
+      requirements: ["#RET-1", "#RET-2"],
+    },
+  ],
   requirements: [
     {
       id: "RET-1",
@@ -54,7 +63,6 @@ export const SPEC_PROMPT_EXAMPLE = {
     },
   ],
   figures: [{ src: "assets/backoff.png", alt: "Four pauses, each twice as long as the last", caption: "Pauses double between attempts." }],
-  questions: ["Should a `429` count as retryable?"],
   related: ["#ERR-1", "cli"],
 };
 
@@ -81,16 +89,28 @@ function formatSections(): string[] {
   return [
     `## Write little
 
-The requirements are the spec. Everything else in an item is there to help a reader find and understand them, and should be as short as that takes.
+The user stories and the requirements are the spec. Everything else in a part is there to help a reader find and understand them, and should be as short as that takes.
 
 - Say each thing once, in the one place it belongs. Don't restate a requirement in the description, or the description in the summary.
 - \`summary\`: one line.
 - \`description\`: a few sentences on what the part is and why it exists. Not a history of how it came to be, not a walk through its requirements, not an account of how it is built. If it is longer than its requirements, it is too long.
+- A user story: one sentence in three short pieces (\`as\`, \`want\`, \`soThat\`). It says who wants what and why, never how.
 - A requirement's \`text\`: one sentence, two at most. State what must hold. No "because", no background, no example unless the statement can't be understood without one.
 - Why something changed belongs in that requirement's \`history\` (\`reason\`); why something was dropped belongs in its \`deprecation\` (\`reason\`). Each is a sentence or two. Neither belongs in a description.
-- \`questions\`: one sentence each, asking one thing.
 - Don't explain the format, narrate what you did, hedge, or address the reader. Don't write a sentence to introduce the next one.
 - Before keeping a sentence, ask what a reader could no longer check or decide without it. If nothing, cut it.`,
+
+    `## What a spec is made of
+
+- **Part** (an item): one \`.json\` file, one part of the product. It holds the stories and requirements of that part, and a title, a one-line summary and a short description to introduce them. Parts nest: folders are the outline.
+- **User story**: who wants what, and why. "As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again." It says what the part is for, and can name the requirements that together make it true.
+- **Requirement**: one statement about what the product does that can be checked against the product. "An upload that fails with a network error is retried, up to five times." It has a level: \`must\`, \`should\` or \`may\`.
+- **Earlier version**: what a requirement said before its meaning changed, kept with the reason it changed.
+- **Deprecation**: the record on a story, requirement or part that is no longer wanted, kept with the reason. Nothing is deleted.
+- **Figure**: a picture a part shows, such as a screenshot, a mockup or a diagram. It is an image file (PNG, JPEG, GIF, WebP or AVIF) stored inside \`${SPEC_DIR}\`; the part names it by path and can give it alt text and a caption.
+- **Related**: a pointer from a part to another part, story or requirement.
+
+Stories and requirements are what matters; the rest serves them. A spec has no open questions, tasks or notes: what isn't decided is settled wherever the product is planned, and enters the spec once it is.`,
 
     `## The format
 
@@ -113,9 +133,10 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE, null, 2))}
 - Only \`title\` is required. Unknown keys are errors: the app won't show an item that has one.
 - \`status\` says where something stands as part of the spec: \`draft\` (still being worked out), \`accepted\` (agreed on: this is what the product is to do) or \`deprecated\` (no longer wanted, see below). A requirement's \`status\` defaults to its item's. There is no status for "built": whether the product meets a requirement is found out by comparing the product with the spec, and is not recorded in it.
 - A requirement's \`level\` is \`must\` (the default), \`should\` or \`may\`. Its \`id\` is unique in the whole spec, not just in its item, and never changes or gets reused: everything that refers to a requirement does so by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (\`RET-1\`, \`RET-2\` in Retries; \`ERR-1\` in Errors) so ids don't collide.
-- Text (\`description\`, a requirement's \`text\`, \`questions\`) is plain, not Markdown: a blank line starts a paragraph, lines starting with \`- \` form a list, and \`backticks\` mark code. There are no headings, links or bold.
+- A user story has an \`id\` (\`US-1\`), \`as\` (who), \`want\` (what) and optionally \`soThat\` (why); the app reads them as "As ..., I want ..., so that ...". Its \`requirements\` name the requirements that make it true (\`#RET-1\`), in any item; each has to exist. Stories and requirements share one set of ids: no id is used twice, whichever of the two has it. A story has no level and no versions: reword it freely, and deprecate it when nobody wants it any more.
+- Text (\`description\`, a requirement's \`text\`) is plain, not Markdown: a blank line starts a paragraph, lines starting with \`- \` form a list, and \`backticks\` mark code. There are no headings, links or bold.
 - \`order\` places an item among its siblings, lowest first; items without one follow, by title.
-- \`figures\` name pictures by their path from \`${SPEC_DIR}\`; the file has to be there. \`related\` lists ids of other items (\`cli\`) or requirements (\`#ERR-1\`, or with its item: \`uploads/errors#ERR-1\`); each has to exist.
+- \`figures\` name pictures by their path from \`${SPEC_DIR}\`; the file has to be there. \`related\` lists ids of other items (\`cli\`), requirements or stories (\`#ERR-1\`, or with its item: \`uploads/errors#ERR-1\`); each has to exist.
 - \`$schema\` is optional and lets editors check the file.`,
 
     `## The schema
@@ -144,6 +165,7 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 - \`deprecation.reason\` is required with the status: what changed, in a sentence or two someone reading it in a year will understand. \`replacedBy\` names what takes its place, if anything: requirements (\`#RES-1\`) or items. \`date\` is the day it was deprecated, as \`YYYY-MM-DD\`.
 - The status and the record go together: \`"status": "deprecated"\` without a \`deprecation\`, or a \`deprecation\` without the status, is an error.
 - Leave a deprecated requirement's \`text\` and \`level\` as they were: they are the record of what was promised.
+- A user story is deprecated the same way: \`status\` and \`deprecation\` on the story.
 - A whole item is deprecated the same way, with \`status\` and \`deprecation\` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
 - A deprecated requirement's id is never given to another requirement.
 - To change what a requirement means, give it a new version (above). To replace it with a different promise altogether, deprecate it and add a new requirement with a new id.
@@ -157,12 +179,13 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 - A requirement is one statement that can be checked against the product. "A failed upload is retried up to five times", not "uploads are robust". If it needs an "and", it is two requirements.
 - Requirements state behavior and limits a user or caller can observe: what happens, when, with which numbers, and what never happens. Leave out anything that is true of all software.
 - \`summary\` is one line that makes sense in a list. \`description\` gives the reason the part exists, briefly (see "Write little").
-- What isn't decided goes in \`questions\`, not into a vague requirement.
+- A user story names a real kind of person and something they want from the product, not a feature ("As a user, I want a retry button" is a requirement in disguise). A part usually has one to three.
+- What isn't decided stays out. A spec holds what was decided; don't write a requirement that guesses.
 - A few items with sharp requirements beat many thin ones. Add a folder when an item has grown parts of its own.`,
   ];
 }
 
-const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every deprecated requirement or item has a \`deprecation\` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
+const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists, every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every deprecated story, requirement or item has a \`deprecation\` with its reason, and no story or requirement id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
 
 /**
  * spec-llms.txt: the spec format for coding agents, to point one at when it
@@ -183,8 +206,8 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
 
 - The spec comes first. A change to what the product does starts as a change to the spec: a new requirement, a new version of one with the reason, or a deprecation with the reason.
 - The spec says what the product does, never whether or where it is built. To learn whether a requirement is met, compare the product with it; don't record the answer in the spec.
-- Never delete a requirement or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
-- When something isn't decided, add it to \`questions\` and ask, rather than writing a requirement that guesses.
+- Never delete a requirement, a user story or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
+- When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (\`RET-1\`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
 
 ## Checking a spec
@@ -210,11 +233,11 @@ A spec says what the code is meant to do, in a form people and agents can read, 
 
 1. Get to know the repository: its README and docs, its layout, its tests (they say what is promised), its public interfaces, and recent pull requests and issues.
 2. Decide which case this is:
-   - The repository has code. Write down what the product does today, as you find it from the code and its tests, with \`status: "accepted"\`. Where the code and the docs disagree, or the behavior looks unintended, don't pick one silently: write the requirement the way the product behaves and add a question.
-   - The repository is new or nearly empty. Write what it is meant to do, from the README, the issues and whatever brief you were given, with \`status: "draft"\`. Ask the person you are working for about anything the spec depends on that you can't find; put what stays open in \`questions\`.
+   - The repository has code. Write down what the product does today, as you find it from the code and its tests, with \`status: "accepted"\`. Where the code and the docs disagree, or the behavior looks unintended, don't pick one silently: write the requirement the way the product behaves and tell the person you are working for.
+   - The repository is new or nearly empty. Write what it is meant to do, from the README, the issues and whatever brief you were given, with \`status: "draft"\`. Ask the person you are working for about anything the spec depends on that you can't find; leave out what stays open.
 3. ${current ? `Edit \`${SPEC_DIR}\`. Keep what is right, fix what is wrong or out of date, and fill in what is missing. Keep the ids of existing items and requirements; give new requirements ids no other requirement in the spec has or had. Don't delete what is no longer wanted: deprecate it, with the reason.` : `Write \`${SPEC_DIR}/index.json\` first (what the product is, and for whom), then the items below it.`}
 4. Check your work: ${CHECKS}.
-5. Read each requirement against the product once more. One you can't see it doing is either not something it does (take it out, or keep it as a \`draft\` and add a question) or not checkable (rewrite it).
+5. Read each requirement against the product once more. One you can't see it doing is either not something it does (take it out, or keep it as a \`draft\`) or not checkable (rewrite it).
 6. Open a pull request with the change. The app reads the spec from the branch being looked at, here ${branch}.`,
   ];
 

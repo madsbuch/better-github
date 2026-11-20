@@ -27,6 +27,7 @@ import {
   specFilesAround,
   specTextBlocks,
   specTrail,
+  storySentence,
   splitSpecRef,
   unloadedBelow,
   type Spec,
@@ -35,6 +36,7 @@ import {
   type SpecNode,
   type SpecRequirement,
   type SpecStatus,
+  type SpecStory,
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
 import { useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
@@ -43,7 +45,7 @@ import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
 import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
-import { AddItem, AddRequirement, ItemTools, RequirementTools, ReworkBar, ReworkContext, useReworking, type Reworking } from "./spec/Rework";
+import { AddItem, AddRequirement, AddStory, ItemTools, RequirementTools, StoryTools, ReworkBar, ReworkContext, useReworking, type Reworking } from "./spec/Rework";
 
 const route = getRouteApi("/$owner/$repo/spec");
 
@@ -238,25 +240,24 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
             <EmptyState title="Nothing matches">No item or requirement contains “{filter.trim()}”.</EmptyState>
           )
         ) : (
-          matches.slice(0, shown).map(({ node, requirements }) =>
-            requirements.length === 0 ? (
-              <NodeRow key={node.id} node={node} place={place} showPath />
-            ) : (
-              requirements.map((requirement) => (
-                <Link key={`${node.id}#${requirement.id}`} {...to.spec(place.owner, place.repo, place.gitRef, `${node.id}#${requirement.id}`)} className="row spec-row">
-                  <span className="row-body">
-                    <span className="row-meta">
-                      <span className="spec-req-id">{requirement.id}</span>
-                      <span className="ellipsis">{specTrail(node).map((n) => n.title).join(" / ")}</span>
-                    </span>
-                    <span className="spec-row-summary">
-                      <CheckText text={requirement.text} />
-                    </span>
+          matches.slice(0, shown).map(({ node, stories, requirements }) => {
+            // A part matches as a whole, or by the user stories and requirements in it that do.
+            const hits = [...stories.map((story) => ({ id: story.id, text: storySentence(story) })), ...requirements.map((r) => ({ id: r.id, text: r.text }))];
+            if (hits.length === 0) return <NodeRow key={node.id} node={node} place={place} showPath />;
+            return hits.map((hit) => (
+              <Link key={`${node.id}#${hit.id}`} {...to.spec(place.owner, place.repo, place.gitRef, `${node.id}#${hit.id}`)} className="row spec-row">
+                <span className="row-body">
+                  <span className="row-meta">
+                    <span className="spec-req-id">{hit.id}</span>
+                    <span className="ellipsis">{specTrail(node).map((n) => n.title).join(" / ")}</span>
                   </span>
-                </Link>
-              ))
-            ),
-          )
+                  <span className="spec-row-summary">
+                    <CheckText text={hit.text} />
+                  </span>
+                </span>
+              </Link>
+            ));
+          })
         )
       ) : null}
       {filtering && <LoadMore hasMore={matches.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />}
@@ -267,6 +268,7 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
           <p className="spec-counts muted small">
             {plural(counts.items, "item")}
             {/* Requirements are counted once everything is read; a large spec is read as it is looked at. */}
+            {counts.unloaded === 0 && counts.stories > 0 && ` · ${plural(counts.stories, "user story").replace("storys", "stories")}`}
             {counts.unloaded === 0 && ` · ${plural(counts.requirements, "requirement")}`}
             {counts.unloaded === 0 && counts.deprecated > 0 && ` · ${counts.deprecated} deprecated`}
           </p>
@@ -360,12 +362,12 @@ function SpecText({ text }: { text: string }) {
   );
 }
 
-/** One item: what it says, its requirements, pictures, open questions and what it relates to. */
+/** One item: what it says, the user stories it serves, its requirements, pictures and what it relates to. */
 function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; place: Place; current: string | undefined }) {
   const item = node.item;
   const requirements = item?.requirements ?? [];
   const figures = item?.figures ?? [];
-  const questions = item?.questions ?? [];
+  const stories = item?.stories ?? [];
   const related = item?.related ?? [];
 
   const reworking = useReworking() !== null;
@@ -419,6 +421,16 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
       {figures.map((figure) => (
         <Figure key={figure.src} figure={figure} place={place} />
       ))}
+      {(stories.length > 0 || (reworking && item !== null)) && (
+        // Who the part is for, before what it must do.
+        <section aria-label="User stories">
+          <h3>User stories</h3>
+          {stories.map((story) => (
+            <Story key={story.id} spec={spec} place={place} node={node} story={story} inherited={item?.status} current={story.id === current} />
+          ))}
+          <AddStory node={node} />
+        </section>
+      )}
       {(live.length > 0 || (reworking && item !== null)) && (
         <section aria-label="Requirements">
           <h3>Requirements</h3>
@@ -440,18 +452,6 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
             ))}
         </section>
       )}
-      {questions.length > 0 && (
-        <section aria-label="Open questions">
-          <h3>Open questions</h3>
-          <ul className="spec-questions">
-            {questions.map((question, i) => (
-              <li key={i}>
-                <CheckText text={question} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
       {related.length > 0 && (
         <section aria-label="Related">
           <h3>Related</h3>
@@ -467,15 +467,15 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
                 <Link
                   key={ref}
                   // By where it is now: a requirement named by its id alone may be in any item.
-                  {...to.spec(place.owner, place.repo, place.gitRef, target.requirement ? `${target.node.id}#${target.requirement.id}` : target.node.id)}
+                  {...to.spec(place.owner, place.repo, place.gitRef, specTarget(target))}
                   className="spec-link"
                 >
-                  {target.requirement !== null && <span className="spec-req-id">{target.requirement.id}</span>}
+                  {(target.requirement ?? target.story) !== null && <span className="spec-req-id">{(target.requirement ?? target.story)?.id}</span>}
                   <span className="grow">
                     <span className="bold">{target.node.title}</span>
-                    {target.requirement !== null && (
+                    {(target.requirement !== null || target.story !== null) && (
                       <span className="spec-row-summary">
-                        <CheckText text={target.requirement.text} />
+                        <CheckText text={target.requirement?.text ?? (target.story ? storySentence(target.story) : "")} />
                       </span>
                     )}
                   </span>
@@ -487,6 +487,72 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
         </section>
       )}
     </article>
+  );
+}
+
+/** Where a reference leads: the item, or the requirement or user story in it. */
+function specTarget(target: { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null }): string {
+  const entity = target.requirement?.id ?? target.story?.id;
+  return entity === undefined ? target.node.id : `${target.node.id}#${entity}`;
+}
+
+/** A user story as its sentence, with the requirements that make it true. */
+function Story({
+  spec,
+  place,
+  node,
+  story,
+  inherited,
+  current,
+}: {
+  spec: Spec;
+  place: Place;
+  node: SpecNode;
+  story: SpecStory;
+  inherited: SpecStatus | undefined;
+  current: boolean;
+}) {
+  const deprecated = story.status === "deprecated";
+  return (
+    <div className="spec-req spec-story" data-story={story.id} data-current={current} data-deprecated={deprecated || inherited === "deprecated"}>
+      <div className="spec-req-head">
+        <span className="spec-req-id">{story.id}</span>
+        {story.status !== undefined && story.status !== inherited && <StatusPill status={story.status} />}
+      </div>
+      <p className="spec-req-text spec-story-text">
+        As <strong>{story.as}</strong>, I want <strong>{story.want}</strong>
+        {story.soThat !== undefined && (
+          <>
+            , so that <strong>{story.soThat}</strong>
+          </>
+        )}
+        .
+      </p>
+      {(story.requirements ?? []).length > 0 && (
+        <div className="spec-story-requirements">
+          <span className="muted small">Made true by</span>
+          {(story.requirements ?? []).map((ref) => {
+            const target = resolveSpecRef(spec, ref);
+            return target?.requirement ? (
+              <Link
+                key={ref}
+                {...to.spec(place.owner, place.repo, place.gitRef, `${target.node.id}#${target.requirement.id}`)}
+                className="spec-req-id"
+                title={target.requirement.text}
+              >
+                {target.requirement.id}
+              </Link>
+            ) : (
+              <span key={ref} className="spec-req-id muted">
+                {ref}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {deprecated && <Deprecation spec={spec} place={place} deprecation={story.deprecation} />}
+      <StoryTools node={node} story={story} />
+    </div>
   );
 }
 
@@ -510,7 +576,7 @@ function Deprecation({ spec, place, deprecation }: { spec: Spec; place: Place; d
                   <span key={ref}>
                     {i > 0 && ", "}
                     {target ? (
-                      <Link {...to.spec(place.owner, place.repo, place.gitRef, target.requirement ? `${target.node.id}#${target.requirement.id}` : target.node.id)}>
+                      <Link {...to.spec(place.owner, place.repo, place.gitRef, specTarget(target))}>
                         {label}
                       </Link>
                     ) : (

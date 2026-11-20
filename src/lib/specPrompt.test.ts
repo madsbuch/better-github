@@ -89,7 +89,9 @@ describe("spec-llms.txt", () => {
     const text = specLlmsText();
     expect(text.indexOf("## Write little")).toBeGreaterThan(0);
     expect(text.indexOf("## Write little")).toBeLessThan(text.indexOf("## The format"));
-    expect(text).toContain("The requirements are the spec.");
+    expect(text).toContain("The user stories and the requirements are the spec.");
+    expect(text).toContain("## What a spec is made of");
+    expect(text).not.toContain("`questions`");
     expect(text).toContain("If it is longer than its requirements, it is too long.");
   });
 });

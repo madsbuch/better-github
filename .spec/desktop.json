@@ -108,11 +108,6 @@
       "text": "With a Developer ID certificate in the repository's secrets the Mac app is signed with it, and notarized when the Apple ID secrets are set too, so it opens without a confirmation."
     }
   ],
-  "questions": [
-    "Should the Windows installer be signed, so SmartScreen doesn't ask?",
-    "Should the desktop app update itself?",
-    "Should diff lines and the Viewed toggle react to the pointer too (`K4`)?"
-  ],
   "related": [
     "foundations#F5"
   ]

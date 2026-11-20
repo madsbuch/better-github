@@ -5,6 +5,14 @@
   "status": "accepted",
   "order": 3,
   "description": "A change to the spec is a change to what the product promises. Reading it as a JSON diff hides that: a reworded requirement, a lowered level and a moved file all look like lines.\n\nIn a pull request's Files tab, each spec item's file is shown as what changed in that item. Everything else about reviewing a file still applies to it.",
+  "stories": [
+    {
+      "id": "US-SR-1",
+      "as": "a reviewer of a pull request",
+      "want": "to read what changes in the spec as stories and requirements, not as lines of JSON",
+      "soThat": "I can judge the change without decoding it"
+    }
+  ],
   "requirements": [
     {
       "id": "SR1",
@@ -53,11 +61,11 @@
     {
       "id": "SR12",
       "text": "Comments and viewed marks made in the Spec tab and in the Files tab are the same. The Spec tab can be narrowed to the parts not viewed yet, and to those that take something away."
+    },
+    {
+      "id": "SR13",
+      "text": "A changed part shows its user stories before its requirements: each added, reworded, deprecated with its reason, or deleted. A deleted story counts as taking something away. Stories take comments like requirements."
     }
-  ],
-  "questions": [
-    "Should unchanged requirements take comments too, when the diff reaches their lines?",
-    "Should a suggestion be offered for a requirement's text, as it is for a line of code?"
   ],
   "related": [
     "pull-requests/reviewing",

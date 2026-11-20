@@ -5,7 +5,7 @@
 // the item, so rewording a requirement is a change and renumbering it is a
 // removal and an addition.
 
-import { requirementVersion, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus } from "./spec";
+import { requirementVersion, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory } from "./spec";
 
 export type ChangeKind = "added" | "removed" | "changed";
 
@@ -40,6 +40,15 @@ export interface RequirementChange {
   moved: { from: string } | { to: string } | null;
 }
 
+export interface StoryChange {
+  id: string;
+  kind: ChangeKind;
+  before: SpecStory | null;
+  after: SpecStory | null;
+  /** Why this change takes something away from the spec, if it does. */
+  weakened: string | null;
+}
+
 export interface FigureChange {
   src: string;
   kind: ChangeKind;
@@ -51,7 +60,7 @@ export interface FigureChange {
 
 /** Entries of a list of strings that are only on one side. */
 export interface ListChange {
-  field: "questions" | "related";
+  field: "related";
   added: string[];
   removed: string[];
 }
@@ -74,6 +83,7 @@ export interface ItemChange {
   before: SpecNode | null;
   after: SpecNode | null;
   fields: FieldChange[];
+  stories: StoryChange[];
   requirements: RequirementChange[];
   figures: FigureChange[];
   lists: ListChange[];
@@ -86,6 +96,7 @@ export interface SpecDiff {
   items: ItemChange[];
   counts: {
     items: Record<ItemKind, number>;
+    stories: Record<ChangeKind, number>;
     /** A requirement that moved between items counts once, as moved. */
     requirements: Record<ChangeKind | "moved", number>;
     /** Items and requirements that promise less than before. */
@@ -209,6 +220,34 @@ function diffRequirements(before: SpecRequirement[], after: SpecRequirement[], w
   return changes;
 }
 
+/** User stories are matched by id, like requirements; the newer order, then the ones taken out. */
+function diffStories(before: SpecStory[], after: SpecStory[], was: SpecStatus | undefined, is: SpecStatus | undefined): StoryChange[] {
+  const changes: StoryChange[] = [];
+  const olds = new Map(before.map((story) => [story.id, story]));
+  for (const story of after) {
+    const old = olds.get(story.id);
+    olds.delete(story.id);
+    if (old === undefined) changes.push({ id: story.id, kind: "added", before: null, after: story, weakened: null });
+    else if (JSON.stringify(old) !== JSON.stringify(story)) {
+      const [oldStatus, status] = [was === "deprecated" ? "deprecated" : (old.status ?? was), is === "deprecated" ? "deprecated" : (story.status ?? is)];
+      const deprecated = status === "deprecated" && oldStatus !== "deprecated";
+      const reason = story.deprecation?.reason;
+      changes.push({
+        id: story.id,
+        kind: "changed",
+        before: old,
+        after: story,
+        weakened: deprecated ? (reason !== undefined ? `Deprecated: ${reason}` : "Deprecated, without saying why.") : null,
+      });
+    }
+  }
+  // Nothing is deleted from a spec: a story that is no longer wanted is deprecated, with the reason.
+  for (const story of olds.values()) {
+    changes.push({ id: story.id, kind: "removed", before: story, after: null, weakened: "A user story is deleted. Deprecate it instead, with the reason, so the record stays." });
+  }
+  return changes;
+}
+
 function diffFigures(before: SpecFigure[], after: SpecFigure[], oids: { before: Spec["assets"]; after: Spec["assets"] }): FigureChange[] {
   const changes: FigureChange[] = [];
   const old = new Map(before.map((f) => [f.src, f]));
@@ -256,7 +295,7 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
   const both = old !== null && current !== null;
   const base = { id, kind, movedFrom, before: old, after: current };
   if (old?.loaded === false || current?.loaded === false) {
-    return { ...base, pending: true, weakened: null, unchanged: [], fields: [], requirements: [], figures: [], lists: [], unreadable: null };
+    return { ...base, pending: true, weakened: null, unchanged: [], fields: [], stories: [], requirements: [], figures: [], lists: [], unreadable: null };
   }
 
   const fields: FieldChange[] = [];
@@ -266,7 +305,6 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
     if (was !== is && (field !== "order" || both)) fields.push({ field, before: was, after: is });
   }
   const lists = [
-    diffList("questions", a?.questions ?? [], b?.questions ?? []),
     diffList("related", a?.related ?? [], b?.related ?? []),
   ].filter((list) => list !== null);
 
@@ -293,12 +331,13 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
     weakened,
     unchanged: (b?.requirements ?? []).filter((r) => !touched.has(r.id)),
     fields,
+    stories: diffStories(a?.stories ?? [], b?.stories ?? [], a?.status, b?.status),
     requirements,
     figures: diffFigures(a?.figures ?? [], b?.figures ?? [], oids),
     lists,
     unreadable,
   };
-  const empty = fields.length === 0 && requirements.length === 0 && change.figures.length === 0 && lists.length === 0 && unreadable === null;
+  const empty = fields.length === 0 && change.stories.length === 0 && requirements.length === 0 && change.figures.length === 0 && lists.length === 0 && unreadable === null;
   return kind === "changed" && empty ? null : change;
 }
 
@@ -393,12 +432,17 @@ export function diffSpecs(before: Spec | null, after: Spec | null, renames?: Map
 
   const counts: SpecDiff["counts"] = {
     items: { added: 0, removed: 0, changed: 0, moved: 0 },
+    stories: { added: 0, removed: 0, changed: 0 },
     requirements: { added: 0, removed: 0, changed: 0, moved: 0 },
     weakened: 0,
   };
   for (const item of items) {
     counts.items[item.kind]++;
     if (item.weakened !== null) counts.weakened++;
+    for (const story of item.stories) {
+      counts.stories[story.kind]++;
+      if (story.weakened !== null) counts.weakened++;
+    }
     for (const requirement of item.requirements) {
       // Counted where it is now, not where it left.
       if (requirement.moved === null) counts.requirements[requirement.kind]++;

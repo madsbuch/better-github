@@ -31,8 +31,5 @@
       "id": "ORG-6",
       "text": "On a desktop, Cmd or Ctrl+2 opens the section; the user's profile moves to 3."
     }
-  ],
-  "questions": [
-    "Organizations that restrict third-party apps don't show up until they approve this one. Should the page say so, with a link to request access?"
   ]
 }

@@ -60,6 +60,87 @@
       "description": "What this part does and why.",
       "type": "string"
     },
+    "stories": {
+      "description": "The user stories this part serves.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Unique in the whole spec, among user stories and requirements alike, and stable once written. A prefix such as \"US-\" keeps stories apart from requirements."
+          },
+          "as": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Who wants it, as the words after \"As\": \"a commuter uploading on a train\"."
+          },
+          "want": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What they want to do, as the words after \"I want\": \"to send a file without watching it\"."
+          },
+          "soThat": {
+            "description": "What it is for, as the words after \"so that\": \"I can put the phone away\".",
+            "type": "string",
+            "minLength": 1
+          },
+          "requirements": {
+            "description": "The requirements that together make this story true, by id: \"#RET-1\". They can be in any item.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "status": {
+            "description": "Defaults to the item's status.",
+            "type": "string",
+            "enum": [
+              "draft",
+              "accepted",
+              "deprecated"
+            ]
+          },
+          "deprecation": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Why it is no longer wanted."
+              },
+              "replacedBy": {
+                "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "date": {
+                "description": "When it was deprecated, as YYYY-MM-DD.",
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": false,
+            "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+          }
+        },
+        "required": [
+          "id",
+          "as",
+          "want"
+        ],
+        "additionalProperties": false,
+        "description": "A user story: who wants what, and why. It says what the product is for; requirements say what it must do to deliver that."
+      }
+    },
     "requirements": {
       "type": "array",
       "items": {
@@ -206,14 +287,6 @@
         ],
         "additionalProperties": false,
         "description": "A picture: a mockup, a diagram, a screenshot."
-      }
-    },
-    "questions": {
-      "description": "What is still undecided.",
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "Plain text. A blank line starts a new paragraph, lines starting with \"- \" form a list, and `backticks` mark code."
       }
     },
     "related": {

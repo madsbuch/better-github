@@ -5,6 +5,20 @@
   "status": "accepted",
   "order": 1,
   "description": "Code says what a program does, not what it was meant to do. A repository's `.spec` folder holds that: one JSON file per part of the product, all following one schema, next to the pictures they show.\n\nThe folders are the outline. An item's id is its path without `.spec/` and `.json`, and a folder's own item is its `index.json`.",
+  "stories": [
+    {
+      "id": "US-SPEC-1",
+      "as": "someone new to a repository",
+      "want": "to read what the product is meant to do, part by part",
+      "soThat": "I don't have to work it out from the code"
+    },
+    {
+      "id": "US-SPEC-2",
+      "as": "a maintainer",
+      "want": "a record of what was promised, changed and dropped, each with its reason",
+      "soThat": "nobody has to remember why"
+    }
+  ],
   "requirements": [
     {
       "id": "S1",
@@ -135,6 +149,18 @@
     {
       "id": "S23",
       "text": "A status says where something stands as part of the spec: draft, accepted or deprecated. There is none for what is built. An item or requirement that still says implemented is read as accepted, and listed as a problem that says to change it."
+    },
+    {
+      "id": "S24",
+      "text": "A part can have user stories: who wants what, and optionally why, read as one sentence. A story can name the requirements that make it true, and each leads to its requirement. A name that isn't a requirement in the spec is listed as a problem."
+    },
+    {
+      "id": "S25",
+      "text": "User stories and requirements share one set of ids: an id used by both is listed as a problem. A story is deprecated like a requirement, with its reason, and is found by the filter and reachable by link."
+    },
+    {
+      "id": "S26",
+      "text": "The format has no open questions: what isn't decided is not part of a spec. An item that still has the old `questions` list is read without it, and listed as a problem that says to remove it."
     }
   ],
   "figures": [
@@ -143,11 +169,6 @@
       "alt": "An item in the spec browser, with its requirements, a figure, code and related items",
       "caption": "An item: status, requirements, pictures, and where it lives in the code."
     }
-  ],
-  "questions": [
-    "Should a pull request show which items its changed files belong to, from each item's `code`?",
-    "Should requirements name the tests that prove them?",
-    "Guests can't browse a spec: reading the folder in one request needs GitHub's GraphQL API, which needs a token. Worth a slower path over REST?"
   ],
   "related": [
     "repositories/spec-diff",

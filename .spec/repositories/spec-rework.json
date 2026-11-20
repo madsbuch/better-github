@@ -5,6 +5,17 @@
   "status": "accepted",
   "order": 3,
   "description": "Reading a spec is when what is wrong with it shows. The spec browser can be switched to reworking: the same pages, with the means to change them.\n\nThe app never writes to the repository. What it produces is a handover: the change to the spec, for a coding agent to make together with the change to the code.",
+  "stories": [
+    {
+      "id": "US-RW-1",
+      "as": "a product owner reading the spec",
+      "want": "to change it where I read it and hand the result to a coding agent",
+      "soThat": "I never edit JSON by hand",
+      "requirements": [
+        "#RW10"
+      ]
+    }
+  ],
   "requirements": [
     {
       "id": "RW1",
@@ -61,12 +72,11 @@
     {
       "id": "RW12",
       "text": "A change the repository already has, because it was merged or undone, drops out of the draft by itself."
+    },
+    {
+      "id": "RW13",
+      "text": "While reworking, a user story can be added, revised and deprecated with its reason, and a new one removed again. A new story is offered an id nothing in the spec has."
     }
-  ],
-  "questions": [
-    "Should requirements be reorderable, and movable to another part?",
-    "Should figures, code paths and related items be editable here too?",
-    "Should the app be able to open the pull request itself, without an agent, for spec-only changes?"
   ],
   "related": [
     "repositories/spec",

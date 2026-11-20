@@ -20,7 +20,7 @@ A fast GitHub client for Android phones and tablets and for the desktop (macOS, 
 - Merge box showing review decision, check status and mergeability, with *Ready for review* and auto-merge controls. Whenever the branch is behind its base, also while merging is blocked for another reason, *Update branch* brings the base in with a merge commit or a rebase (the last one you picked).
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
 - **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and a line above its diff that opens what to check in it, grouped by the rule it comes from. The *Review guide* lists every rule that applies to the pull request once, with the files it covers. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
-- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their requirements, pictures and open questions. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. See [Spec](#spec).
+- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their user stories, requirements and pictures. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. See [Spec](#spec).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
@@ -136,12 +136,14 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   "summary": "A failed upload is tried again, with growing pauses.",
   "status": "accepted",
   "description": "Networks drop. An upload that fails for a reason that may pass is tried again.",
+  "stories": [
+    { "id": "US-1", "as": "a commuter sending a file from a train", "want": "the upload to survive the tunnel", "soThat": "I don't have to start it again", "requirements": ["#RET-1"] }
+  ],
   "requirements": [
     { "id": "RET-1", "text": "An upload that fails with a 5xx response is retried, up to five times." },
     { "id": "RET-2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "draft" }
   ],
   "figures": [{ "src": "assets/backoff.png", "caption": "Pauses double between attempts." }],
-  "questions": ["Should a `429` count as retryable?"],
   "related": ["#ERR-1"]
 }
 ```
@@ -155,6 +157,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   built: whether the product meets a requirement is found out by comparing the
   two, not recorded in the spec. `order` places an item among its siblings; the
   rest follow by title.
+- **User stories** say who wants what, and why: `as`, `want` and optionally
+  `soThat`, read as "As ..., I want ..., so that ...". A story can name the
+  `requirements` that make it true. Stories and requirements share one set of
+  ids. A story has no versions; it is deprecated, with the reason, when nobody
+  wants it any more.
+- **There are no open questions** in a spec: what isn't decided belongs where
+  the product is planned, and enters the spec once it is.
 - **Requirements** are single statements that can be checked against the code.
   Each has an `id` that is **unique in the whole spec**, not just in its item,
   and doesn't change: code, tests and other items refer to a requirement by

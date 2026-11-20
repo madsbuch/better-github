@@ -7,17 +7,20 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
 import { to, useNav } from "../../lib/nav";
-import { requirementStatus, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStatus } from "../../lib/spec";
+import { requirementStatus, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory } from "../../lib/spec";
 import { diffSpecs } from "../../lib/specDiff";
 import {
   deprecateRequirement,
+  deprecateStory,
   newItemId,
   reviseRequirement,
   specReworkPrompt,
   suggestRequirementId,
+  suggestStoryId,
   withFields,
   withNewRequirement,
   withRequirement,
+  withStory,
   type ReworkedSpec,
   type SpecRework,
 } from "../../lib/specRework";
@@ -227,7 +230,16 @@ function DeprecateSheet({ open, onClose, id, onSave }: { open: boolean; onClose:
   );
 }
 
-function DeprecateForm({ onSave, onClose }: { onSave: (reason: string, replacedBy: string[]) => void; onClose: () => void }) {
+function DeprecateForm({
+  onSave,
+  onClose,
+  replaceable = true,
+}: {
+  onSave: (reason: string, replacedBy: string[]) => void;
+  onClose: () => void;
+  /** Whether to ask what takes its place. */
+  replaceable?: boolean;
+}) {
   const [reason, setReason] = useState("");
   const [replacedBy, setReplacedBy] = useState("");
   return (
@@ -238,9 +250,11 @@ function DeprecateForm({ onSave, onClose }: { onSave: (reason: string, replacedB
       <Field label="Why it is no longer wanted">
         <textarea className="textarea" value={reason} onChange={(e) => setReason(e.target.value)} style={{ minHeight: 90 }} autoFocus />
       </Field>
-      <Field label="Replaced by (optional)" hint="Requirement ids, separated by commas.">
-        <input className="input mono" value={replacedBy} onChange={(e) => setReplacedBy(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
-      </Field>
+      {replaceable && (
+        <Field label="Replaced by (optional)" hint="Requirement ids, separated by commas.">
+          <input className="input mono" value={replacedBy} onChange={(e) => setReplacedBy(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+        </Field>
+      )}
       <button
         className="btn btn-primary btn-block"
         disabled={reason.trim() === ""}
@@ -329,6 +343,158 @@ function NewRequirementForm({
         }}
       >
         Add
+      </button>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------ user stories
+
+/** What the draft did to a user story, and the buttons to do more. */
+export function StoryTools({ node, story }: { node: SpecNode; story: SpecStory }) {
+  const state = useReworking();
+  const [sheet, setSheet] = useState<"edit" | "deprecate" | null>(null);
+  const item = node.item;
+  if (state === null || item === null) return null;
+  const original = state.original.nodes.get(node.id)?.item?.stories?.find((candidate) => candidate.id === story.id);
+  const changed = original === undefined || !same(original, story);
+  const deprecated = requirementStatus(item, story) === "deprecated";
+  const label = original === undefined ? "New" : !changed ? null : deprecated && original.status !== "deprecated" ? "Deprecated here" : "Revised";
+  const commit = (next: SpecStory | null) => state.rework.setItem(node.id, withStory(item, story.id, next));
+  return (
+    <div className="rework-tools">
+      {label !== null && <span className="pill pill-accent rework-mark">{label}</span>}
+      <span className="grow" />
+      {!deprecated && (
+        <button className="btn btn-sm" onClick={() => setSheet("edit")}>
+          <PencilIcon size={14} /> Revise
+        </button>
+      )}
+      {!deprecated && original !== undefined && (
+        <button className="btn btn-sm" onClick={() => setSheet("deprecate")}>
+          <ArchiveIcon size={14} /> Deprecate
+        </button>
+      )}
+      {changed && original !== undefined && (
+        <button className="btn btn-sm" onClick={() => commit(original)} aria-label={`Undo the changes to ${story.id}`}>
+          <UndoIcon size={14} /> Undo
+        </button>
+      )}
+      {original === undefined && (
+        <button className="btn btn-sm btn-danger" onClick={() => commit(null)} aria-label={`Remove ${story.id}`}>
+          <TrashIcon size={14} /> Remove
+        </button>
+      )}
+      <Sheet open={sheet === "edit"} onClose={() => setSheet(null)} title={`Revise ${story.id}`} full>
+        {sheet === "edit" && <StoryForm spec={state.reworked.spec} story={story} onSave={(next) => commit(next)} onClose={() => setSheet(null)} />}
+      </Sheet>
+      <Sheet open={sheet === "deprecate"} onClose={() => setSheet(null)} title={`Deprecate ${story.id}`}>
+        {sheet === "deprecate" && (
+          <DeprecateForm
+            onSave={(reason) => {
+              if (original !== undefined) commit(deprecateStory(original, reason));
+            }}
+            onClose={() => setSheet(null)}
+            replaceable={false}
+          />
+        )}
+      </Sheet>
+    </div>
+  );
+}
+
+/** Adds a user story to an item. */
+export function AddStory({ node }: { node: SpecNode }) {
+  const state = useReworking();
+  const [open, setOpen] = useState(false);
+  if (state === null || node.item === null) return null;
+  const item = node.item;
+  return (
+    <>
+      <button className="btn btn-sm rework-add" onClick={() => setOpen(true)}>
+        <PlusIcon size={14} /> Add a user story
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="New user story" full>
+        {open && (
+          <StoryForm
+            spec={state.reworked.spec}
+            story={null}
+            suggested={suggestStoryId(state.reworked.spec)}
+            onSave={(story) => state.rework.setItem(node.id, withStory(item, story.id, story))}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </Sheet>
+    </>
+  );
+}
+
+function StoryForm({
+  spec,
+  story,
+  suggested = "",
+  onSave,
+  onClose,
+}: {
+  spec: Spec;
+  /** Null for a new one. */
+  story: SpecStory | null;
+  suggested?: string;
+  onSave: (story: SpecStory) => void;
+  onClose: () => void;
+}) {
+  const [id, setId] = useState(story?.id ?? suggested);
+  const [as, setAs] = useState(story?.as ?? "");
+  const [want, setWant] = useState(story?.want ?? "");
+  const [soThat, setSoThat] = useState(story?.soThat ?? "");
+  const [requirements, setRequirements] = useState((story?.requirements ?? []).map((ref) => ref.replace(/^#/, "")).join(", "));
+  const refs = requirements
+    .split(/[\s,]+/)
+    .filter((ref) => ref !== "")
+    .map((ref) => (ref.includes("#") ? ref : `#${ref}`));
+  const unknown = refs.filter((ref) => spec.requirements.get(ref.slice(ref.indexOf("#") + 1)) === undefined);
+  // A new story's id has to be free; an existing one keeps the id it has.
+  const taken = story === null ? (spec.requirements.get(id.trim()) ?? spec.stories.get(id.trim())) : undefined;
+  const valid = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id.trim());
+  const ready = as.trim() !== "" && want.trim() !== "" && valid && taken === undefined && unknown.length === 0;
+  return (
+    <div className="rework-form">
+      <Field label="As" hint="Who wants it: “a commuter uploading on a train”.">
+        <input className="input" value={as} onChange={(e) => setAs(e.target.value)} autoFocus />
+      </Field>
+      <Field label="I want" hint="What they want to do.">
+        <input className="input" value={want} onChange={(e) => setWant(e.target.value)} />
+      </Field>
+      <Field label="So that (optional)" hint="What it is for.">
+        <input className="input" value={soThat} onChange={(e) => setSoThat(e.target.value)} />
+      </Field>
+      <Field
+        label="Made true by (optional)"
+        hint={unknown.length > 0 ? `Not a requirement in the spec: ${unknown.map((ref) => ref.replace(/^#/, "")).join(", ")}.` : "Requirement ids, separated by commas."}
+      >
+        <input className="input mono" value={requirements} onChange={(e) => setRequirements(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+      </Field>
+      {story === null && (
+        <Field label="Id" hint={taken ? `${id.trim()} is already in ${taken.node.title}. Ids are unique in the whole spec.` : "Unique in the whole spec, and never changed afterwards."}>
+          <input className="input mono" value={id} onChange={(e) => setId(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+        </Field>
+      )}
+      <button
+        className="btn btn-primary btn-block"
+        disabled={!ready}
+        onClick={() => {
+          const { soThat: _soThat, requirements: _requirements, ...rest } = story ?? { id: id.trim(), as: "", want: "" };
+          onSave({
+            ...rest,
+            as: as.trim(),
+            want: want.trim(),
+            ...(soThat.trim() !== "" ? { soThat: soThat.trim() } : {}),
+            ...(refs.length > 0 ? { requirements: refs } : {}),
+          });
+          onClose();
+        }}
+      >
+        {story === null ? "Add" : "Save"}
       </button>
     </div>
   );

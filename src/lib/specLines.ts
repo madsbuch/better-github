@@ -85,20 +85,23 @@ export function jsonLines(text: string): Map<string, LineSpan> {
   return spans;
 }
 
-/** The lines of the requirement with this id, in an item's file. */
-export function requirementSpan(text: string, spans: Map<string, LineSpan>, id: string): LineSpan | null {
+/** The lines of the entry with this id in one of an item's lists ("requirements", "stories"), in the item's file. */
+export function entrySpan(text: string, spans: Map<string, LineSpan>, list: "requirements" | "stories", id: string): LineSpan | null {
   let index = -1;
   try {
     const parsed: unknown = JSON.parse(text);
-    const requirements: unknown = typeof parsed === "object" && parsed !== null && "requirements" in parsed ? parsed.requirements : null;
-    if (Array.isArray(requirements)) {
-      index = requirements.findIndex((r: unknown) => typeof r === "object" && r !== null && "id" in r && r.id === id);
+    const entries: unknown = typeof parsed === "object" && parsed !== null && list in parsed ? Reflect.get(parsed, list) : null;
+    if (Array.isArray(entries)) {
+      index = entries.findIndex((entry: unknown) => typeof entry === "object" && entry !== null && "id" in entry && entry.id === id);
     }
   } catch {
     return null;
   }
-  return index === -1 ? null : (spans.get(`requirements/${index}`) ?? null);
+  return index === -1 ? null : (spans.get(`${list}/${index}`) ?? null);
 }
+
+/** The lines of the requirement with this id, in an item's file. */
+export const requirementSpan = (text: string, spans: Map<string, LineSpan>, id: string) => entrySpan(text, spans, "requirements", id);
 
 /** A line of a pull request's diff that a comment can be put on. */
 export interface CommentLine {

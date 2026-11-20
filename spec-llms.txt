@@ -6,16 +6,28 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
 
 ## Write little
 
-The requirements are the spec. Everything else in an item is there to help a reader find and understand them, and should be as short as that takes.
+The user stories and the requirements are the spec. Everything else in a part is there to help a reader find and understand them, and should be as short as that takes.
 
 - Say each thing once, in the one place it belongs. Don't restate a requirement in the description, or the description in the summary.
 - `summary`: one line.
 - `description`: a few sentences on what the part is and why it exists. Not a history of how it came to be, not a walk through its requirements, not an account of how it is built. If it is longer than its requirements, it is too long.
+- A user story: one sentence in three short pieces (`as`, `want`, `soThat`). It says who wants what and why, never how.
 - A requirement's `text`: one sentence, two at most. State what must hold. No "because", no background, no example unless the statement can't be understood without one.
 - Why something changed belongs in that requirement's `history` (`reason`); why something was dropped belongs in its `deprecation` (`reason`). Each is a sentence or two. Neither belongs in a description.
-- `questions`: one sentence each, asking one thing.
 - Don't explain the format, narrate what you did, hedge, or address the reader. Don't write a sentence to introduce the next one.
 - Before keeping a sentence, ask what a reader could no longer check or decide without it. If nothing, cut it.
+
+## What a spec is made of
+
+- **Part** (an item): one `.json` file, one part of the product. It holds the stories and requirements of that part, and a title, a one-line summary and a short description to introduce them. Parts nest: folders are the outline.
+- **User story**: who wants what, and why. "As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again." It says what the part is for, and can name the requirements that together make it true.
+- **Requirement**: one statement about what the product does that can be checked against the product. "An upload that fails with a network error is retried, up to five times." It has a level: `must`, `should` or `may`.
+- **Earlier version**: what a requirement said before its meaning changed, kept with the reason it changed.
+- **Deprecation**: the record on a story, requirement or part that is no longer wanted, kept with the reason. Nothing is deleted.
+- **Figure**: a picture a part shows, such as a screenshot, a mockup or a diagram. It is an image file (PNG, JPEG, GIF, WebP or AVIF) stored inside `.spec`; the part names it by path and can give it alt text and a caption.
+- **Related**: a pointer from a part to another part, story or requirement.
+
+Stories and requirements are what matters; the rest serves them. A spec has no open questions, tasks or notes: what isn't decided is settled wherever the product is planned, and enters the spec once it is.
 
 ## The format
 
@@ -40,6 +52,18 @@ The requirements are the spec. Everything else in an item is there to help a rea
       "status": "accepted",
       "order": 1,
       "description": "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has",
+      "stories": [
+        {
+          "id": "US-1",
+          "as": "a commuter sending a file from a train",
+          "want": "the upload to survive the tunnel",
+          "soThat": "I don't have to start it again",
+          "requirements": [
+            "#RET-1",
+            "#RET-2"
+          ]
+        }
+      ],
       "requirements": [
         {
           "id": "RET-1",
@@ -85,9 +109,6 @@ The requirements are the spec. Everything else in an item is there to help a rea
           "caption": "Pauses double between attempts."
         }
       ],
-      "questions": [
-        "Should a `429` count as retryable?"
-      ],
       "related": [
         "#ERR-1",
         "cli"
@@ -97,9 +118,10 @@ The requirements are the spec. Everything else in an item is there to help a rea
 - Only `title` is required. Unknown keys are errors: the app won't show an item that has one.
 - `status` says where something stands as part of the spec: `draft` (still being worked out), `accepted` (agreed on: this is what the product is to do) or `deprecated` (no longer wanted, see below). A requirement's `status` defaults to its item's. There is no status for "built": whether the product meets a requirement is found out by comparing the product with the spec, and is not recorded in it.
 - A requirement's `level` is `must` (the default), `should` or `may`. Its `id` is unique in the whole spec, not just in its item, and never changes or gets reused: everything that refers to a requirement does so by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (`RET-1`, `RET-2` in Retries; `ERR-1` in Errors) so ids don't collide.
-- Text (`description`, a requirement's `text`, `questions`) is plain, not Markdown: a blank line starts a paragraph, lines starting with `- ` form a list, and `backticks` mark code. There are no headings, links or bold.
+- A user story has an `id` (`US-1`), `as` (who), `want` (what) and optionally `soThat` (why); the app reads them as "As ..., I want ..., so that ...". Its `requirements` name the requirements that make it true (`#RET-1`), in any item; each has to exist. Stories and requirements share one set of ids: no id is used twice, whichever of the two has it. A story has no level and no versions: reword it freely, and deprecate it when nobody wants it any more.
+- Text (`description`, a requirement's `text`) is plain, not Markdown: a blank line starts a paragraph, lines starting with `- ` form a list, and `backticks` mark code. There are no headings, links or bold.
 - `order` places an item among its siblings, lowest first; items without one follow, by title.
-- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`) or requirements (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
+- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`), requirements or stories (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
 - `$schema` is optional and lets editors check the file.
 
 ## The schema
@@ -165,6 +187,87 @@ The requirements are the spec. Everything else in an item is there to help a rea
         "description": {
           "description": "What this part does and why.",
           "type": "string"
+        },
+        "stories": {
+          "description": "The user stories this part serves.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "description": "Unique in the whole spec, among user stories and requirements alike, and stable once written. A prefix such as \"US-\" keeps stories apart from requirements."
+              },
+              "as": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Who wants it, as the words after \"As\": \"a commuter uploading on a train\"."
+              },
+              "want": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What they want to do, as the words after \"I want\": \"to send a file without watching it\"."
+              },
+              "soThat": {
+                "description": "What it is for, as the words after \"so that\": \"I can put the phone away\".",
+                "type": "string",
+                "minLength": 1
+              },
+              "requirements": {
+                "description": "The requirements that together make this story true, by id: \"#RET-1\". They can be in any item.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "status": {
+                "description": "Defaults to the item's status.",
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "accepted",
+                  "deprecated"
+                ]
+              },
+              "deprecation": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Why it is no longer wanted."
+                  },
+                  "replacedBy": {
+                    "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "date": {
+                    "description": "When it was deprecated, as YYYY-MM-DD.",
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false,
+                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+              }
+            },
+            "required": [
+              "id",
+              "as",
+              "want"
+            ],
+            "additionalProperties": false,
+            "description": "A user story: who wants what, and why. It says what the product is for; requirements say what it must do to deliver that."
+          }
         },
         "requirements": {
           "type": "array",
@@ -314,14 +417,6 @@ The requirements are the spec. Everything else in an item is there to help a rea
             "description": "A picture: a mockup, a diagram, a screenshot."
           }
         },
-        "questions": {
-          "description": "What is still undecided.",
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "Plain text. A blank line starts a new paragraph, lines starting with \"- \" form a list, and `backticks` mark code."
-          }
-        },
         "related": {
           "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\". \"#LIM-2@1\" names one version.",
           "type": "array",
@@ -383,6 +478,7 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 - `deprecation.reason` is required with the status: what changed, in a sentence or two someone reading it in a year will understand. `replacedBy` names what takes its place, if anything: requirements (`#RES-1`) or items. `date` is the day it was deprecated, as `YYYY-MM-DD`.
 - The status and the record go together: `"status": "deprecated"` without a `deprecation`, or a `deprecation` without the status, is an error.
 - Leave a deprecated requirement's `text` and `level` as they were: they are the record of what was promised.
+- A user story is deprecated the same way: `status` and `deprecation` on the story.
 - A whole item is deprecated the same way, with `status` and `deprecation` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
 - A deprecated requirement's id is never given to another requirement.
 - To change what a requirement means, give it a new version (above). To replace it with a different promise altogether, deprecate it and add a new requirement with a new id.
@@ -396,17 +492,18 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 - A requirement is one statement that can be checked against the product. "A failed upload is retried up to five times", not "uploads are robust". If it needs an "and", it is two requirements.
 - Requirements state behavior and limits a user or caller can observe: what happens, when, with which numbers, and what never happens. Leave out anything that is true of all software.
 - `summary` is one line that makes sense in a list. `description` gives the reason the part exists, briefly (see "Write little").
-- What isn't decided goes in `questions`, not into a vague requirement.
+- A user story names a real kind of person and something they want from the product, not a feature ("As a user, I want a retry button" is a requirement in disguise). A part usually has one to three.
+- What isn't decided stays out. A spec holds what was decided; don't write a requirement that guesses.
 - A few items with sharp requirements beat many thin ones. Add a folder when an item has grown parts of its own.
 
 ## Keeping a spec
 
 - The spec comes first. A change to what the product does starts as a change to the spec: a new requirement, a new version of one with the reason, or a deprecation with the reason.
 - The spec says what the product does, never whether or where it is built. To learn whether a requirement is met, compare the product with it; don't record the answer in the spec.
-- Never delete a requirement or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
-- When something isn't decided, add it to `questions` and ask, rather than writing a requirement that guesses.
+- Never delete a requirement, a user story or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
+- When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (`RET-1`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
 
 ## Checking a spec
 
-Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every deprecated requirement or item has a `deprecation` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).
+Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every id in a story's `requirements` is a requirement, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every deprecated story, requirement or item has a `deprecation` with its reason, and no story or requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

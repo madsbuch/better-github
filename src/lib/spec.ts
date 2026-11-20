@@ -103,6 +103,30 @@ export const SpecRequirement = z
   .describe("A single testable statement.");
 export type SpecRequirement = z.infer<typeof SpecRequirement>;
 
+export const SpecStory = z
+  .strictObject({
+    id: z
+      .string()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+      .describe('Unique in the whole spec, among user stories and requirements alike, and stable once written. A prefix such as "US-" keeps stories apart from requirements.'),
+    as: z.string().min(1).describe('Who wants it, as the words after "As": "a commuter uploading on a train".'),
+    want: z.string().min(1).describe('What they want to do, as the words after "I want": "to send a file without watching it".'),
+    soThat: z.string().min(1).optional().describe('What it is for, as the words after "so that": "I can put the phone away".'),
+    requirements: z
+      .array(z.string().min(1))
+      .optional()
+      .describe('The requirements that together make this story true, by id: "#RET-1". They can be in any item.'),
+    status: SpecStatus.optional().describe("Defaults to the item's status."),
+    deprecation: SpecDeprecation.optional(),
+  })
+  .describe("A user story: who wants what, and why. It says what the product is for; requirements say what it must do to deliver that.");
+export type SpecStory = z.infer<typeof SpecStory>;
+
+/** A story as the sentence it is: "As a commuter, I want to send a file, so that I can put the phone away." */
+export function storySentence(story: SpecStory): string {
+  return `As ${story.as}, I want ${story.want}${story.soThat !== undefined ? `, so that ${story.soThat}` : ""}.`;
+}
+
 export const SpecFigure = z
   .strictObject({
     src: RepoPath.describe('An image in the spec folder, as a path from that folder: "assets/retry-timeline.png".'),
@@ -121,9 +145,9 @@ export const SpecItem = z
     deprecation: SpecDeprecation.optional(),
     order: z.number().optional().describe("Position among its siblings, lowest first. Items without one come last, by title."),
     description: Text.optional().describe("What this part does and why."),
+    stories: z.array(SpecStory).optional().describe("The user stories this part serves."),
     requirements: z.array(SpecRequirement).optional(),
     figures: z.array(SpecFigure).optional(),
-    questions: z.array(Text).optional().describe("What is still undecided."),
     related: z
       .array(z.string().min(1))
       .optional()
@@ -189,6 +213,8 @@ export interface Spec {
    * the whole spec; of two with the same id, this is the first by file path.
    */
   requirements: Map<string, { node: SpecNode; requirement: SpecRequirement }>;
+  /** Every user story by its id, with the item it is in. Stories and requirements share one set of ids. */
+  stories: Map<string, { node: SpecNode; story: SpecStory }>;
   /** Everything that isn't an item, by its path from the spec folder, with its git object id when known. */
   assets: Map<string, string | null>;
   problems: SpecProblem[];
@@ -211,6 +237,12 @@ const LEGACY_CODE = "`code` is no longer part of the format: a spec doesn't poin
  * by comparing the product with the spec, not recorded in it. What says so is
  * read as accepted, which it must have been.
  */
+/**
+ * Items used to hold open questions. What isn't decided is tracked where the
+ * product is managed, not in the spec, which says what was decided.
+ */
+const LEGACY_QUESTIONS = "`questions` is no longer part of the format: open questions belong with product management, not in the spec. Remove them.";
+
 const LEGACY_IMPLEMENTED = '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -243,6 +275,11 @@ function parseItem(file: SpecFile): ReadItem {
     const { code: _code, ...rest } = value;
     value = rest;
     notes.push(LEGACY_CODE);
+  }
+  if (isRecord(value) && "questions" in value) {
+    const { questions: _questions, ...rest } = value;
+    value = rest;
+    notes.push(LEGACY_QUESTIONS);
   }
   if (isRecord(value)) {
     const requirements: unknown = value.requirements;
@@ -331,13 +368,19 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
   // Requirement ids are unique in the whole spec. Items are visited by file
   // path, so of two with the same id the later file is the one at fault.
   const requirements: Spec["requirements"] = new Map();
+  const stories: Spec["stories"] = new Map();
   for (const node of nodes.values()) {
-    for (const requirement of node.item?.requirements ?? []) {
-      const taken = requirements.get(requirement.id);
-      if (taken === undefined) requirements.set(requirement.id, { node, requirement });
+    const entities = [
+      ...(node.item?.stories ?? []).map((story) => ({ id: story.id, what: "User story", add: () => stories.set(story.id, { node, story }) })),
+      ...(node.item?.requirements ?? []).map((requirement) => ({ id: requirement.id, what: "Requirement", add: () => requirements.set(requirement.id, { node, requirement }) })),
+    ];
+    for (const entity of entities) {
+      // One set of ids for both: "#ID" always means one thing.
+      const taken = requirements.get(entity.id) ?? stories.get(entity.id);
+      if (taken === undefined) entity.add();
       else if (node.file !== null) {
         const where = taken.node === node ? "more than once in this item" : `already in ${taken.node.file ?? taken.node.id}`;
-        problems.push({ file: node.file, message: `Requirement id ${requirement.id} is ${where}. Ids are unique in the whole spec.` });
+        problems.push({ file: node.file, message: `${entity.what} id ${entity.id} is ${where}. Ids are unique in the whole spec.` });
       }
     }
   }
@@ -370,8 +413,19 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       }
     }
     // Deprecated things stay, with the reason: a status and its record go together.
+    // A story names the requirements that make it true; each has to be one.
+    for (const story of item.stories ?? []) {
+      for (const ref of story.requirements ?? []) {
+        const { id, requirement } = splitSpecRef(ref);
+        if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
+        if ((resolveSpecRef({ nodes, requirements, stories }, ref)?.requirement ?? null) === null) {
+          problems.push({ file, message: `User story ${story.id} names "${ref}", which isn't a requirement in the spec.` });
+        }
+      }
+    }
     const records = [
       { what: "The item", status: item.status, deprecation: item.deprecation },
+      ...(item.stories ?? []).map((story) => ({ what: `User story ${story.id}`, status: story.status, deprecation: story.deprecation })),
       ...(item.requirements ?? []).map((r) => ({ what: `Requirement ${r.id}`, status: r.status, deprecation: r.deprecation })),
     ];
     for (const { what, status, deprecation } of records) {
@@ -383,7 +437,7 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       for (const ref of deprecation?.replacedBy ?? []) {
         const { id, requirement } = splitSpecRef(ref);
         if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-        if (resolveSpecRef({ nodes, requirements }, ref) === null) problems.push({ file, message: `${what} is replaced by "${ref}", which isn't in the spec.` });
+        if (resolveSpecRef({ nodes, requirements, stories }, ref) === null) problems.push({ file, message: `${what} is replaced by "${ref}", which isn't in the spec.` });
       }
     }
     for (const ref of item.related ?? []) {
@@ -391,11 +445,11 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       // nor, while any item is unread, where a requirement named by its id alone is.
       const { id, requirement } = splitSpecRef(ref);
       if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-      if (resolveSpecRef({ nodes, requirements }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
+      if (resolveSpecRef({ nodes, requirements, stories }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
     }
   }
 
-  return { root, nodes, requirements, assets, problems };
+  return { root, nodes, requirements, stories, assets, problems };
 }
 
 /**
@@ -403,15 +457,23 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
  * can be named by its id alone ("#RET-1"), which still finds it after it
  * moves to another item, or together with its item ("uploads/retries#RET-1").
  */
-export function resolveSpecRef(spec: Pick<Spec, "nodes" | "requirements">, ref: string): { node: SpecNode; requirement: SpecRequirement | null } | null {
-  const { id, requirement: requirementId, version } = splitSpecRef(ref);
+export function resolveSpecRef(
+  spec: Pick<Spec, "nodes" | "requirements" | "stories">,
+  ref: string,
+): { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null } | null {
+  const { id, requirement: entityId, version } = splitSpecRef(ref);
   const node = spec.nodes.get(id);
-  if (requirementId === null) return node ? { node, requirement: null } : null;
-  const found = id === "" ? spec.requirements.get(requirementId) : node && { node, requirement: node.item?.requirements?.find((r) => r.id === requirementId) };
-  if (!found || found.requirement === undefined) return null;
-  // A version it hasn't reached doesn't exist.
-  if (version !== null && (version < 1 || version > requirementVersion(found.requirement))) return null;
-  return { node: found.node, requirement: found.requirement };
+  if (entityId === null) return node ? { node, requirement: null, story: null } : null;
+  const requirement = id === "" ? spec.requirements.get(entityId) : node && { node, requirement: node.item?.requirements?.find((r) => r.id === entityId) };
+  if (requirement && requirement.requirement !== undefined) {
+    // A version it hasn't reached doesn't exist.
+    if (version !== null && (version < 1 || version > requirementVersion(requirement.requirement))) return null;
+    return { node: requirement.node, requirement: requirement.requirement, story: null };
+  }
+  // The same kind of id can be a user story; those have no versions.
+  const story = id === "" ? spec.stories.get(entityId) : node && { node, story: node.item?.stories?.find((candidate) => candidate.id === entityId) };
+  if (!story || story.story === undefined || version !== null) return null;
+  return { node: story.node, requirement: null, story: story.story };
 }
 
 /** The root's children down to `node`, without the root itself. */
@@ -425,7 +487,7 @@ export function specTrail(node: SpecNode): SpecNode[] {
 export const requirementVersion = (requirement: SpecRequirement) => requirement.version ?? 1;
 
 /** A requirement's status: its own, or its item's. Everything in a deprecated item is deprecated. */
-export function requirementStatus(item: SpecItem | null | undefined, requirement: SpecRequirement): SpecStatus | undefined {
+export function requirementStatus(item: SpecItem | null | undefined, requirement: { status?: SpecStatus | undefined }): SpecStatus | undefined {
   return item?.status === "deprecated" ? "deprecated" : (requirement.status ?? item?.status);
 }
 
@@ -436,14 +498,19 @@ export interface SpecCounts {
   requirements: number;
   /** Deprecated requirements: kept for the record, not counted among the requirements. */
   deprecated: number;
+  /** User stories of the node and everything below it, not counting deprecated ones. */
+  stories: number;
   /** Items below (and the node itself) whose contents aren't loaded: their requirements aren't counted yet. */
   unloaded: number;
 }
 
 export function specCounts(node: SpecNode): SpecCounts {
-  const counts: SpecCounts = { items: 0, requirements: 0, deprecated: 0, unloaded: 0 };
+  const counts: SpecCounts = { items: 0, requirements: 0, deprecated: 0, stories: 0, unloaded: 0 };
   const visit = (at: SpecNode) => {
     if (!at.loaded) counts.unloaded++;
+    for (const story of at.item?.stories ?? []) {
+      if (requirementStatus(at.item, story) !== "deprecated") counts.stories++;
+    }
     for (const requirement of at.item?.requirements ?? []) {
       const status = requirementStatus(at.item, requirement);
       if (status === "deprecated") counts.deprecated++;
@@ -460,6 +527,8 @@ export function specCounts(node: SpecNode): SpecCounts {
 
 export interface SpecMatch {
   node: SpecNode;
+  /** The user stories that match; empty when the item itself does. */
+  stories: SpecStory[];
   /** The requirements that match; empty when the item itself does. */
   requirements: SpecRequirement[];
 }
@@ -479,8 +548,11 @@ export function searchSpec(spec: Spec, query: string): SpecMatch[] {
     const requirements = (item?.requirements ?? []).filter((r) =>
       has([r.id, r.text, r.deprecation?.reason ?? "", ...(r.history ?? []).flatMap((earlier) => [earlier.text, earlier.reason])].join("\n")),
     );
-    const own = has([node.id, node.title, item?.summary ?? "", item?.description ?? "", ...(item?.questions ?? [])].join("\n"));
-    if (node.id !== "" && (own || requirements.length > 0)) matches.push({ node, requirements: own ? [] : requirements });
+    const stories = (item?.stories ?? []).filter((story) => has([story.id, storySentence(story), story.deprecation?.reason ?? ""].join("\n")));
+    const own = has([node.id, node.title, item?.summary ?? "", item?.description ?? ""].join("\n"));
+    if (node.id !== "" && (own || requirements.length > 0 || stories.length > 0)) {
+      matches.push({ node, stories: own ? [] : stories, requirements: own ? [] : requirements });
+    }
     node.children.forEach(visit);
   };
   visit(spec.root);

@@ -68,12 +68,26 @@ test("requirements are revised, deprecated and added while reading, then handed 
   // It says what is wanted, nothing about what is built: no status of its own.
   await expect(requirement(page, "R5").locator(".spec-req-head")).toHaveText("R5must");
 
+  // A user story: who wants it. It gets an id nothing in the spec has, and its requirements have to exist.
+  await activeScreen(page).getByRole("button", { name: "Add a user story" }).click();
+  await expect(sheet(page).getByLabel(/^Id/)).toHaveValue("US-3");
+  await sheet(page).getByLabel(/^As/).fill("a traveller on hotel wifi");
+  await sheet(page).getByLabel(/^I want/).fill("an upload that knows when to stop");
+  await sheet(page).getByLabel(/Made true by/).fill("R5, R9");
+  await expect(sheet(page)).toContainText("Not a requirement in the spec: R9.");
+  await expect(sheet(page).getByRole("button", { name: "Add", exact: true })).toBeDisabled();
+  await sheet(page).getByLabel(/Made true by/).fill("R5");
+  await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
+  const story = activeScreen(page).locator('.spec-story[data-story="US-3"]');
+  await expect(story.locator(".spec-story-text")).toHaveText("As a traveller on hotel wifi, I want an upload that knows when to stop.");
+  await expect(story.locator(".rework-mark")).toHaveText("New");
+
   // The bar counts it, and the review shows it like any change to the spec.
   await expect(bar(page)).toContainText("1 part changed");
   await expect(bar(page)).toContainText("4 requirements · not in the repository yet");
   await bar(page).getByRole("button", { name: "Review & copy" }).click();
-  await expect(sheet(page).locator(".spec-diff-summary")).toHaveText("1 item ~14 requirements +1~3");
-  await expect(sheet(page).locator(".spec-diff-req .spec-req-id")).toHaveText(["R1", "R2", "R3", "R5"]);
+  await expect(sheet(page).locator(".spec-diff-summary")).toHaveText("1 item ~11 user story +14 requirements +1~3");
+  await expect(sheet(page).locator(".spec-diff-req:not(.spec-diff-story) .spec-req-id")).toHaveText(["R1", "R2", "R3", "R5"]);
   await expect(sheet(page).locator('.spec-diff-req[data-req="R1"]')).toContainText("Why it changed Five retries kept phones awake.");
   await sheet(page).getByLabel(/Anything else the agent should know/).fill("Keep MAX_RETRIES configurable.");
   await sheet(page).getByRole("button", { name: "Copy for my agent" }).click();
@@ -88,6 +102,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   expect(handover).toContain("- R2: deprecated. Why: Uploads restart cheaply now. Replaced by #R1.");
   expect(handover).toContain("A wording fix: what it means is the same.");
   expect(handover).toContain('- R5: new (must). "A retry gives up after a minute."');
+  expect(handover).toContain('- US-3: new user story. "As a traveller on hotel wifi, I want an upload that knows when to stop."');
   expect(handover).toContain("## Also\n\nKeep MAX_RETRIES configurable.");
   expect(handover).toContain('    {\n      "title": "Retries",');
   expect(handover).toContain('"reason": "Five retries kept phones awake."');
