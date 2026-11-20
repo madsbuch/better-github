@@ -1340,6 +1340,16 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 - When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (`RET-1`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
 
+## The code base cites the spec
+
+The spec never names code. The code names the spec:
+
+- Where code exists to meet a requirement, a comment says which: `// Spec: RET-1`, or several, `// Spec: RET-1, RET-2`. In whatever comment syntax the language has, alone on its line.
+- A test that proves a requirement carries the same comment, above the test.
+- Cite requirements by id only. Don't copy their text into the comment: the text can get a new version, the id stays.
+- When a requirement gets a new version or is deprecated, search the code base for its id: that is the code and the tests to change or remove.
+- Don't cite an id the spec doesn't have, and take the citation out when the code stops serving the requirement.
+
 ## Checking a spec
 
 Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every id in a story's `requirements` is a requirement, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every value that changed has what it was in its `history` with the reason, every deprecated story, requirement, value or item has a `deprecation` with its reason, and no story, requirement or value id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

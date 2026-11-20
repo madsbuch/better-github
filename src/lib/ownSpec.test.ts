@@ -1,7 +1,8 @@
 // This repository's own spec (.spec): that the product follows the values it decides.
+// Spec: DS-C1, DS-T1, DS-T2, DS-L1, F7
 
 import { describe, expect, it } from "vitest";
-import { buildSpec, type SpecFile, type SpecValue } from "./spec";
+import { buildSpec, requirementStatus, type SpecFile, type SpecValue } from "./spec";
 
 // Vite reads these at build time, as text.
 const sources = import.meta.glob<string>(
@@ -76,4 +77,24 @@ describe("this repository's spec", () => {
     has("SpecChanges", specChanges, `WHOLE_SHOWN = ${String(value("spec-review.whole-shown")?.value)};`);
     has("theme", themeCode, `THEME_FADE_MS = ${String(value("theme.fade")?.value).replace("ms", "")};`);
   });
+
+  it("is cited by the code and the tests only with ids it has, none of them deprecated", () => {
+    // "Spec: RET-1, RET-2" alone in a comment says which requirements the code below meets, or the test proves.
+    const cited = import.meta.glob<string>(["../**/*.{ts,tsx,css}", "../../e2e/**/*.ts"], { query: "?raw", import: "default", eager: true });
+    const wrong: string[] = [];
+    let count = 0;
+    for (const [path, text] of Object.entries(cited)) {
+      for (const match of text.matchAll(/^\s*(?:\/\/|\/\*|\*)\s*Spec: ([A-Za-z0-9._-]+(?:, [A-Za-z0-9._-]+)*)\s*(?:\*\/)?$/gm)) {
+        for (const id of (match[1] ?? "").split(", ")) {
+          count++;
+          const requirement = spec.requirements.get(id);
+          if (requirement === undefined) wrong.push(`${path}: ${id} isn't a requirement in the spec`);
+          else if (requirementStatus(requirement.node.item, requirement.requirement) === "deprecated") wrong.push(`${path}: ${id} is deprecated`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect(count).toBeGreaterThan(100);
+  });
 });
+

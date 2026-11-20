@@ -4,6 +4,7 @@
 // changed, and what was added or taken out is whole. Comparing the two texts as
 // one string would show a page of red above a page of green for one edited
 // sentence.
+// Spec: SR11, SR14
 
 import { inlineDiff, type InlinePart } from "./diff";
 import { specTextBlocks } from "./spec.ts";

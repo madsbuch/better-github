@@ -2,6 +2,7 @@
 // repository's spec, or improves the one it has. It has to stand on its own:
 // the agent knows nothing about this app or the format, and may not be able
 // to fetch the schema, so the schema is part of the prompt.
+// Spec: S11, S18
 
 // With its extension, so that plain Node can run this file too (npm run spec:schema).
 import { SPEC_DIR, SPEC_SCHEMA_URL, specCounts, specJsonSchema, type Spec, type SpecNode } from "./spec.ts";
@@ -226,6 +227,16 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
 - Never delete a requirement, a user story, a named value or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (\`RET-1\`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
+
+## The code base cites the spec
+
+The spec never names code. The code names the spec:
+
+- Where code exists to meet a requirement, a comment says which: \`// Spec: RET-1\`, or several, \`// Spec: RET-1, RET-2\`. In whatever comment syntax the language has, alone on its line.
+- A test that proves a requirement carries the same comment, above the test.
+- Cite requirements by id only. Don't copy their text into the comment: the text can get a new version, the id stays.
+- When a requirement gets a new version or is deprecated, search the code base for its id: that is the code and the tests to change or remove.
+- Don't cite an id the spec doesn't have, and take the citation out when the code stops serving the requirement.
 
 ## Checking a spec
 

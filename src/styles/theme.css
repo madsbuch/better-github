@@ -2,6 +2,7 @@
    theme src/lib/theme.ts puts on <html> as data-theme (the Theme setting, or
    the system light/dark setting). The Android window background (colors.xml in
    src-tauri/gen/android/app/src/main/res/values and values-night) matches --bg. */
+/* Spec: DS-C1, DS-T1, DS-T2 */
 
 :root {
   color-scheme: light;

@@ -17,6 +17,7 @@ async function countFades(page: Page): Promise<() => Promise<number>> {
   return () => page.evaluate(() => window.__fades ?? 0);
 }
 
+// Spec: SET-1, SET-2, SET-3, SET-6
 test("settings is a section of the app: a menu, and a page for each part", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/repos");
@@ -48,6 +49,7 @@ test("settings is a section of the app: a menu, and a page for each part", async
   expect(errors).toEqual([]);
 });
 
+// Spec: SET-7, SET-8, DS-C2
 test("switching between light and dark is a fade, not a jump", async ({ page }) => {
   await open(page, "/settings/appearance");
   const fades = await countFades(page);
@@ -70,6 +72,7 @@ test("switching between light and dark is a fade, not a jump", async ({ page }) 
 
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
+  // Spec: SET-8
   test("the theme switches at once", async ({ page }) => {
     await open(page, "/settings/appearance");
     const fades = await countFades(page);
@@ -79,6 +82,7 @@ test.describe("with reduced motion", () => {
   });
 });
 
+// Spec: SET-4, SET-5
 for (const [name, use] of [
   ["a tablet", { viewport: { width: 820, height: 1180 }, hasTouch: true }],
   ["a computer", { viewport: { width: 1280, height: 860 }, hasTouch: false, isMobile: false }],
@@ -115,6 +119,7 @@ for (const [name, use] of [
 
 test.describe("on a computer", () => {
   test.use({ viewport: { width: 1280, height: 860 }, hasTouch: false, isMobile: false });
+  // Spec: SET-9, K11
   test("settings open from the keyboard, and list the shortcuts", async ({ page }) => {
     await open(page, "/repos");
     await expect(screenTitle(page)).toHaveText("Repositories");

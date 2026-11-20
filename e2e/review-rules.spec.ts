@@ -8,6 +8,7 @@ const verdict = (page: Page, i: number) => files(page).nth(i).locator(".diff-fil
 const strip = (page: Page, i: number) => files(page).nth(i).locator(".review-strip");
 const sheetRules = (page: Page) => page.locator(".sheet .rule-checks");
 
+// Spec: RR1, RR4
 test("each file shows its verdict, riskiest first, and its checks by rule", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/482?tab=files");
@@ -60,6 +61,7 @@ test("the review guide lists every rule once, with the files it covers", async (
   expect(errors).toEqual([]);
 });
 
+// Spec: RR5
 test("approving with a high-risk file not marked viewed asks first", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/482?tab=files");
@@ -87,6 +89,7 @@ test("approving with a high-risk file not marked viewed asks first", async ({ pa
   expect(errors).toEqual([]);
 });
 
+// Spec: RR2, RR3
 test("a change to the rules is high risk and judged by the rules it replaces", async ({ page }) => {
   await open(page, "/acme/rocket/pull/483?tab=files");
   await expect(activeScreen(page).locator(".banner")).toContainText("This pull request changes .review-rules. The verdicts here use the rules on main");
@@ -111,6 +114,7 @@ function clipboard(page: Page): () => string[] {
   return () => copied;
 }
 
+// Spec: RR7
 test("a repository without rules offers a prompt to have an agent write them", async ({ page }) => {
   const errors = trackErrors(page);
   const copied = clipboard(page);
@@ -126,6 +130,7 @@ test("a repository without rules offers a prompt to have an agent write them", a
   expect(errors).toEqual([]);
 });
 
+// Spec: RR2
 test("rules only on the pull request's own branch are pointed out, not used", async ({ page }) => {
   await open(page, "/octocat/drafting/pull/1?tab=files");
   await expect(activeScreen(page).locator(".review-summary")).toContainText(

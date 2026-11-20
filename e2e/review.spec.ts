@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { activeScreen, open, trackErrors } from "./helpers";
 
+// Spec: RV1, RV2, RV4
 test("comment on a line, suggest a change and submit the review", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/482?tab=files");
@@ -29,6 +30,7 @@ test("comment on a line, suggest a change and submit the review", async ({ page 
   expect(errors).toEqual([]);
 });
 
+// Spec: RV3
 test("pending comments survive a reload", async ({ page }) => {
   await open(page, "/acme/rocket/pull/482?tab=files");
   await activeScreen(page).locator(".dl.del").first().click();

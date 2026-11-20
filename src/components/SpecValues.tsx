@@ -1,6 +1,7 @@
 // Named values of a spec (src/lib/spec.ts): how each kind is shown (a swatch
 // for a color, a bar for a size) and the input that fits it (a color picker, a
 // number with its unit).
+// Spec: S29, RW15
 
 import { createContext, useContext, type ReactNode } from "react";
 import { DIMENSION_UNITS, DURATION_UNITS, valueText, type SpecValue } from "../lib/spec";

@@ -6,6 +6,7 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 const items = (page: Page) => activeScreen(page).locator(".spec-change");
 const item = (page: Page, id: string) => activeScreen(page).locator(`.spec-change[data-id="${id}"]`);
 
+// Spec: D1, D2, D3, D4, D6, D11, D12, D15, SR13, SR17
 test("two branches' specs are compared by item and requirement", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
@@ -80,6 +81,7 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   expect(errors).toEqual([]);
 });
 
+// Spec: D9
 test("the spec browser leads to the comparison, where either side can be changed", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=eng-629-retries");
   await activeScreen(page).getByRole("link", { name: "Compare with another branch" }).click();
@@ -96,12 +98,14 @@ test("the spec browser leads to the comparison, where either side can be changed
   await expect(activeScreen(page)).toContainText("Pick a branch to compare");
 });
 
+// Spec: D8
 test("a branch without a spec loses all of it", async ({ page }) => {
   await open(page, "/acme/rocket/spec-diff?head=some-branch");
   await expect(activeScreen(page).locator(".banner:not(.spec-weakened)")).toHaveText("some-branch has no spec: all of it is removed.");
   await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Removed", "Removed", "Removed", "Removed", "Removed"]);
 });
 
+// Spec: D13
 test("the changes can be narrowed to a kind, and to what promises less", async ({ page }) => {
   await open(page, "/acme/atlas/spec-diff?base=main&head=next");
   await expect(items(page)).toHaveCount(4);
@@ -119,6 +123,7 @@ test("the changes can be narrowed to a kind, and to what promises less", async (
   await expect(item(page, "cli")).toBeInViewport();
 });
 
+// Spec: SR14
 test("long text is compared paragraph by paragraph, with what didn't change folded away", async ({ page }) => {
   await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
   const prose = item(page, "uploads/retries").locator(".spec-prose").first();
@@ -136,6 +141,7 @@ test("long text is compared paragraph by paragraph, with what didn't change fold
 test.describe("in a wide window", () => {
   test.use({ viewport: { width: 1280, height: 860 }, hasTouch: false, isMobile: false });
 
+  // Spec: SR11
   test("the old is beside the new, each with its changed words marked", async ({ page }) => {
     await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
     const r1 = item(page, "uploads/retries").locator('.spec-diff-req[data-req="R1"]');

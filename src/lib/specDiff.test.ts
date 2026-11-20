@@ -1,3 +1,5 @@
+// Spec: D1, D2, D3, D8, D10, D11, D14, D15, D16
+
 import { describe, expect, it } from "vitest";
 import { buildSpec, type SpecFile } from "./spec";
 import { diffSpecs } from "./specDiff";

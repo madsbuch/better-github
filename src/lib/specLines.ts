@@ -1,5 +1,6 @@
 // Where things are in a spec item's file, so that a comment on a requirement
 // can be put on a line of the JSON: review comments on GitHub belong to lines.
+// Spec: SR5, SR6, SR16
 
 import { anchorOf, type DiffLine, type Hunk, type Side } from "./diff";
 

@@ -5,6 +5,7 @@
 // (Theme.kt) rather than the web view's prefers-color-scheme, which isn't
 // reliable there and doesn't change while the app is open; the app also fires
 // SYSTEM_THEME_EVENT when the device switches. Elsewhere it's the media query.
+// Spec: SET-7, SET-8, DS-C2
 
 import { getPref, subscribePrefs, type ThemePref } from "./prefs";
 

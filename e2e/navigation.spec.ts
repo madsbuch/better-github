@@ -3,6 +3,7 @@ import { activeScreen, open, screenTitle, trackErrors, watchForLoading } from ".
 
 const PR_TITLE = /^Add retry with exponential backoff/;
 
+// Spec: F5
 test("back closes a sheet before leaving the screen", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/pulls");
@@ -81,6 +82,7 @@ test("earlier screens keep their state underneath", async ({ page }) => {
   await expect(activeScreen(page).getByRole("tab", { name: /Assigned/ })).toHaveAttribute("aria-selected", "true");
 });
 
+// Spec: F4
 test("opening a pull request from the inbox never shows a spinner", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/pulls");

@@ -195,6 +195,11 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
 - `figures` name pictures by their path from `.spec`. `related` lists ids of
   other items (`uploads/errors`) or requirements (`#ERR-1`, or
   `uploads/errors#ERR-1`).
+- **The code cites the spec, not the other way round.** A comment
+  `// Spec: RET-1` sits on the code that meets a requirement and above the
+  test that proves it. Searching the code base for an id finds what to change
+  when that requirement does. In this repository a test fails when a cited id
+  isn't in the spec or is deprecated.
 - **A spec can specify internals** (an architecture, a data model, a
   protocol), as requirements in words. Code references are not part of the
   format: there is no field that points at files. Items that still carry the

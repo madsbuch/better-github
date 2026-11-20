@@ -1,6 +1,7 @@
 // Opening a pull request that carries a reworked spec: a new branch off the
 // one that was read, one commit with the changed files, and a description that
 // tells a coding agent what follows from it.
+// Spec: RW14
 
 import { z } from "zod";
 import { ApiError, rest } from "../lib/api";

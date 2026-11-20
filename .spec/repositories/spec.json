@@ -177,6 +177,10 @@
     {
       "id": "S30",
       "text": "Values share the one set of ids with user stories and requirements, are found by the filter and reachable by link, show what they were before with the reason for each change, and are deprecated with a reason like requirements."
+    },
+    {
+      "id": "S31",
+      "text": "The format's description, the agent prompt and both handovers tell a coding agent to cite requirement ids in the code and tests it writes, as a comment `Spec:` followed by the ids. The spec itself still names no code."
     }
   ],
   "values": [

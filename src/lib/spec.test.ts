@@ -1,3 +1,5 @@
+// Spec: S1, S3, S4, S15, S16, S19, S24, S25, S26, S28, S30
+
 import { describe, expect, it } from "vitest";
 import committedSchema from "../../schema/spec.schema.json";
 import { buildSpec, searchSpec, SpecItem, storySentence, valueText, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, unloadedBelow, type SpecFile } from "./spec";

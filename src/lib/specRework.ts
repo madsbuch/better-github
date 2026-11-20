@@ -7,6 +7,7 @@
 // A draft holds whole items as they should become, by item id. Every edit
 // below is made from the item as the repository has it, not from an earlier
 // edit, so revising a requirement twice still gives one new version.
+// Spec: RW2, RW3, RW4, RW5, RW6, RW10, RW11, RW12, RW13, RW15
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { z } from "zod";
@@ -440,8 +441,9 @@ ${files.map((file) => `### \`${file.path}\`${file.isNew ? " (new)" : ""}\n\n${fi
    - When what a requirement means changes, its \`version\` goes up by one and what it said goes into its \`history\`, with the \`reason\`. History is never edited.
    - Every file fits the schema. Unknown keys are errors.
    The full format is at ${SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt")}.
-5. If something I changed can't be done, contradicts another requirement, or is unclear, don't guess: stop and tell me.
-6. Open one pull request. In its description, list the requirement ids it touches, and say for each whether the product now meets it.`,
+5. Cite the spec in what you write: a comment \`Spec: <id>\` (several ids separated by commas) on the code that meets a requirement and above the test that proves it. Search the code base for the id of every requirement that changed or was deprecated: that is the code and the tests to revisit.
+6. If something I changed can't be done, contradicts another requirement, or is unclear, don't guess: stop and tell me.
+7. Open one pull request. In its description, list the requirement ids it touches, and say for each whether the product now meets it.`,
   ];
   return `${sections.join("\n\n")}\n`;
 }
@@ -494,8 +496,9 @@ export function specPullBody({ diff, files, note }: Pick<ReworkPromptInput, "dif
 2. Bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}${changedValues.length > 0 ? `, and value by value: ${changedValues.join(", ")}. A named value is decided in the spec: wherever the product has it (a constant, a theme file, copy), make it what the spec says` : ""}. Find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove what it described unless its reason says otherwise.
 3. Push your commits to this branch. Don't open a second pull request.
 4. Keep the spec's rules if you have to touch it: ids never change or get reused, nothing is deleted (deprecate, with the reason), a change of meaning is a new version with its reason, and every file fits the schema. The full format is at ${SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt")}.
-5. If something can't be done, contradicts another requirement, or is unclear, don't guess: say so in a comment on this pull request and stop.
-6. When you are done, comment with the requirement ids this touches and, for each, whether the product now meets it.`,
+5. Cite the spec in what you write: a comment \`Spec: <id>\` (several ids separated by commas) on the code that meets a requirement and above the test that proves it. Search the code base for the id of every requirement that changed or was deprecated: that is the code and the tests to revisit.
+6. If something can't be done, contradicts another requirement, or is unclear, don't guess: say so in a comment on this pull request and stop.
+7. When you are done, comment with the requirement ids this touches and, for each, whether the product now meets it.`,
   ];
   return `${sections.join("\n\n")}\n`;
 }

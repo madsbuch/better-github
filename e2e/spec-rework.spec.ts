@@ -18,6 +18,7 @@ function clipboard(page: Page): () => string[] {
   return () => copied;
 }
 
+// Spec: RW1, RW3, RW4, RW5, RW9, RW10, RW11, RW13
 test("requirements are revised, deprecated and added while reading, then handed to an agent", async ({ page }) => {
   const errors = trackErrors(page);
   const copied = clipboard(page);
@@ -115,6 +116,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   expect(errors).toEqual([]);
 });
 
+// Spec: RW2, RW8
 test("changes survive leaving, can be undone one by one, and reading shows the repository's spec", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=cli");
   await activeScreen(page).getByRole("button", { name: "Rework the spec" }).click();
@@ -144,6 +146,7 @@ test("changes survive leaving, can be undone one by one, and reading shows the r
   await expect(bar(page)).toContainText("Reworking the spec");
 });
 
+// Spec: RW6
 test("a part is edited, deprecated with a reason, and new parts are added", async ({ page }) => {
   const copied = clipboard(page);
   await open(page, "/acme/rocket/spec?ref=main&id=uploads");
@@ -188,6 +191,7 @@ test("a part is edited, deprecated with a reason, and new parts are added", asyn
   await expect(activeScreen(page).locator(".spec-deprecation")).toHaveCount(0);
 });
 
+// Spec: RW14
 test("a rework becomes a pull request that changes the spec and tells an agent what follows", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=cli");
   await activeScreen(page).getByRole("button", { name: "Rework the spec" }).click();
@@ -223,6 +227,7 @@ test("a rework becomes a pull request that changes the spec and tells an agent w
   expect(pull.body).toContain("Push your commits to this branch.");
 });
 
+// Spec: RW15
 test("a named value is edited with the input that fits it, and a change to what it is asks why", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
   await activeScreen(page).getByRole("button", { name: "Rework the spec" }).click();

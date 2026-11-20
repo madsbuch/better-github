@@ -4,6 +4,7 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 // A desktop window: a mouse that hovers, a keyboard, no touch.
 test.use({ ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } });
 
+// Spec: K3, DS-L1
 test("the layout uses the window: a sidebar with names, and no bottom tabs", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/repos");
@@ -15,6 +16,7 @@ test("the layout uses the window: a sidebar with names, and no bottom tabs", asy
   expect(errors).toEqual([]);
 });
 
+// Spec: K9, K10, ORG-6
 test("keyboard shortcuts go to search, back and forward, and to the main sections", async ({ page }) => {
   await open(page, "/repos");
   await expect(screenTitle(page)).toHaveText("Repositories");
@@ -41,6 +43,7 @@ test("keyboard shortcuts go to search, back and forward, and to the main section
   await expect(screenTitle(page)).toHaveText("Search");
 });
 
+// Spec: K7, K8
 test("menus and dialogs work from the keyboard", async ({ page }) => {
   await open(page, "/acme/rocket");
   const more = activeScreen(page).getByRole("button", { name: "More" });
@@ -69,6 +72,7 @@ test("menus and dialogs work from the keyboard", async ({ page }) => {
   await expect(page.locator(".toast", { hasText: "Link copied" })).toBeVisible();
 });
 
+// Spec: K6, K7
 test("only the dialog on top closes on Escape, and Tab stays inside it", async ({ page }) => {
   await open(page, "/acme/rocket/pull/482?tab=files");
   await page.locator(".bottom-bar").getByRole("button", { name: /Review/ }).click();
@@ -85,6 +89,7 @@ test("only the dialog on top closes on Escape, and Tab stays inside it", async (
   await expect(screenTitle(page)).toContainText("Add retry");
 });
 
+// Spec: K5
 test("a screen refreshes from its button and from the keyboard, without reloading the page", async ({ page }) => {
   await open(page, "/acme/rocket");
   await expect(activeScreen(page).locator(".repo-header")).toBeVisible();
@@ -104,6 +109,7 @@ test("a screen refreshes from its button and from the keyboard, without reloadin
   expect(await page.evaluate(() => window.__loadingSeen)).toEqual(["still the same page"]);
 });
 
+// Spec: K4
 test("rows and buttons respond to the pointer", async ({ page }) => {
   await open(page, "/repos");
   const row = activeScreen(page).locator("a.row").first();
@@ -113,12 +119,14 @@ test("rows and buttons respond to the pointer", async ({ page }) => {
   await expect.poll(() => row.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before);
 });
 
+// Spec: K11
 test("settings list the shortcuts", async ({ page }) => {
   await open(page, "/settings/shortcuts");
   await expect(activeScreen(page).getByRole("region", { name: "Keyboard shortcuts" })).toBeVisible();
   await expect(activeScreen(page).locator(".shortcut-keys").first()).toContainText("/");
 });
 
+// Spec: K12, K13
 test("wide windows show diffs side by side, and lines on either side take comments", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/482?tab=files");
@@ -152,6 +160,7 @@ test("wide windows show diffs side by side, and lines on either side take commen
   expect(errors).toEqual([]);
 });
 
+// Spec: K14
 test("a narrower window keeps diffs in one column", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 800 });
   await open(page, "/acme/rocket/pull/482?tab=files");

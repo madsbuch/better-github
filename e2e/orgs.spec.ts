@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { activeScreen, open, screenTitle, trackErrors, watchForLoading } from "./helpers";
 
+// Spec: ORG-1, ORG-2, ORG-3
 test("organizations are a section of their own, listing the ones you belong to", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/repos");

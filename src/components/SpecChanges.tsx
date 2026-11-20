@@ -3,6 +3,7 @@
 // review of its spec files: there each card is one file, with its viewed
 // state, and the comments on the file's lines shown at the requirement or
 // field those lines belong to.
+// Spec: SR1, SR3, SR5, SR11, SR13, SR15, SR17, D12
 
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ArrowRightIcon, ColumnsIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon, RowsIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";

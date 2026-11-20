@@ -9,6 +9,7 @@
 //      (a small spec is read whole). A file's id is the same on every branch
 //      it hasn't changed on, so switching branches, and comparing two of
 //      them, reads only what differs.
+// Spec: S5, S12, S14, SR2
 
 import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";

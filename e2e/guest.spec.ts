@@ -13,6 +13,7 @@ async function addProfile(page: Page, login: string) {
   await screen.getByRole("button", { name: "Add profile" }).click();
 }
 
+// Spec: F6
 test("guests follow profiles and see their public repositories", async ({ page }) => {
   const errors = trackErrors(page);
   await startAsGuest(page);
@@ -46,6 +47,7 @@ test("guests follow profiles and see their public repositories", async ({ page }
   expect(errors).toEqual([]);
 });
 
+// Spec: F6
 test("guests browse a repository's public information", async ({ page }) => {
   const errors = trackErrors(page);
   await startAsGuest(page);

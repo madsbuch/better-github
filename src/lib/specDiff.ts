@@ -4,6 +4,7 @@
 // which requirements. Items are matched by id, requirements by their id within
 // the item, so rewording a requirement is a change and renumbering it is a
 // removal and an addition.
+// Spec: D1, D2, D3, D4, D5, D8, D10, D11, D14, D15, D16
 
 import { requirementVersion, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue } from "./spec";
 

@@ -1,5 +1,6 @@
 // Editing a named value of a spec (src/lib/spec.ts): what the form holds while
 // it is being typed, and the value that makes, if it is one.
+// Spec: RW15
 
 import { DIMENSION_UNITS, DURATION_UNITS, SpecValue, type SpecValueType } from "./spec.ts";
 

@@ -7,6 +7,7 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 const rows = (page: Page) => activeScreen(page).locator(".spec-row");
 const requirements = (page: Page) => activeScreen(page).locator(".spec-req:not(.spec-story)");
 
+// Spec: S9, S10, S24, S29
 test("a repository with a spec links to it, and the outline leads to its items", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket");
@@ -51,6 +52,7 @@ test("a repository with a spec links to it, and the outline leads to its items",
   expect(errors).toEqual([]);
 });
 
+// Spec: S15, S22
 test("an item links to related items and requirements, and points at no code", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
   // A spec isn't tied to a code base: there is no list of files.
@@ -64,6 +66,7 @@ test("an item links to related items and requirements, and points at no code", a
   await expect(requirements(page).nth(1)).toHaveAttribute("data-current", "false");
 });
 
+// Spec: S16, S17
 test("deprecated requirements are kept, folded away, with why they went", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=uploads/errors");
   // The live requirements read as the spec; the deprecated one isn't counted among them.
@@ -91,6 +94,7 @@ test("deprecated requirements are kept, folded away, with why they went", async 
   await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 4 named values · 2 user stories · 7 requirements · 1 deprecated");
 });
 
+// Spec: S19, S20
 test("a requirement shows its version, and what it said before with why that changed", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=uploads/errors");
   const e2 = activeScreen(page).locator('.spec-req[data-req="E2"]');
@@ -114,6 +118,7 @@ test("a requirement shows its version, and what it said before with why that cha
   await expect(rows(page)).toContainText("E2");
 });
 
+// Spec: S6
 test("the outline filters items and requirements", async ({ page }) => {
   await open(page, "/acme/rocket/spec");
   await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("no error message");
@@ -133,6 +138,7 @@ test("the outline filters items and requirements", async ({ page }) => {
   await expect(activeScreen(page)).toContainText("Nothing matches");
 });
 
+// Spec: S3
 test("a file that can't be read is a problem, and the rest still shows", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=staging");
   const problems = activeScreen(page).locator(".spec-problems");
@@ -148,6 +154,7 @@ test("a file that can't be read is a problem, and the rest still shows", async (
   await expect(activeScreen(page).locator(".banner-danger")).toContainText("This item couldn't be read");
 });
 
+// Spec: S11
 test("a repository without a spec says so", async ({ page }) => {
   await open(page, "/octocat/hello");
   await expect(activeScreen(page).locator(".repo-header")).toBeVisible();
@@ -174,6 +181,7 @@ function clipboard(page: Page): () => string[] {
   return () => copied;
 }
 
+// Spec: S11
 test("the prompt for a repository with a spec hands over its outline and problems", async ({ page }) => {
   const copied = clipboard(page);
   await open(page, "/acme/rocket");
@@ -190,6 +198,7 @@ test("the prompt for a repository with a spec hands over its outline and problem
   expect(copied()[1]).toContain('- .spec/cli.json: Unrecognized key: "sumary"');
 });
 
+// Spec: S5, S12, S13
 test("a huge spec opens at once and is read as it is looked at", async ({ page }) => {
   const errors = trackErrors(page);
   // How many files' contents were asked for, in how many requests.
@@ -228,6 +237,7 @@ test("a huge spec opens at once and is read as it is looked at", async ({ page }
   expect(errors).toEqual([]);
 });
 
+// Spec: S5
 test("comparing two versions of a huge spec reads only what differs", async ({ page }) => {
   const read: number[] = [];
   page.on("console", (message) => {

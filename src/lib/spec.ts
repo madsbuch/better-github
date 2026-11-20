@@ -1,4 +1,4 @@
-// Spec: a `.spec` folder at the root of a repository says what its code is
+// A spec: a `.spec` folder at the root of a repository says what its code is
 // meant to do. Every `.json` file in it is one item of the spec, and all of
 // them follow one schema (`SpecItem` below, published as
 // schema/spec.schema.json). Anything else in the folder is an asset, such as
@@ -16,6 +16,7 @@
 // The folders are the outline. An item's id is its path without `.spec/` and
 // `.json` ("uploads/retries"); a folder's own item is its `index.json`
 // ("uploads"). A folder without one is still a group, named after the folder.
+// Spec: S1, S3, S4, S10, S15, S16, S19, S21, S22, S23, S24, S25, S26, S28, S30
 
 import { z } from "zod";
 

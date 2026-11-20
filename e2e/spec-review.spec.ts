@@ -13,6 +13,7 @@ async function shown(page: Page, id: string) {
 }
 const file = (page: Page, path: string) => activeScreen(page).locator(`.diff-file[data-path="${path}"]`);
 
+// Spec: SR1, SR3, SR4, D7
 test("a pull request's spec files are reviewed by what they change in the spec", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/484?tab=files");
@@ -41,6 +42,7 @@ test("a pull request's spec files are reviewed by what they change in the spec",
   expect(errors).toEqual([]);
 });
 
+// Spec: SR5, SR6, SR7, SR16
 test("a comment on a requirement lands on its line of the file and shows at the requirement", async ({ page }) => {
   await open(page, "/acme/rocket/pull/484?tab=files");
   const retries = await shown(page, "uploads/retries");
@@ -105,6 +107,7 @@ test("a comment on a requirement lands on its line of the file and shows at the 
   await expect((await shown(page, "uploads/retries")).locator(".draft-comment")).toHaveCount(4);
 });
 
+// Spec: SR4
 test("an item is marked viewed like the file it is", async ({ page }) => {
   await open(page, "/acme/rocket/pull/484?tab=files");
   const resume = await shown(page, "uploads/resume");
@@ -115,6 +118,7 @@ test("an item is marked viewed like the file it is", async ({ page }) => {
   await expect(activeScreen(page)).toContainText("2/7 viewed");
 });
 
+// Spec: SR2
 test("the spec changes are measured against where the branch started", async ({ page }) => {
   const asked: string[] = [];
   page.on("console", (message) => {
@@ -127,6 +131,7 @@ test("the spec changes are measured against where the branch started", async ({ 
   expect(asked).not.toContain("main");
 });
 
+// Spec: SR9, SR10, SR12
 test("the Spec tab is for reading what a pull request changes in the spec, and nothing else", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/pull/484");
@@ -181,6 +186,7 @@ test("the Spec tab is for reading what a pull request changes in the spec, and n
   expect(errors).toEqual([]);
 });
 
+// Spec: SR9
 test("a pull request that doesn't change the spec has no Spec tab", async ({ page }) => {
   await open(page, "/acme/rocket/pull/482");
   await expect(activeScreen(page).getByRole("tab", { name: /Files/ })).toBeVisible();

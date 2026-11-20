@@ -47,6 +47,10 @@
     {
       "id": "F6",
       "text": "Without an account, the app still shows public profiles, repositories, releases and code."
+    },
+    {
+      "id": "F7",
+      "text": "The code and the tests cite the requirements they meet or prove, as a comment `Spec:` followed by the ids. A test fails when a cited id isn't a requirement in the spec, or is deprecated."
     }
   ]
 }
