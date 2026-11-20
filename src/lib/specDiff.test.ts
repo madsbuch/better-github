@@ -59,7 +59,7 @@ describe("diffSpecs", () => {
       ["uploads/retries", "changed"],
       ["cli", "removed"],
     ]);
-    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, requirements: { added: 2, removed: 2, changed: 2 }, weakened: 3 });
+    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, requirements: { added: 2, removed: 2, changed: 2, moved: 0 }, weakened: 3 });
   });
 
   it("says which fields of an item changed", () => {
@@ -165,5 +165,29 @@ describe("diffSpecs", () => {
     // A copy isn't a move.
     const copied = diffSpecs(old, buildSpec([read("cli.json", "x", cli), read("tools/cli.json", "x", cli), read("keep.json", "k", { title: "Keep" })]));
     expect(copied.items.map((item) => [item.id, item.kind])).toEqual([["tools/cli", "added"]]);
+  });
+
+  it("follows a requirement that moves to another item, by its id", () => {
+    const spec = (a: unknown[], b: unknown[], extra: SpecFile[] = []) =>
+      buildSpec([file("a.json", { title: "A", requirements: a }), file("b.json", { title: "B", requirements: b }), ...extra]);
+    const stays = { id: "A-1", text: "Stays." };
+    const moves = { id: "A-2", text: "Moves as it is." };
+    const reworded = { id: "A-3", text: "Moves and changes.", level: "must" };
+    const moved = diffSpecs(spec([stays, moves, reworded], []), spec([stays], [moves, { id: "A-3", text: "Moved and changed.", level: "should" }]));
+    expect(moved.items.map((item) => [item.id, item.requirements.map((r) => [r.id, r.kind, r.moved, r.weakened])])).toEqual([
+      ["a", [["A-2", "removed", { to: "b" }, null], ["A-3", "removed", { to: "b" }, null]]],
+      ["b", [["A-2", "added", { from: "a" }, null], ["A-3", "changed", { from: "a" }, "Lowered from must to should."]]],
+    ]);
+    // Where it is now, it has what it said before, to show what changed on the way.
+    expect(moved.items[1]?.requirements[1]?.before?.text).toBe("Moves and changes.");
+    expect(moved.counts.requirements).toEqual({ added: 0, removed: 0, changed: 0, moved: 2 });
+    expect(moved.counts.weakened).toBe(1);
+
+    // An item that goes away while its requirements live on elsewhere takes nothing away.
+    const folded = diffSpecs(spec([stays], [moves]), buildSpec([file("a.json", { title: "A", requirements: [stays, moves] })]));
+    expect(folded.items.map((item) => [item.id, item.kind, item.weakened])).toEqual([
+      ["a", "changed", null],
+      ["b", "removed", null],
+    ]);
   });
 });

@@ -67,7 +67,7 @@ export function SpecScreen() {
   // What this page shows: the item, the folders above it, what it links to. Its children ask for themselves as they show.
   const around = useMemo(() => {
     if (node === null || spec === null) return [];
-    const related = (node.item?.related ?? []).flatMap((ref) => spec.nodes.get(splitSpecRef(ref).id) ?? []);
+    const related = (node.item?.related ?? []).flatMap((ref) => resolveSpecRef(spec, ref)?.node ?? spec.nodes.get(splitSpecRef(ref).id) ?? []);
     return [node, ...specFilesAround(node).filter((n) => n.parent !== node), ...related];
   }, [spec, node]);
   useSpecContents(loaded, around);
@@ -421,7 +421,12 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
                   <span className="small">not in the spec</span>
                 </span>
               ) : (
-                <Link key={ref} {...to.spec(place.owner, place.repo, place.gitRef, ref)} className="spec-link">
+                <Link
+                  key={ref}
+                  // By where it is now: a requirement named by its id alone may be in any item.
+                  {...to.spec(place.owner, place.repo, place.gitRef, target.requirement ? `${target.node.id}#${target.requirement.id}` : target.node.id)}
+                  className="spec-link"
+                >
                   {target.requirement !== null && <span className="spec-req-id">{target.requirement.id}</span>}
                   <span className="grow">
                     <span className="bold">{target.node.title}</span>

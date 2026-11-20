@@ -47,7 +47,9 @@ export const SpecRequirement = z
     id: z
       .string()
       .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
-      .describe('Unique within the item and stable once written: other items, code and tests refer to it as "<item id>#<id>".'),
+      .describe(
+        'Unique in the whole spec, not just in its item, and stable once written: code, tests and other items refer to it by this id alone. A prefix per item ("RET-1", "RET-2") keeps ids apart.',
+      ),
     text: Text.min(1).describe("One statement that can be checked against the code."),
     level: SpecLevel.optional(),
     status: SpecStatus.optional().describe("Defaults to the item's status."),
@@ -82,7 +84,7 @@ export const SpecItem = z
     related: z
       .array(z.string().min(1))
       .optional()
-      .describe('Ids of other items ("uploads/limits"), or of one of their requirements ("uploads/limits#R2").'),
+      .describe('Ids of other items ("uploads/limits"), or requirements: "#LIM-2" wherever it is, or "uploads/limits#LIM-2".'),
   })
   .describe("One item of a repository's spec: a .json file in its .spec folder.");
 export type SpecItem = z.infer<typeof SpecItem>;
@@ -139,6 +141,11 @@ export interface SpecNode {
 export interface Spec {
   root: SpecNode;
   nodes: Map<string, SpecNode>;
+  /**
+   * Every requirement by its id, with the item it is in. Ids are unique in
+   * the whole spec; of two with the same id, this is the first by file path.
+   */
+  requirements: Map<string, { node: SpecNode; requirement: SpecRequirement }>;
   /** Everything that isn't an item, by its path from the spec folder, with its git object id when known. */
   assets: Map<string, string | null>;
   problems: SpecProblem[];
@@ -238,6 +245,21 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     }
   }
 
+  const allLoaded = [...nodes.values()].every((node) => node.loaded);
+  // Requirement ids are unique in the whole spec. Items are visited by file
+  // path, so of two with the same id the later file is the one at fault.
+  const requirements: Spec["requirements"] = new Map();
+  for (const node of nodes.values()) {
+    for (const requirement of node.item?.requirements ?? []) {
+      const taken = requirements.get(requirement.id);
+      if (taken === undefined) requirements.set(requirement.id, { node, requirement });
+      else if (node.file !== null) {
+        const where = taken.node === node ? "more than once in this item" : `already in ${taken.node.file ?? taken.node.id}`;
+        problems.push({ file: node.file, message: `Requirement id ${requirement.id} is ${where}. Ids are unique in the whole spec.` });
+      }
+    }
+  }
+
   for (const node of nodes.values()) {
     node.children.sort((a, b) => {
       const byOrder = (a.item?.order ?? Infinity) - (b.item?.order ?? Infinity);
@@ -246,28 +268,29 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     });
     const { item, file } = node;
     if (item === null || file === null) continue;
-    const seen = new Set<string>();
-    for (const requirement of item.requirements ?? []) {
-      if (seen.has(requirement.id)) problems.push({ file, message: `Requirement ${requirement.id} is there more than once.` });
-      seen.add(requirement.id);
-    }
     for (const figure of item.figures ?? []) {
       if (!assets.has(figure.src)) problems.push({ file, message: `Figure ${figure.src} isn't in ${SPEC_DIR}.` });
     }
     for (const ref of item.related ?? []) {
-      // Whether an item that isn't loaded has the requirement can't be said yet.
-      const target = nodes.get(splitSpecRef(ref).id);
-      if (target?.loaded === false) continue;
-      if (resolveSpecRef({ nodes }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
+      // Whether an item that isn't loaded has the requirement can't be said yet;
+      // nor, while any item is unread, where a requirement named by its id alone is.
+      const { id, requirement } = splitSpecRef(ref);
+      if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
+      if (resolveSpecRef({ nodes, requirements }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
     }
   }
 
-  return { root, nodes, assets, problems };
+  return { root, nodes, requirements, assets, problems };
 }
 
-/** What a `related` entry points at; null when it leads nowhere. */
-export function resolveSpecRef(spec: Pick<Spec, "nodes">, ref: string): { node: SpecNode; requirement: SpecRequirement | null } | null {
+/**
+ * What a `related` entry points at; null when it leads nowhere. A requirement
+ * can be named by its id alone ("#RET-1"), which still finds it after it
+ * moves to another item, or together with its item ("uploads/retries#RET-1").
+ */
+export function resolveSpecRef(spec: Pick<Spec, "nodes" | "requirements">, ref: string): { node: SpecNode; requirement: SpecRequirement | null } | null {
   const { id, requirement: requirementId } = splitSpecRef(ref);
+  if (requirementId !== null && id === "") return spec.requirements.get(requirementId) ?? null;
   const node = spec.nodes.get(id);
   if (!node) return null;
   if (requirementId === null) return { node, requirement: null };

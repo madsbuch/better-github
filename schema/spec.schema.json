@@ -41,7 +41,7 @@
           "id": {
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-            "description": "Unique within the item and stable once written: other items, code and tests refer to it as \"<item id>#<id>\"."
+            "description": "Unique in the whole spec, not just in its item, and stable once written: code, tests and other items refer to it by this id alone. A prefix per item (\"RET-1\", \"RET-2\") keeps ids apart."
           },
           "text": {
             "type": "string",
@@ -120,7 +120,7 @@
       }
     },
     "related": {
-      "description": "Ids of other items (\"uploads/limits\"), or of one of their requirements (\"uploads/limits#R2\").",
+      "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\".",
       "type": "array",
       "items": {
         "type": "string",

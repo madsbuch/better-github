@@ -30,14 +30,14 @@ export const SPEC_PROMPT_EXAMPLE = {
   order: 1,
   description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has",
   requirements: [
-    { id: "R1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
-    { id: "R2", text: "The pause before a retry doubles each time, starting at 250 ms.", level: "should" },
-    { id: "R3", text: "The caller can cancel while a retry is waiting.", level: "may", status: "accepted" },
+    { id: "RET-1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
+    { id: "RET-2", text: "The pause before a retry doubles each time, starting at 250 ms.", level: "should" },
+    { id: "RET-3", text: "The caller can cancel while a retry is waiting.", level: "may", status: "accepted" },
   ],
   figures: [{ src: "assets/backoff.png", alt: "Four pauses, each twice as long as the last", caption: "Pauses double between attempts." }],
   questions: ["Should a `429` count as retryable?"],
   code: ["src/client.rs", "src/retry/**"],
-  related: ["uploads/errors#E1", "cli"],
+  related: ["#ERR-1", "cli"],
 };
 
 /** The outline as indented lines: "- uploads/retries: Retries (4 requirements)". */
@@ -85,10 +85,10 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE, null, 2))}
 
 - Only \`title\` is required. Unknown keys are errors: the app won't show an item that has one.
 - \`status\` is \`draft\` (still being written), \`accepted\` (agreed on, not built yet), \`implemented\` (the code does this) or \`deprecated\` (no longer wanted). A requirement's \`status\` defaults to its item's.
-- A requirement's \`level\` is \`must\` (the default), \`should\` or \`may\`. Its \`id\` is unique within the item and never changes or gets reused: other items, code and tests refer to it as \`uploads/retries#R1\`, and the app matches requirements by id when it compares two versions of the spec.
+- A requirement's \`level\` is \`must\` (the default), \`should\` or \`may\`. Its \`id\` is unique in the whole spec, not just in its item, and never changes or gets reused: code, tests and other items refer to a requirement by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (\`RET-1\`, \`RET-2\` in Retries; \`ERR-1\` in Errors) so ids don't collide.
 - Text (\`description\`, a requirement's \`text\`, \`questions\`) is plain, not Markdown: a blank line starts a paragraph, lines starting with \`- \` form a list, and \`backticks\` mark code. There are no headings, links or bold.
 - \`order\` places an item among its siblings, lowest first; items without one follow, by title.
-- \`figures\` name pictures by their path from \`${SPEC_DIR}\`; the file has to be there. \`code\` lists paths from the repository's root, or patterns with \`*\` and \`**\`. \`related\` lists ids of other items or of their requirements; each has to exist.
+- \`figures\` name pictures by their path from \`${SPEC_DIR}\`; the file has to be there. \`code\` lists paths from the repository's root, or patterns with \`*\` and \`**\`. \`related\` lists ids of other items (\`cli\`) or requirements (\`#ERR-1\`, or with its item: \`uploads/errors#ERR-1\`); each has to exist.
 - \`$schema\` is optional and lets editors check the file.`,
 
     `## The schema
@@ -111,8 +111,8 @@ ${indent(JSON.stringify(specJsonSchema(), null, 2))}`,
 2. Decide which case this is:
    - The repository has code. Write down what it does today, from the code and its tests, with \`status: "implemented"\`. Where the code and the docs disagree, or the behavior looks unintended, don't pick one silently: write the requirement the way the code behaves and add a question.
    - The repository is new or nearly empty. Write what it is meant to do, from the README, the issues and whatever brief you were given, with \`status: "draft"\`. Ask the person you are working for about anything the spec depends on that you can't find; put what stays open in \`questions\`.
-3. ${current ? `Edit \`${SPEC_DIR}\`. Keep what is right, fix what is wrong or out of date, and fill in what is missing. Keep the ids of existing items and requirements; give new requirements new ids.` : `Write \`${SPEC_DIR}/index.json\` first (what the product is, and for whom), then the items below it.`}
-4. Check your work: every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` id exists, every \`code\` path or pattern matches real files (for example with \`git ls-files\`), and no requirement id is used twice in an item.
+3. ${current ? `Edit \`${SPEC_DIR}\`. Keep what is right, fix what is wrong or out of date, and fill in what is missing. Keep the ids of existing items and requirements; give new requirements ids no other requirement in the spec has or had.` : `Write \`${SPEC_DIR}/index.json\` first (what the product is, and for whom), then the items below it.`}
+4. Check your work: every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` id exists, every \`code\` path or pattern matches real files (for example with \`git ls-files\`), and no requirement id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing).
 5. Read each requirement against the code once more. One you can't point to in the code or its tests is either not implemented (say so in its \`status\`) or not checkable (rewrite it).
 6. Open a pull request with the change. The app reads the spec from the branch being looked at, here ${branch}.`,
   ];

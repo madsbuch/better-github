@@ -12,7 +12,7 @@
     },
     {
       "id": "D2",
-      "text": "Requirements are matched by their id within the item. A reworded requirement shows its old and new text with the words that differ marked."
+      "text": "Requirements are matched by id. A reworded requirement shows its old and new text with the words that differ marked."
     },
     {
       "id": "D3",
@@ -57,10 +57,11 @@
     {
       "id": "D13",
       "text": "The changes can be narrowed to added, changed, moved, removed, or those that promise less. They are shown 50 at a time, and each is drawn when it nears the screen."
+    },
+    {
+      "id": "D14",
+      "text": "A requirement that moved to another item is shown as moved, at both ends, with what changed on the way. It doesn't count as removed, and isn't flagged as a promise taken away."
     }
-  ],
-  "questions": [
-    "Should a requirement that moved to another item be shown as moved rather than removed and added?"
   ],
   "code": [
     "src/lib/specDiff.ts",

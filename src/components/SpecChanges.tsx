@@ -80,7 +80,7 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
     <>
       <div className="spec-diff-summary">
         {line(diff.counts.items, ["added", "changed", "moved", "removed"] as const, "item")}
-        {line(diff.counts.requirements, ["added", "changed", "removed"] as const, "requirement")}
+        {line(diff.counts.requirements, ["added", "changed", "moved", "removed"] as const, "requirement")}
       </div>
       {weakened.length > 0 && (
         <div className="banner banner-attention spec-weakened">
@@ -486,12 +486,23 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
             <AlertIcon size={12} /> Promises less
           </span>
         )}
-        <span className="spec-diff-kind" data-kind={change.kind}>
-          {REQUIREMENT_KIND[change.kind]}
+        <span className="spec-diff-kind" data-kind={change.moved !== null ? "moved" : change.kind}>
+          {change.moved !== null ? "Moved" : REQUIREMENT_KIND[change.kind]}
         </span>
         {action}
       </div>
-      {before !== null && after !== null ? (
+      {change.moved !== null && (
+        <div className="spec-diff-same small">
+          {"from" in change.moved ? "From " : "Now in "}
+          <span className="mono">{"from" in change.moved ? change.moved.from : change.moved.to}</span>
+        </div>
+      )}
+      {change.moved !== null && "to" in change.moved ? (
+        // It isn't gone: what it says now is shown where it went.
+        <div className="spec-diff-same">
+          <CheckText text={shown.text} />
+        </div>
+      ) : before !== null && after !== null ? (
         before.text !== after.text ? (
           <TextChange before={before.text} after={after.text} />
         ) : (

@@ -23,6 +23,13 @@ export interface RequirementChange {
   after: SpecRequirement | null;
   /** Why this change makes the spec promise less, if it does: what a reviewer should not miss. */
   weakened: string | null;
+  /**
+   * The requirement went to, or came from, another item (ids are unique in
+   * the whole spec, so the same id elsewhere is the same requirement). Where
+   * it came from it is "removed" with `to`; where it is now it is "changed"
+   * or, when nothing else about it changed, "added", with `from`.
+   */
+  moved: { from: string } | { to: string } | null;
 }
 
 export interface FigureChange {
@@ -71,7 +78,8 @@ export interface SpecDiff {
   items: ItemChange[];
   counts: {
     items: Record<ItemKind, number>;
-    requirements: Record<ChangeKind, number>;
+    /** A requirement that moved between items counts once, as moved. */
+    requirements: Record<ChangeKind | "moved", number>;
     /** Items and requirements that promise less than before. */
     weakened: number;
   };
@@ -125,14 +133,14 @@ function diffRequirements(before: SpecRequirement[], after: SpecRequirement[], w
   }
   const removed = (after: string | null) =>
     (removedAfter.get(after) ?? []).forEach((r) =>
-      changes.push({ id: r.id, kind: "removed", before: r, after: null, weakened: requirementWeakened(r, null, was, is) }),
+      changes.push({ id: r.id, kind: "removed", before: r, after: null, weakened: requirementWeakened(r, null, was, is), moved: null }),
     );
   removed(null);
   for (const requirement of after) {
     const old = olds.get(requirement.id);
-    if (old === undefined) changes.push({ id: requirement.id, kind: "added", before: null, after: requirement, weakened: null });
+    if (old === undefined) changes.push({ id: requirement.id, kind: "added", before: null, after: requirement, weakened: null, moved: null });
     else if (!sameRequirement(old, requirement)) {
-      changes.push({ id: requirement.id, kind: "changed", before: old, after: requirement, weakened: requirementWeakened(old, requirement, was, is) });
+      changes.push({ id: requirement.id, kind: "changed", before: old, after: requirement, weakened: requirementWeakened(old, requirement, was, is), moved: null });
     }
     removed(requirement.id);
   }
@@ -289,16 +297,45 @@ export function diffSpecs(before: Spec | null, after: Spec | null, renames?: Map
   };
   visit(before?.root ?? null, after?.root ?? null);
 
+  // A requirement removed from one item and added to another, with the same
+  // id, moved: ids are unique in the whole spec.
+  const removed = new Map<string, { item: ItemChange; change: RequirementChange }>();
+  for (const item of items) {
+    for (const change of item.requirements) if (change.kind === "removed") removed.set(change.id, { item, change });
+  }
+  for (const item of items) {
+    for (const change of item.requirements) {
+      const from = change.kind === "added" ? removed.get(change.id) : undefined;
+      if (from === undefined || from.item === item || change.after === null || from.change.before === null) continue;
+      const [old, was] = [from.change.before, from.item.before?.item?.status];
+      change.moved = { from: from.item.id };
+      change.before = old;
+      if (!sameRequirement(old, change.after)) change.kind = "changed";
+      // It is still promised, unless it got weaker on the way.
+      change.weakened = requirementWeakened(old, change.after, was, item.after?.item?.status);
+      from.change.moved = { to: item.id };
+      from.change.weakened = null;
+    }
+  }
+  for (const item of items) {
+    // A removed item takes away what it promised, less what lives on elsewhere.
+    if (item.kind !== "removed" || item.weakened === null) continue;
+    const lost = item.requirements.filter((r) => r.weakened !== null).length;
+    item.weakened = lost > 0 ? `Removed, with ${lost} requirement${lost === 1 ? "" : "s"} that ${lost === 1 ? "is" : "are"} no longer promised.` : null;
+  }
+
   const counts: SpecDiff["counts"] = {
     items: { added: 0, removed: 0, changed: 0, moved: 0 },
-    requirements: { added: 0, removed: 0, changed: 0 },
+    requirements: { added: 0, removed: 0, changed: 0, moved: 0 },
     weakened: 0,
   };
   for (const item of items) {
     counts.items[item.kind]++;
     if (item.weakened !== null) counts.weakened++;
     for (const requirement of item.requirements) {
-      counts.requirements[requirement.kind]++;
+      // Counted where it is now, not where it left.
+      if (requirement.moved === null) counts.requirements[requirement.kind]++;
+      else if ("from" in requirement.moved) counts.requirements.moved++;
       if (requirement.weakened !== null) counts.weakened++;
     }
   }

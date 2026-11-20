@@ -20,7 +20,7 @@
     },
     {
       "id": "S4",
-      "text": "A figure that isn't in the folder, a related id that leads nowhere and a requirement id used twice are listed as problems."
+      "text": "A figure that isn't in the folder, a related id that leads nowhere and a requirement id used twice anywhere in the spec are listed as problems."
     },
     {
       "id": "S5",
@@ -62,6 +62,10 @@
     {
       "id": "S14",
       "text": "A file's contents are read once per run of the app, whichever branches it is on, and forgotten on sign-out."
+    },
+    {
+      "id": "S15",
+      "text": "Requirement ids are unique in the whole spec, so a requirement can be referred to by its id alone: `#S15` in `related` finds it in whichever item it is. In a spec too large to read whole, ids are checked among the items read so far."
     }
   ],
   "figures": [

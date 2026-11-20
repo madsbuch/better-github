@@ -14,7 +14,7 @@ describe("specPrompt", () => {
       file("index.json", { title: "Rocket" }),
       file("uploads/index.json", { title: "Uploads" }),
       file("uploads/retries.json", SPEC_PROMPT_EXAMPLE),
-      file("uploads/errors.json", { title: "Errors", requirements: [{ id: "E1", text: "The caller gets the server's message." }] }),
+      file("uploads/errors.json", { title: "Errors", requirements: [{ id: "ERR-1", text: "The caller gets the server's message." }] }),
       file("cli.json", { title: "Command line" }),
       { path: "assets/backoff.png", text: null, truncated: false },
     ]);

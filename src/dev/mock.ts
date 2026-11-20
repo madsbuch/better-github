@@ -309,13 +309,14 @@ function atlasSpec(next: boolean): Record<string, unknown> {
         status: "implemented",
         order: i,
         requirements: [
-          { id: "A", text: edited ? `Feature ${a}.${i} answers within 100 ms.` : `Feature ${a}.${i} answers within 200 ms.` },
-          { id: "B", text: `Feature ${a}.${i} keeps working offline.`, level: "should" },
+          // Ids are unique in the whole spec: each carries its area and item.
+          { id: `F${a}-${i}-A`, text: edited ? `Feature ${a}.${i} answers within 100 ms.` : `Feature ${a}.${i} answers within 200 ms.` },
+          { id: `F${a}-${i}-B`, text: `Feature ${a}.${i} keeps working offline.`, level: "should" },
         ],
       };
     }
   }
-  if (next) files["area-07/item-new.json"] = { title: "Feature 7.new", status: "draft", requirements: [{ id: "A", text: "It exists." }] };
+  if (next) files["area-07/item-new.json"] = { title: "Feature 7.new", status: "draft", requirements: [{ id: "F7-new-A", text: "It exists." }] };
   return files;
 }
 
@@ -324,7 +325,15 @@ const SPEC_VERSIONS: Record<string, { files: Record<string, unknown>; pictures: 
   "acme/rocket@main": { files: ROCKET_SPEC, pictures: "1" },
   // The commit pull request 484 branched from.
   "acme/rocket@ba5eba11": { files: ROCKET_SPEC, pictures: "1" },
-  "acme/rocket@staging": { files: { ...ROCKET_SPEC, "cli.json": { title: "Command line", sumary: "The `rocket` command." } }, pictures: "1" },
+  // Command line has a typo in a key, and Limits reuses a requirement id of Retries.
+  "acme/rocket@staging": {
+    files: {
+      ...ROCKET_SPEC,
+      "cli.json": { title: "Command line", sumary: "The `rocket` command." },
+      "uploads/limits.json": { title: "Limits", order: 3, requirements: [{ id: "R1", text: "A file can be up to 5 GB." }] },
+    },
+    pictures: "1",
+  },
   "acme/rocket@eng-629-retries": { files: ROCKET_SPEC_NEXT, pictures: "2" },
   [`acme/rocket@${PR_HEAD}`]: { files: ROCKET_SPEC_NEXT, pictures: "2" },
   "acme/atlas@main": { files: atlasSpec(false), pictures: "1" },

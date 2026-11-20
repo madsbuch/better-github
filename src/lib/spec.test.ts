@@ -47,7 +47,21 @@ describe("buildSpec", () => {
     expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, implemented: 1, unloaded: 0 });
   });
 
+  it("wants requirement ids to be unique in the whole spec, not just in their item", () => {
+    const clash = buildSpec([
+      file("a.json", { title: "A", requirements: [{ id: "R1", text: "first" }, { id: "A-2", text: "fine" }] }),
+      file("b/c.json", { title: "C", requirements: [{ id: "R1", text: "second" }, { id: "r1", text: "ids are case-sensitive" }] }),
+    ]);
+    expect(clash.problems).toEqual([{ file: ".spec/b/c.json", message: "Requirement id R1 is already in .spec/a.json. Ids are unique in the whole spec." }]);
+    // The first by file path keeps the id.
+    expect(clash.requirements.get("R1")?.node.id).toBe("a");
+    expect([...clash.requirements.keys()]).toEqual(["R1", "A-2", "r1"]);
+  });
+
   it("resolves references to items and requirements", () => {
+    // A requirement by its id alone, wherever it is.
+    expect(resolveSpecRef(spec, "#C1")?.node.id).toBe("cli");
+    expect(resolveSpecRef(spec, "#C9")).toBeNull();
     expect(resolveSpecRef(spec, "cli#C1")?.requirement?.text).toBe("Exits with 1 when an upload fails.");
     expect(resolveSpecRef(spec, "uploads")?.node.title).toBe("Uploads");
     expect(resolveSpecRef(spec, "cli#C9")).toBeNull();
@@ -101,9 +115,9 @@ describe("buildSpec", () => {
       ".spec/empty.json: title: Too small: expected string to have >=1 characters",
       ".spec/huge.json: The file is too large to read.",
       '.spec/typo.json: Unrecognized key: "sumary"',
+      ".spec/twice.json: Requirement id A is more than once in this item. Ids are unique in the whole spec.",
       ".spec/ok.json: Figure assets/missing.png isn't in .spec.",
       '.spec/ok.json: Nothing in the spec is called "nowhere".',
-      ".spec/twice.json: Requirement A is there more than once.",
     ]);
   });
 });

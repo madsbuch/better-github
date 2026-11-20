@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 
 // acme/rocket's .spec (src/dev/mock.ts): Uploads (with Retries and Errors
-// below it) and Command line. On staging, Command line can't be read.
+// below it) and Command line. On staging, Command line can't be read and a
+// requirement id is used twice.
 const rows = (page: Page) => activeScreen(page).locator(".spec-row");
 const requirements = (page: Page) => activeScreen(page).locator(".spec-req");
 
@@ -80,8 +81,13 @@ test("the outline filters items and requirements", async ({ page }) => {
 test("a file that can't be read is a problem, and the rest still shows", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=staging");
   const problems = activeScreen(page).locator(".spec-problems");
-  await expect(problems).toContainText("1 problem in this spec");
-  await expect(problems.locator("li")).toHaveText('cli.json Unrecognized key: "sumary"');
+  await expect(problems).toContainText("2 problems in this spec");
+  await expect(problems.locator("li")).toHaveText([
+    'cli.json Unrecognized key: "sumary"',
+    // Requirement ids are unique in the whole spec, not just in their item.
+    // Reported on the later of the two files, by path.
+    "uploads/retries.json Requirement id R1 is already in .spec/uploads/limits.json. Ids are unique in the whole spec.",
+  ]);
   await expect(rows(page).locator(".row-title")).toHaveText(["Uploads", "cli"]);
   await rows(page).nth(1).click();
   await expect(activeScreen(page).locator(".banner-danger")).toContainText("This item couldn't be read");

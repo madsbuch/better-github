@@ -135,13 +135,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   "status": "implemented",
   "description": "Networks drop. An upload that fails for a reason that may pass is tried again.",
   "requirements": [
-    { "id": "R1", "text": "An upload that fails with a 5xx response is retried, up to five times." },
-    { "id": "R2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "accepted" }
+    { "id": "RET-1", "text": "An upload that fails with a 5xx response is retried, up to five times." },
+    { "id": "RET-2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "accepted" }
   ],
   "figures": [{ "src": "assets/backoff.png", "caption": "Pauses double between attempts." }],
   "questions": ["Should a `429` count as retryable?"],
   "code": ["src/client.rs", "src/retry/**"],
-  "related": ["uploads/errors#E1"]
+  "related": ["#ERR-1"]
 }
 ```
 
@@ -153,14 +153,17 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   `deprecated`. `order` places an item among its siblings; the rest follow by
   title.
 - **Requirements** are single statements that can be checked against the code.
-  Each has an `id` that is unique in its item and doesn't change, so it can be
-  referred to as `uploads/retries#R1`. `level` is `must` (the default), `should`
-  or `may`; `status` defaults to the item's.
+  Each has an `id` that is **unique in the whole spec**, not just in its item,
+  and doesn't change: code, tests and other items refer to a requirement by
+  that id alone, and the comparison follows it when it moves to another item.
+  A prefix per item (`RET-1`, `RET-2`) keeps ids apart. An id used twice is
+  listed as a problem. `level` is `must` (the default), `should` or `may`;
+  `status` defaults to the item's.
 - Text is plain: a blank line starts a paragraph, lines starting with `- ` form
   a list, and `` `backticks` `` mark code.
 - `figures` name pictures by their path from `.spec`. `code` lists paths from
   the repository's root, or patterns with `*` and `**`. `related` lists ids of
-  other items or requirements.
+  other items (`uploads/errors`) or requirements (`#ERR-1`, or `uploads/errors#ERR-1`).
 - Unknown keys are errors, so a typo doesn't silently drop a field. A file the
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.
