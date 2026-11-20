@@ -198,19 +198,19 @@ const ROCKET_SPEC: Record<string, unknown> = {
     title: "Uploads",
     summary: "Sending a file, whatever the network does.",
     order: 1,
-    status: "implemented",
+    status: "accepted",
   },
   "uploads/retries.json": {
     title: "Retries",
     summary: "A failed upload is tried again, with growing pauses.",
-    status: "implemented",
+    status: "accepted",
     order: 1,
     description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
     requirements: [
       { id: "R1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
       { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
       { id: "R3", text: "The pause before a retry doubles each time, starting at 250 ms and never exceeding 30 s.", level: "should" },
-      { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may", status: "accepted" },
+      { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may", status: "draft" },
     ],
     figures: [{ src: "assets/backoff.png", alt: "Pauses of 250 ms, 500 ms, 1 s and 2 s between five attempts", caption: "Pauses double between attempts." }],
     questions: ["Should a `429` count as retryable, honoring `Retry-After`?"],
@@ -259,7 +259,7 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
   "uploads/retries.json": {
     title: "Retries",
     summary: "A failed upload is tried again, with growing pauses.",
-    status: "accepted",
+    status: "draft",
     order: 1,
     description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
     requirements: [
@@ -328,7 +328,7 @@ function atlasSpec(next: boolean): Record<string, unknown> {
       files[`${area}/item-${i.toString().padStart(3, "0")}.json`] = {
         title: `Feature ${a}.${i}`,
         summary: i === 42 ? "The one with the needle in it." : `What feature ${a}.${i} does.`,
-        status: "implemented",
+        status: "accepted",
         order: i,
         requirements: [
           // Ids are unique in the whole spec: each carries its area and item.

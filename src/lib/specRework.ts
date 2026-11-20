@@ -45,21 +45,18 @@ export interface Revision {
 
 /**
  * A requirement as revised. With a reason it becomes a new version: what it
- * said goes into its history with the reason, and since the code doesn't do
- * the new thing yet, an implemented requirement is back to accepted.
+ * said goes into its history, with the reason.
  */
-export function reviseRequirement(original: SpecRequirement, inherited: SpecStatus | undefined, revision: Revision, date = today()): SpecRequirement {
+export function reviseRequirement(original: SpecRequirement, revision: Revision, date = today()): SpecRequirement {
   const { level: _level, ...rest } = original;
   const level = revision.level === "must" ? {} : { level: revision.level };
   if (revision.reason === null) return { ...rest, ...level, text: revision.text };
   const version = requirementVersion(original);
   const was = (original.level ?? "must") === "must" ? {} : { level: original.level };
-  const implemented = (original.status ?? inherited) === "implemented";
   return {
     ...rest,
     ...level,
     text: revision.text,
-    ...(implemented ? { status: "accepted" as const } : {}),
     version: version + 1,
     history: [...(original.history ?? []), { version, text: original.text, ...was, reason: revision.reason, date }],
   };
@@ -76,13 +73,12 @@ export function withRequirement(item: SpecItem, id: string, requirement: SpecReq
   return { ...item, requirements };
 }
 
-/** `item` with a new requirement at the end. In an implemented item it starts as accepted: the code doesn't do it yet. */
+/** `item` with a new requirement at the end. */
 export function withNewRequirement(item: SpecItem, requirement: { id: string; text: string; level: SpecLevel }): SpecItem {
   const added: SpecRequirement = {
     id: requirement.id,
     text: requirement.text,
     ...(requirement.level === "must" ? {} : { level: requirement.level }),
-    ...(item.status === "implemented" ? { status: "accepted" as const } : {}),
   };
   return { ...item, requirements: [...(item.requirements ?? []), added] };
 }
@@ -355,16 +351,16 @@ ${files.map((file) => `### \`${file.path}\`${file.isNew ? " (new)" : ""}\n\n${fi
 
 1. Start from ${branch}, on a new branch. If a file below has changed there since I read it, keep those changes and apply mine on top; don't drop either.
 2. Write the files above.
-3. Make the code do what the spec now says${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. For a new requirement, or a new version of one, change the code and its tests until it holds. For a deprecated one, remove the behavior it described unless its reason says otherwise, and the tests that only checked it.
-4. Set each requirement's \`status\` to \`implemented\` once the code does it and a test, or the code itself, shows it. Leave it \`accepted\` if you couldn't get there, and say so.
-5. Keep the spec's rules:
+3. Then bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. The spec says what it must do, not where or how that is built: find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove the behavior it described unless its reason says otherwise.
+4. Keep the spec's rules:
+   - The spec doesn't say what is built. It has no status for that and names no files; don't add either.
    - A requirement's \`id\` is unique in the whole spec and never changes or gets reused.
    - A requirement is never deleted. One that is no longer wanted has \`"status": "deprecated"\` and a \`deprecation\` with the \`reason\`.
    - When what a requirement means changes, its \`version\` goes up by one and what it said goes into its \`history\`, with the \`reason\`. History is never edited.
    - Every file fits the schema. Unknown keys are errors.
    The full format is at ${SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt")}.
-6. If something I changed can't be done, contradicts another requirement, or is unclear, don't guess: stop and tell me.
-7. Open one pull request with the spec and the code together. In its description, list the requirement ids it touches.`,
+5. If something I changed can't be done, contradicts another requirement, or is unclear, don't guess: stop and tell me.
+6. Open one pull request. In its description, list the requirement ids it touches, and say for each whether the product now meets it.`,
   ];
   return `${sections.join("\n\n")}\n`;
 }

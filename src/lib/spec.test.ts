@@ -9,10 +9,10 @@ const FILES: SpecFile[] = [
   file("uploads/index.json", { title: "Uploads", order: 1 }),
   file("uploads/retries.json", {
     title: "Retries",
-    status: "implemented",
+    status: "accepted",
     requirements: [
       { id: "R1", text: "A failed upload is retried up to five times." },
-      { id: "R2", text: "Retries wait twice as long each time.", level: "should", status: "accepted" },
+      { id: "R2", text: "Retries wait twice as long each time.", level: "should", status: "draft" },
     ],
     figures: [{ src: "assets/timeline.png", caption: "Backoff" }],
     related: ["uploads/limits", "cli#C1"],
@@ -43,8 +43,8 @@ describe("buildSpec", () => {
   });
 
   it("counts items and requirements below a node", () => {
-    expect(specCounts(spec.root)).toEqual({ items: 4, requirements: 3, implemented: 1, deprecated: 0, unloaded: 0 });
-    expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, implemented: 1, deprecated: 0, unloaded: 0 });
+    expect(specCounts(spec.root)).toEqual({ items: 4, requirements: 3, deprecated: 0, unloaded: 0 });
+    expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, deprecated: 0, unloaded: 0 });
   });
 
   it("wants requirement ids to be unique in the whole spec, not just in their item", () => {
@@ -62,7 +62,7 @@ describe("buildSpec", () => {
     const kept = buildSpec([
       file("a.json", {
         title: "A",
-        status: "implemented",
+        status: "accepted",
         requirements: [
           { id: "A-1", text: "Still wanted." },
           { id: "A-2", text: "Dropped.", status: "deprecated", deprecation: { reason: "Nobody used it.", replacedBy: ["#A-1", "b"], date: "2026-03-01" } },
@@ -80,7 +80,7 @@ describe("buildSpec", () => {
       '.spec/c.json: The item is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
     ]);
     // Deprecated requirements aren't counted among the requirements; a deprecated item's are all deprecated.
-    expect(specCounts(kept.root)).toEqual({ items: 3, requirements: 2, implemented: 2, deprecated: 3, unloaded: 0 });
+    expect(specCounts(kept.root)).toEqual({ items: 3, requirements: 2, deprecated: 3, unloaded: 0 });
     // They are still there to be found, by what they said and by why they went.
     expect(searchSpec(kept, "nobody used").map((m) => m.requirements.map((r) => r.id))).toEqual([["A-2"]]);
     expect(SpecItem.safeParse({ title: "X", deprecation: { reason: "" } }).success).toBe(false);
@@ -129,6 +129,22 @@ describe("buildSpec", () => {
     expect(SpecItem.safeParse({ title: "A", code: ["src/a.ts"] }).success).toBe(false);
   });
 
+  it("has no status for what is built, and reads one that claims it as accepted", () => {
+    expect(SpecItem.safeParse({ title: "A", status: "implemented" }).success).toBe(false);
+    const old = buildSpec([
+      file("a.json", { title: "A", status: "implemented", requirements: [{ id: "A-1", text: "x", status: "implemented" }, { id: "A-2", text: "y", status: "draft" }] }),
+      file("b.json", { title: "B", requirements: [{ id: "B-1", text: "z", status: "implemented" }] }),
+      file("c.json", { title: "C", status: "accepted" }),
+    ]);
+    expect(old.nodes.get("a")?.item).toEqual({ title: "A", status: "accepted", requirements: [{ id: "A-1", text: "x", status: "accepted" }, { id: "A-2", text: "y", status: "draft" }] });
+    expect(old.nodes.get("b")?.item?.requirements?.[0]?.status).toBe("accepted");
+    // Said once per file, and not for a file that never had it.
+    expect(old.problems).toEqual([
+      { file: ".spec/a.json", message: '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".' },
+      { file: ".spec/b.json", message: '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".' },
+    ]);
+  });
+
   it("resolves references to items and requirements", () => {
     // A requirement by its id alone, wherever it is.
     expect(resolveSpecRef(spec, "#C1")?.node.id).toBe("cli");
@@ -150,7 +166,7 @@ describe("buildSpec", () => {
     const uploads = partial.nodes.get("uploads") ?? partial.root;
     expect([uploads.title, uploads.loaded, uploads.oid]).toEqual(["uploads", false, "a"]);
     expect(uploads.children.map((n) => [n.title, n.loaded])).toEqual([["limits", false], ["Retries", true]]);
-    expect(specCounts(partial.root)).toEqual({ items: 4, requirements: 1, implemented: 0, deprecated: 0, unloaded: 3 });
+    expect(specCounts(partial.root)).toEqual({ items: 4, requirements: 1, deprecated: 0, unloaded: 3 });
     expect(unloadedBelow(uploads).map((n) => n.id)).toEqual(["uploads", "uploads/limits"]);
     // Folders nest as deep as they like.
     expect(partial.nodes.get("a/b/c/d/e/deep")?.file).toBe(".spec/a/b/c/d/e/deep.json");

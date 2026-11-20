@@ -20,10 +20,9 @@
       "enum": [
         "draft",
         "accepted",
-        "implemented",
         "deprecated"
       ],
-      "description": "draft: still being written. accepted: agreed on, not built yet. implemented: the code does this. deprecated: no longer wanted; kept, with a \"deprecation\" saying why."
+      "description": "Where this stands as part of the spec. draft: still being worked out. accepted: agreed on; this is what the product is to do. deprecated: no longer wanted; kept, with a \"deprecation\" saying why. Whether something is built is not for the spec to say: that is found out by comparing the product with it."
     },
     "deprecation": {
       "type": "object",
@@ -69,12 +68,12 @@
           "id": {
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-            "description": "Unique in the whole spec, not just in its item, and stable once written: code, tests and other items refer to it by this id alone. A prefix per item (\"RET-1\", \"RET-2\") keeps ids apart."
+            "description": "Unique in the whole spec, not just in its item, and stable once written: everything that refers to it does so by this id alone. A prefix per item (\"RET-1\", \"RET-2\") keeps ids apart."
           },
           "text": {
             "type": "string",
             "minLength": 1,
-            "description": "One statement that can be checked against the code."
+            "description": "One statement that can be checked against the product."
           },
           "level": {
             "type": "string",
@@ -91,7 +90,6 @@
             "enum": [
               "draft",
               "accepted",
-              "implemented",
               "deprecated"
             ]
           },

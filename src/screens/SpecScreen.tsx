@@ -268,7 +268,6 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
             {plural(counts.items, "item")}
             {/* Requirements are counted once everything is read; a large spec is read as it is looked at. */}
             {counts.unloaded === 0 && ` · ${plural(counts.requirements, "requirement")}`}
-            {counts.unloaded === 0 && counts.requirements > 0 && ` · ${counts.implemented} implemented`}
             {counts.unloaded === 0 && counts.deprecated > 0 && ` · ${counts.deprecated} deprecated`}
           </p>
           <Children node={spec.root} loaded={loaded} place={place} heading="Parts" />
@@ -328,11 +327,10 @@ function Trail({ node, place }: { node: SpecNode; place: Place }) {
 
 // -------------------------------------------------------------------- item
 
-const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", implemented: "Implemented", deprecated: "Deprecated" };
+const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", deprecated: "Deprecated" };
 const STATUS_PILL: Record<SpecStatus, string> = {
   draft: "pill",
-  accepted: "pill pill-accent",
-  implemented: "pill pill-success",
+  accepted: "pill pill-success",
   deprecated: "pill pill-attention",
 };
 

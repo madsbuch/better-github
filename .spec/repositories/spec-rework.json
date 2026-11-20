@@ -2,7 +2,7 @@
   "$schema": "../../schema/spec.schema.json",
   "title": "Reworking a spec",
   "summary": "Revise, deprecate and add requirements while reading, then hand the changes to a coding agent.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 3,
   "description": "Reading a spec is when what is wrong with it shows. The spec browser can be switched to reworking: the same pages, with the means to change them.\n\nThe app never writes to the repository. What it produces is a handover: the change to the spec, for a coding agent to make together with the change to the code.",
   "requirements": [
@@ -32,7 +32,15 @@
     },
     {
       "id": "RW7",
-      "text": "A requirement that was implemented and gets a new version, and a new requirement in an implemented part, are marked accepted: the code doesn't do them yet."
+      "text": "A requirement that was implemented and gets a new version, and a new requirement in an implemented part, are marked accepted: the code doesn't do them yet.",
+      "status": "deprecated",
+      "deprecation": {
+        "reason": "The spec no longer says what is built: there is no implemented status to step back from. Whether the product meets a requirement is found out by comparing the two.",
+        "replacedBy": [
+          "#S23"
+        ],
+        "date": "2026-11-20"
+      }
     },
     {
       "id": "RW8",
@@ -44,7 +52,7 @@
     },
     {
       "id": "RW10",
-      "text": "The handover that is copied states what changed and why for each part, gives the complete new contents of each changed file, and says what to do about the code. It stands on its own."
+      "text": "The handover that is copied states what changed and why for each part, gives the complete new contents of each changed file, and asks for the product to be brought in line with it. It stands on its own."
     },
     {
       "id": "RW11",

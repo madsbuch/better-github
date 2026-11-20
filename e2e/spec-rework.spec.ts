@@ -65,8 +65,8 @@ test("requirements are revised, deprecated and added while reading, then handed 
   await sheet(page).getByLabel("What has to be true").fill("A retry gives up after a minute.");
   await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
   await expect(requirement(page, "R5").locator(".rework-mark")).toHaveText("New");
-  // Not implemented just because its item is.
-  await expect(requirement(page, "R5").locator(".spec-req-head")).toContainText("Accepted");
+  // It says what is wanted, nothing about what is built: no status of its own.
+  await expect(requirement(page, "R5").locator(".spec-req-head")).toHaveText("R5must");
 
   // The bar counts it, and the review shows it like any change to the spec.
   await expect(bar(page)).toContainText("1 part changed");

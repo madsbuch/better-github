@@ -2,7 +2,7 @@
   "$schema": "../../schema/spec.schema.json",
   "title": "Spec changes",
   "summary": "What differs between the specs of two branches, by item and requirement.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 2,
   "description": "A line diff of the JSON files says which lines changed. This says what changed in the spec: which items and requirements were added, removed or reworded.\n\nIt compares a base (by default the default branch) with another branch or commit.",
   "requirements": [

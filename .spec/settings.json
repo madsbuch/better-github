@@ -2,7 +2,7 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Settings",
   "summary": "Everything about the app itself, as a section with a menu of pages.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 6,
   "requirements": [
     {

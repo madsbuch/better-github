@@ -15,7 +15,7 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   const weakened = activeScreen(page).locator(".spec-weakened");
   await expect(weakened).toContainText("4 changes take something away from the spec");
   await expect(weakened.locator("li")).toHaveText([
-    "Retries Back from implemented to accepted.",
+    "Retries Back from accepted to draft.",
     // Nothing is deleted from a spec: what is no longer wanted is deprecated, with the reason.
     "Retries R4 A may requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
     "Command line Deleted, with 1 requirement. Deprecate it instead, with the reason, so the record stays.",
@@ -25,7 +25,7 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Added", "Removed"]);
 
   const retries = item(page, "uploads/retries");
-  await expect(retries.locator(".spec-part > .spec-diff-move")).toHaveText("Status Implemented → Accepted");
+  await expect(retries.locator(".spec-part > .spec-diff-move")).toHaveText("Status Accepted → Draft");
   const requirements = retries.locator(".spec-diff-req");
   await expect(requirements.locator(".spec-req-id")).toHaveText(["R1", "R3", "R4", "R5"]);
   await expect(requirements.locator(".spec-req-head .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Changed", "Removed", "Added"]);

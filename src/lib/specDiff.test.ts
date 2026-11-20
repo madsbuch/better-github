@@ -10,7 +10,7 @@ const BASE: SpecFile[] = [
   file("uploads/index.json", { title: "Uploads" }),
   file("uploads/retries.json", {
     title: "Retries",
-    status: "accepted",
+    status: "draft",
     requirements: [
       { id: "R1", text: "Retried up to five times." },
       { id: "R2", text: "Resumes where it stopped." },
@@ -31,7 +31,7 @@ const HEAD: SpecFile[] = [
   file("uploads/index.json", { title: "Uploads" }),
   file("uploads/retries.json", {
     title: "Retries",
-    status: "implemented",
+    status: "accepted",
     requirements: [
       { id: "R1", text: "Retried up to three times." },
       // "must" is the default: not a change.
@@ -62,7 +62,7 @@ describe("diffSpecs", () => {
   });
 
   it("says which fields of an item changed", () => {
-    expect(retries?.fields).toEqual([{ field: "status", before: "accepted", after: "implemented" }]);
+    expect(retries?.fields).toEqual([{ field: "status", before: "draft", after: "accepted" }]);
     // A new item's fields are all new; its position isn't worth a line.
     expect(diff.items[0]?.fields).toEqual([{ field: "title", before: undefined, after: "Resuming" }]);
   });
@@ -124,14 +124,14 @@ describe("diffSpecs", () => {
       item(
         [
           { id: "1", text: "x" },
-          { id: "2", text: "y", status: "implemented" },
+          { id: "2", text: "y", status: "accepted" },
           { id: "3", text: "z", level: "may" },
           { id: "4", text: "w" },
           { id: "5", text: "v" },
           { id: "6", text: "u", ...gone },
           { id: "7", text: "t", ...gone },
         ],
-        "implemented",
+        "accepted",
       ),
       item(
         [
@@ -142,13 +142,13 @@ describe("diffSpecs", () => {
           // Deprecated before and after: nothing new.
           { id: "6", text: "u", ...gone },
         ],
-        "accepted",
+        "draft",
       ),
     );
-    expect(weaker.items[0]?.weakened).toBe("Back from implemented to accepted.");
+    expect(weaker.items[0]?.weakened).toBe("Back from accepted to draft.");
     expect(weaker.items[0]?.requirements.map((r) => [r.id, r.kind, r.weakened])).toEqual([
       ["1", "changed", "Lowered from must to should."],
-      ["2", "changed", "Back from implemented to draft."],
+      ["2", "changed", "Back from accepted to draft."],
       // Even an optional requirement is deprecated, not deleted.
       ["3", "removed", "A may requirement is deleted. Deprecate it instead, with the reason, so the record stays."],
       // The right way to drop a requirement: it stays, and says why.
@@ -163,12 +163,12 @@ describe("diffSpecs", () => {
     const reworded = diffSpecs(item([{ id: "6", text: "u", ...gone }]), item([{ id: "6", text: "u", status: "deprecated", deprecation: { reason: "It leaked." } }]));
     expect(reworded.items[0]?.requirements.map((r) => [r.id, r.kind, r.weakened])).toEqual([["6", "changed", null]]);
     const dropped = diffSpecs(
-      buildSpec([file("a.json", { title: "A", status: "implemented", requirements: [{ id: "1", text: "x" }] })]),
+      buildSpec([file("a.json", { title: "A", status: "accepted", requirements: [{ id: "1", text: "x" }] })]),
       buildSpec([file("a.json", { title: "A", status: "deprecated", deprecation: { reason: "Folded into B." }, requirements: [{ id: "1", text: "x" }] })]),
     );
     expect(dropped.items[0]?.weakened).toBe("Deprecated: Folded into B.");
     expect(dropped.items[0]?.fields).toEqual([
-      { field: "status", before: "implemented", after: "deprecated" },
+      { field: "status", before: "accepted", after: "deprecated" },
       { field: "deprecation", before: undefined, after: "Folded into B." },
     ]);
     // Its requirements go with it, without being flagged one by one.

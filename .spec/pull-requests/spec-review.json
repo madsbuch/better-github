@@ -2,7 +2,7 @@
   "$schema": "../../schema/spec.schema.json",
   "title": "Reviewing spec changes",
   "summary": "In a pull request, spec files are reviewed by what they change in the spec.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 3,
   "description": "A change to the spec is a change to what the product promises. Reading it as a JSON diff hides that: a reworded requirement, a lowered level and a moved file all look like lines.\n\nIn a pull request's Files tab, each spec item's file is shown as what changed in that item. Everything else about reviewing a file still applies to it.",
   "requirements": [

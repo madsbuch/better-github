@@ -41,14 +41,13 @@ export const ReworkContext = createContext<Reworking | null>(null);
 export const useReworking = () => useContext(ReworkContext);
 
 const LEVELS: SpecLevel[] = ["must", "should", "may"];
-const STATUSES: SpecStatus[] = ["draft", "accepted", "implemented", "deprecated"];
+const STATUSES: SpecStatus[] = ["draft", "accepted", "deprecated"];
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The requirement as the repository has it; undefined for one the draft added. */
-function originalOf(state: Reworking, node: SpecNode, id: string): { requirement: SpecRequirement; inherited: SpecStatus | undefined } | undefined {
-  const item = state.original.nodes.get(node.id)?.item;
-  const requirement = item?.requirements?.find((r) => r.id === id);
-  return requirement ? { requirement, inherited: item?.status } : undefined;
+function originalOf(state: Reworking, node: SpecNode, id: string): { requirement: SpecRequirement } | undefined {
+  const requirement = state.original.nodes.get(node.id)?.item?.requirements?.find((r) => r.id === id);
+  return requirement ? { requirement } : undefined;
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -120,7 +119,7 @@ export function RequirementTools({ node, requirement }: { node: SpecNode; requir
           if (original === undefined) commit({ ...requirement, text, level: level === "must" ? undefined : level });
           // Put back exactly as it was: no change at all.
           else if (reason === null && text === original.requirement.text && level === (original.requirement.level ?? "must")) commit(original.requirement);
-          else commit(reviseRequirement(original.requirement, original.inherited, { text, level, reason }));
+          else commit(reviseRequirement(original.requirement, { text, level, reason }));
         }}
       />
       <DeprecateSheet

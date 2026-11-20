@@ -19,7 +19,7 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Rocket");
   // "- " lines are a list, and `code` shows as code.
   await expect(activeScreen(page).locator(".spec-item li code")).toHaveText(["upload", "rocket"]);
-  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented · 1 deprecated");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 1 deprecated");
   await expect(rows(page).locator(".row-title")).toHaveText(["Uploads", "Command line"]);
   await expect(rows(page).nth(0)).toContainText("2 items · 6 requirements");
 
@@ -29,8 +29,8 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await rows(page).nth(0).click();
 
   await expect(activeScreen(page).locator(".breadcrumbs")).toHaveText("Spec/Uploads/Retries");
-  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Retries Implemented");
-  await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4mayAccepted"]);
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Retries Accepted");
+  await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4mayDraft"]);
   await expect(activeScreen(page).locator(".spec-figure img")).toHaveAttribute("alt", /^Pauses of 250 ms/);
   await expect(activeScreen(page).locator(".spec-figure figcaption")).toHaveText("Pauses double between attempts.");
 
@@ -77,7 +77,7 @@ test("deprecated requirements are kept, folded away, with why they went", async 
   await rows(page).click();
   await expect(activeScreen(page).locator('.spec-req[data-req="E3"]')).toHaveAttribute("data-current", "true");
   await open(page, "/acme/rocket/spec");
-  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented · 1 deprecated");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 1 deprecated");
 });
 
 test("a requirement shows its version, and what it said before with why that changed", async ({ page }) => {

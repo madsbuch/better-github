@@ -2,7 +2,7 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Reviewing",
   "summary": "Commenting on lines, suggesting changes and submitting a review.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 2,
   "requirements": [
     {
@@ -33,8 +33,7 @@
     {
       "id": "RV5",
       "text": "Text typed for a comment that isn't added or posted yet survives leaving the screen.",
-      "level": "should",
-      "status": "accepted"
+      "level": "should"
     }
   ],
   "related": [

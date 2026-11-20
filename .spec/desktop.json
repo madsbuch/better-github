@@ -2,7 +2,7 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Desktop",
   "summary": "The same app with a mouse and a keyboard, as a download for macOS, Windows and Linux.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 4,
   "description": "The app was built for touch. On a desktop nothing may depend on a gesture or on the system's back button, and the window is used for more than one phone-sized column.",
   "requirements": [
@@ -105,8 +105,7 @@
     },
     {
       "id": "K16",
-      "text": "With a Developer ID certificate in the repository's secrets the Mac app is signed with it, and notarized when the Apple ID secrets are set too, so it opens without a confirmation.",
-      "status": "accepted"
+      "text": "With a Developer ID certificate in the repository's secrets the Mac app is signed with it, and notarized when the Apple ID secrets are set too, so it opens without a confirmation."
     }
   ],
   "questions": [

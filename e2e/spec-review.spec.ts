@@ -72,7 +72,7 @@ test("a comment on a requirement lands on its line of the file and shows at the 
 
   // So does a field of the item.
   await retries.getByRole("button", { name: "Comment on the status" }).click();
-  await expect(sheet.locator(".dl.add")).toContainText('"status": "accepted"');
+  await expect(sheet.locator(".dl.add")).toContainText('"status": "draft"');
   await page.keyboard.press("Escape");
 
   // The same comments are on the file's lines when it is shown as JSON.

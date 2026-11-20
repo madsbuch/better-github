@@ -2,7 +2,7 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Spec browser",
   "summary": "A `.spec` folder says what the code is meant to do. The app lets you read it.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 1,
   "description": "Code says what a program does, not what it was meant to do. A repository's `.spec` folder holds that: one JSON file per part of the product, all following one schema, next to the pictures they show.\n\nThe folders are the outline. An item's id is its path without `.spec/` and `.json`, and a folder's own item is its `index.json`.",
   "requirements": [
@@ -131,6 +131,10 @@
     {
       "id": "S22",
       "text": "The format has nothing that points into a code base: no field for files or paths. An item that still has the old `code` list is read without it, and listed as a problem that says to remove it."
+    },
+    {
+      "id": "S23",
+      "text": "A status says where something stands as part of the spec: draft, accepted or deprecated. There is none for what is built. An item or requirement that still says implemented is read as accepted, and listed as a problem that says to change it."
     }
   ],
   "figures": [

@@ -77,7 +77,7 @@ describe("spec-llms.txt", () => {
 
   it("stands on its own: the layout, an example, the schema, deprecation and how to work with a spec", () => {
     const text = specLlmsText();
-    for (const heading of ["# The spec format", "## The format", "## The schema", "## Changing a requirement: versions", "## Nothing is deleted: deprecation", "## A good spec", "## Working in a repository that has a spec", "## Checking a spec"]) {
+    for (const heading of ["# The spec format", "## The format", "## The schema", "## Changing a requirement: versions", "## Nothing is deleted: deprecation", "## A good spec", "## Keeping a spec", "## Checking a spec"]) {
       expect(text).toContain(`${heading}\n`);
     }
     expect(text).toContain('"additionalProperties": false');

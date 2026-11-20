@@ -26,9 +26,9 @@ export const SPEC_SCHEMA_URL = "https://raw.githubusercontent.com/madsbuch/bette
 // ------------------------------------------------------------------ schema
 
 export const SpecStatus = z
-  .enum(["draft", "accepted", "implemented", "deprecated"])
+  .enum(["draft", "accepted", "deprecated"])
   .describe(
-    'draft: still being written. accepted: agreed on, not built yet. implemented: the code does this. deprecated: no longer wanted; kept, with a "deprecation" saying why.',
+    'Where this stands as part of the spec. draft: still being worked out. accepted: agreed on; this is what the product is to do. deprecated: no longer wanted; kept, with a "deprecation" saying why. Whether something is built is not for the spec to say: that is found out by comparing the product with it.',
   );
 export type SpecStatus = z.infer<typeof SpecStatus>;
 
@@ -83,9 +83,9 @@ export const SpecRequirement = z
       .string()
       .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
       .describe(
-        'Unique in the whole spec, not just in its item, and stable once written: code, tests and other items refer to it by this id alone. A prefix per item ("RET-1", "RET-2") keeps ids apart.',
+        'Unique in the whole spec, not just in its item, and stable once written: everything that refers to it does so by this id alone. A prefix per item ("RET-1", "RET-2") keeps ids apart.',
       ),
-    text: Text.min(1).describe("One statement that can be checked against the code."),
+    text: Text.min(1).describe("One statement that can be checked against the product."),
     level: SpecLevel.optional(),
     status: SpecStatus.optional().describe("Defaults to the item's status."),
     version: z
@@ -206,6 +206,16 @@ type ReadItem = { item: SpecItem; notes: string[] } | { error: string };
  */
 const LEGACY_CODE = "`code` is no longer part of the format: a spec doesn't point into a code base. Remove it.";
 
+/**
+ * "implemented" used to be a status. Whether something is built is found out
+ * by comparing the product with the spec, not recorded in it. What says so is
+ * read as accepted, which it must have been.
+ */
+const LEGACY_IMPLEMENTED = '"implemented" is no longer a status: a spec doesn\'t say whether it is built. Use "accepted".';
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const acceptedIfImplemented = <T extends Record<string, unknown>>(value: T) => (value.status === "implemented" ? { ...value, status: "accepted" } : value);
+
 /** What each file read as, by git object id: a spec is rebuilt as its files arrive, and most don't change. */
 const readItems = new Map<string, ReadItem>();
 const READ_ITEMS_MAX = 20_000;
@@ -229,10 +239,21 @@ function parseItem(file: SpecFile): ReadItem {
     return { error: "The file isn't valid JSON." };
   }
   const notes: string[] = [];
-  if (typeof value === "object" && value !== null && !Array.isArray(value) && "code" in value) {
+  if (isRecord(value) && "code" in value) {
     const { code: _code, ...rest } = value;
     value = rest;
     notes.push(LEGACY_CODE);
+  }
+  if (isRecord(value)) {
+    const requirements: unknown = value.requirements;
+    const old = value.status === "implemented" || (Array.isArray(requirements) && requirements.some((r: unknown) => isRecord(r) && r.status === "implemented"));
+    if (old) {
+      value = {
+        ...acceptedIfImplemented(value),
+        ...(Array.isArray(requirements) ? { requirements: requirements.map((r: unknown) => (isRecord(r) ? acceptedIfImplemented(r) : r)) } : {}),
+      };
+      notes.push(LEGACY_IMPLEMENTED);
+    }
   }
   const result = SpecItem.safeParse(value);
   if (result.success) return { item: result.data, notes };
@@ -413,8 +434,6 @@ export interface SpecCounts {
   items: number;
   /** Requirements of the node and everything below it. */
   requirements: number;
-  /** How many of those are implemented. */
-  implemented: number;
   /** Deprecated requirements: kept for the record, not counted among the requirements. */
   deprecated: number;
   /** Items below (and the node itself) whose contents aren't loaded: their requirements aren't counted yet. */
@@ -422,14 +441,13 @@ export interface SpecCounts {
 }
 
 export function specCounts(node: SpecNode): SpecCounts {
-  const counts: SpecCounts = { items: 0, requirements: 0, implemented: 0, deprecated: 0, unloaded: 0 };
+  const counts: SpecCounts = { items: 0, requirements: 0, deprecated: 0, unloaded: 0 };
   const visit = (at: SpecNode) => {
     if (!at.loaded) counts.unloaded++;
     for (const requirement of at.item?.requirements ?? []) {
       const status = requirementStatus(at.item, requirement);
       if (status === "deprecated") counts.deprecated++;
       else counts.requirements++;
-      if (status === "implemented") counts.implemented++;
     }
     for (const child of at.children) {
       if (child.file !== null) counts.items++;

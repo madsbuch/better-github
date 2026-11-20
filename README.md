@@ -134,11 +134,11 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
   "title": "Retries",
   "summary": "A failed upload is tried again, with growing pauses.",
-  "status": "implemented",
+  "status": "accepted",
   "description": "Networks drop. An upload that fails for a reason that may pass is tried again.",
   "requirements": [
     { "id": "RET-1", "text": "An upload that fails with a 5xx response is retried, up to five times." },
-    { "id": "RET-2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "accepted" }
+    { "id": "RET-2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "draft" }
   ],
   "figures": [{ "src": "assets/backoff.png", "caption": "Pauses double between attempts." }],
   "questions": ["Should a `429` count as retryable?"],
@@ -150,9 +150,11 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   `.json` (`uploads/retries`). A folder's own item is its `index.json`; a folder
   without one is still a group, named after the folder. Folders nest as deep as
   the product needs.
-- Only `title` is required. `status` is `draft`, `accepted`, `implemented` or
-  `deprecated`. `order` places an item among its siblings; the rest follow by
-  title.
+- Only `title` is required. `status` says where something stands as part of
+  the spec: `draft`, `accepted` or `deprecated`. There is no status for what is
+  built: whether the product meets a requirement is found out by comparing the
+  two, not recorded in the spec. `order` places an item among its siblings; the
+  rest follow by title.
 - **Requirements** are single statements that can be checked against the code.
   Each has an `id` that is **unique in the whole spec**, not just in its item,
   and doesn't change: code, tests and other items refer to a requirement by
@@ -235,16 +237,15 @@ The pencil in the spec browser turns reading into reworking. Each requirement
 gets *Revise* and *Deprecate*, each part *Edit this part*, and there are buttons
 to add a requirement or a part. The forms do the bookkeeping: a revision that
 changes what a requirement means becomes a new version and asks why, a wording
-fix doesn't, a deprecation asks why, a new requirement gets an id nothing else
-in the spec has, and anything not built yet is marked accepted rather than
-implemented.
+fix doesn't, a deprecation asks why, and a new requirement gets an id nothing
+else in the spec has.
 
 Nothing is written to the repository. The changes are a draft on the device,
 laid over the spec you are reading, that survives leaving the app; turning the
 pencil off shows the repository's spec again. *Review & copy* shows the draft
 like any change to a spec (what changed, what takes something away) and copies
 a handover for your coding agent: what changed and why, the complete new
-contents of each changed file, and what to do about the code. Once the agent's
+contents of each changed file, and a request to bring the product in line with it. Once the agent's
 pull request is merged, the draft's changes are the repository's and drop out
 of the draft by themselves.
 

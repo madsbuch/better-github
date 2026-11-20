@@ -2,7 +2,7 @@
   "$schema": "../schema/spec.schema.json",
   "title": "Organizations",
   "summary": "The organizations you belong to, as a section of their own.",
-  "status": "implemented",
+  "status": "accepted",
   "order": 5,
   "requirements": [
     {

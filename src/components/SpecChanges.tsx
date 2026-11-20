@@ -448,7 +448,7 @@ const FIELD_LABEL: Record<FieldChange["field"], string> = {
   deprecation: "Why it is deprecated",
 };
 
-const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", implemented: "Implemented", deprecated: "Deprecated" };
+const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", deprecated: "Deprecated" };
 const isStatus = (value: string): value is SpecStatus => value in STATUS_LABEL;
 const statusLabel = (value: string | undefined) => (value === undefined ? "none" : isStatus(value) ? STATUS_LABEL[value] : value);
 

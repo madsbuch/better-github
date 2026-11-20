@@ -18,7 +18,7 @@ const file = (path: string, value: unknown): SpecFile => ({ path, text: JSON.str
 const RETRIES = {
   $schema: "../../schema/spec.schema.json",
   title: "Retries",
-  status: "implemented",
+  status: "accepted",
   requirements: [
     { id: "RET-1", text: "Retried five times." },
     { id: "RET-2", text: "Pauses doubel.", level: "should" },
@@ -37,24 +37,22 @@ const requirement = (id: string) => {
 
 describe("editing a requirement", () => {
   it("makes a new version when what it means changes, with what it said and why", () => {
-    const revised = reviseRequirement(requirement("RET-1"), "implemented", { text: "Retried three times.", level: "must", reason: "Five kept phones awake." }, "2026-11-20");
+    const revised = reviseRequirement(requirement("RET-1"), { text: "Retried three times.", level: "must", reason: "Five kept phones awake." }, "2026-11-20");
     expect(revised).toEqual({
       id: "RET-1",
       text: "Retried three times.",
-      // The code doesn't do the new thing yet.
-      status: "accepted",
       version: 2,
       history: [{ version: 1, text: "Retried five times.", reason: "Five kept phones awake.", date: "2026-11-20" }],
     });
     // From a later version, the history grows; the level it had is on record.
-    const again = reviseRequirement(requirement("RET-3"), "draft", { text: "Can be cancelled at any time.", level: "should", reason: "Made optional." }, "2026-11-20");
+    const again = reviseRequirement(requirement("RET-3"), { text: "Can be cancelled at any time.", level: "should", reason: "Made optional." }, "2026-11-20");
     expect([again.version, again.level, again.status, again.history?.map((h) => h.version)]).toEqual([3, "should", undefined, [1, 2]]);
-    const lowered = reviseRequirement(requirement("RET-2"), "implemented", { text: "Pauses double.", level: "may", reason: "Not worth requiring." }, "2026-11-20");
+    const lowered = reviseRequirement(requirement("RET-2"), { text: "Pauses double.", level: "may", reason: "Not worth requiring." }, "2026-11-20");
     expect(lowered.history).toEqual([{ version: 1, text: "Pauses doubel.", level: "should", reason: "Not worth requiring.", date: "2026-11-20" }]);
   });
 
   it("leaves the version alone for a wording fix", () => {
-    expect(reviseRequirement(requirement("RET-2"), "implemented", { text: "Pauses double.", level: "should", reason: null })).toEqual({
+    expect(reviseRequirement(requirement("RET-2"), { text: "Pauses double.", level: "should", reason: null })).toEqual({
       id: "RET-2",
       text: "Pauses double.",
       level: "should",
@@ -72,8 +70,8 @@ describe("editing a requirement", () => {
 
   it("adds, replaces and takes back requirements of an item", () => {
     const added = withNewRequirement(item, { id: "RET-4", text: "Gives up after a minute.", level: "should" });
-    // Not implemented just because its item is.
-    expect(added.requirements?.at(-1)).toEqual({ id: "RET-4", text: "Gives up after a minute.", level: "should", status: "accepted" });
+    // It says what is wanted and nothing about what is built: it has its item's status.
+    expect(added.requirements?.at(-1)).toEqual({ id: "RET-4", text: "Gives up after a minute.", level: "should" });
     expect(withRequirement(added, "RET-4", null).requirements?.map((r) => r.id)).toEqual(["RET-1", "RET-2", "RET-3"]);
     expect(withRequirement(item, "RET-1", { id: "RET-1", text: "New." }).requirements?.[0]?.text).toBe("New.");
   });
@@ -111,7 +109,7 @@ describe("ids for what is new", () => {
 });
 
 describe("a draft over a spec", () => {
-  const revised = withRequirement(item, "RET-1", reviseRequirement(requirement("RET-1"), "implemented", { text: "Retried three times.", level: "must", reason: "Five kept phones awake." }, "2026-11-20"));
+  const revised = withRequirement(item, "RET-1", reviseRequirement(requirement("RET-1"), { text: "Retried three times.", level: "must", reason: "Five kept phones awake." }, "2026-11-20"));
   const draft: SpecReworkDraft = {
     active: true,
     note: "Keep the old constant around for the migration.",
@@ -147,7 +145,7 @@ describe("a draft over a spec", () => {
     const prompt = specReworkPrompt({ repo: "acme/rocket", branch: "main", diff: diffSpecs(spec, reworked.spec), files: reworked.files, note: draft.note });
     expect(prompt).toMatch(/^Update the spec of acme\/rocket, and the code to match it\./);
     expect(prompt).toContain("### uploads / Retries (`.spec/uploads/retries.json`): changed");
-    expect(prompt).toContain('- RET-1: version 1 to 2; was "Retried five times.", now "Retried three times."; status the item\'s to accepted. Why: Five kept phones awake.');
+    expect(prompt).toContain('- RET-1: version 1 to 2; was "Retried five times.", now "Retried three times.". Why: Five kept phones awake.');
     expect(prompt).toContain("- RET-2: deprecated. Why: Never mattered.");
     expect(prompt).toContain('- RET-4: new (must). "Gives up after a minute."');
     expect(prompt).toContain("### uploads / Resuming (`.spec/uploads/resume.json`): new item");

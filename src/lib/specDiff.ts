@@ -94,7 +94,7 @@ export interface SpecDiff {
 }
 
 const LEVEL_RANK = { may: 0, should: 1, must: 2 } as const;
-const STATUS_RANK = { deprecated: 0, draft: 1, accepted: 2, implemented: 3 } as const;
+const STATUS_RANK = { deprecated: 0, draft: 1, accepted: 2 } as const;
 
 /** Why going from one status to another is a step back; null when it isn't. */
 function statusStepBack(before: SpecStatus | undefined, after: SpecStatus | undefined): string | null {
@@ -160,8 +160,6 @@ function requirementWeakened(before: SpecRequirement | null, after: SpecRequirem
   if (LEVEL_RANK[next] < LEVEL_RANK[level]) return `Lowered from ${level} to ${next}.`;
   // A requirement that only follows its item's status isn't flagged again for the item's step back.
   if (before.status === undefined && after.status === undefined) return null;
-  // A new version isn't implemented yet: going back to accepted is what that looks like.
-  if (requirementVersion(after) > requirementVersion(before) && nextStatus !== "draft") return null;
   return statusStepBack(status, nextStatus);
 }
 
