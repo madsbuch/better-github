@@ -238,6 +238,43 @@ const ROCKET_SPEC: Record<string, unknown> = {
   "assets/backoff.png": null,
 };
 
+// The spec on eng-629-retries (and at pull request 484's head): retries are
+// reworded, re-leveled, added and removed, Resuming is new, Command line is
+// gone, and the picture changed.
+const ROCKET_SPEC_NEXT: Record<string, unknown> = {
+  "index.json": ROCKET_SPEC["index.json"],
+  "uploads/index.json": ROCKET_SPEC["uploads/index.json"],
+  "uploads/retries.json": {
+    title: "Retries",
+    summary: "A failed upload is tried again, with growing pauses.",
+    status: "accepted",
+    order: 1,
+    description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
+    requirements: [
+      { id: "R1", text: "An upload that fails with a network error, a 429 or a 5xx response is retried, up to three times." },
+      { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
+      { id: "R3", text: "The pause before a retry doubles each time, starting at 250 ms and never exceeding 30 s." },
+      { id: "R5", text: "A `Retry-After` header sets the pause before the next retry." },
+    ],
+    figures: [{ src: "assets/backoff.png", alt: "Pauses of 250 ms and 500 ms between three attempts", caption: "Pauses double between attempts." }],
+    code: ["src/client.rs", "src/retry/**"],
+    related: ["uploads/errors#E1", "uploads/resume"],
+  },
+  "uploads/resume.json": {
+    title: "Resuming",
+    summary: "Picking an upload up where it stopped.",
+    status: "draft",
+    order: 3,
+    requirements: [{ id: "U1", text: "Before a retry, the client asks the server how many bytes it has." }],
+  },
+  "uploads/errors.json": ROCKET_SPEC["uploads/errors.json"],
+  "assets/backoff.png": null,
+};
+
+const BACKOFF_PICTURE_NEXT = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" font-family="sans-serif" font-size="14"><rect width="640" height="160" fill="#f6f8fa"/><path d="M30 90H610" stroke="#8c959f" stroke-width="2"/><g fill="#1a7f37"><circle cx="40" cy="90" r="8"/><circle cx="220" cy="90" r="8"/><circle cx="570" cy="90" r="8"/></g><g fill="#57606a" text-anchor="middle"><text x="130" y="70">250 ms</text><text x="395" y="70">500 ms</text></g></svg>',
+)}`;
+
 const BACKOFF_PICTURE = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" font-family="sans-serif" font-size="14"><rect width="640" height="160" fill="#f6f8fa"/><path d="M30 90H610" stroke="#8c959f" stroke-width="2"/><g fill="#0969da"><circle cx="40" cy="90" r="8"/><circle cx="90" cy="90" r="8"/><circle cx="170" cy="90" r="8"/><circle cx="310" cy="90" r="8"/><circle cx="570" cy="90" r="8"/></g><g fill="#57606a" text-anchor="middle"><text x="65" y="70">250 ms</text><text x="130" y="120">500 ms</text><text x="240" y="70">1 s</text><text x="440" y="120">2 s</text></g></svg>',
 )}`;
@@ -247,11 +284,11 @@ const ROCKET_SPEC_FILES: Record<string, unknown> = Object.fromEntries(Object.ent
 
 interface SpecEntry {
   name: string;
-  object: { text: string | null; isTruncated: boolean } | { entries: SpecEntry[] };
+  object: { oid: string; text: string | null; isTruncated: boolean } | { entries: SpecEntry[] };
 }
 
-/** The spec's files as GitHub's nested tree entries. */
-function specTree(files: Record<string, unknown>): { entries: SpecEntry[] } {
+/** The spec's files as GitHub's nested tree entries; `version` stands in for the pictures' contents. */
+function specTree(files: Record<string, unknown>, version = "1"): { entries: SpecEntry[] } {
   const root: { entries: SpecEntry[] } = { entries: [] };
   for (const [path, value] of Object.entries(files)) {
     let folder = root;
@@ -267,7 +304,8 @@ function specTree(files: Record<string, unknown>): { entries: SpecEntry[] } {
         folder = next;
       }
     }
-    folder.entries.push({ name, object: { text: value === null ? null : JSON.stringify(value, null, 2), isTruncated: false } });
+    const text = value === null ? null : JSON.stringify(value, null, 2);
+    folder.entries.push({ name, object: { oid: text ?? `${path}@${version}`, text, isTruncated: false } });
   }
   return root;
 }
@@ -280,6 +318,16 @@ const RULES_CHANGE = {
   deletions: 1,
   changes: 2,
   patch: "@@ -10,4 +10,4 @@ medium src/**\n   - Errors reach the caller with the server's message.\n \n-low *.md\n+low *.md src/**\n   - Is it still true?",
+};
+
+// Pull request 484 also edits the spec.
+const SPEC_CHANGE = {
+  filename: ".spec/uploads/retries.json",
+  status: "modified",
+  additions: 1,
+  deletions: 1,
+  changes: 2,
+  patch: '@@ -8,3 +8,3 @@\n   "requirements": [\n-    { "id": "R1", "text": "An upload that fails with a network error or a 5xx response is retried, up to five times." },\n+    { "id": "R1", "text": "An upload that fails with a network error, a 429 or a 5xx response is retried, up to three times." },\n     { "id": "R2", "text": "A retry resumes where the upload stopped." },',
 };
 
 const PR_DETAIL = {
@@ -931,6 +979,9 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       if (variables.expression === "staging:.spec") {
         return { repository: { object: specTree({ ...ROCKET_SPEC, "cli.json": { title: "Command line", sumary: "The `rocket` command." } }) } };
       }
+      if (variables.expression === "eng-629-retries:.spec" || variables.expression === `${PR_DETAIL.headRefOid}:.spec`) {
+        return { repository: { object: specTree(ROCKET_SPEC_NEXT, "2") } };
+      }
       return { repository: { object: null } };
     }
     case "PullFiles":
@@ -1091,6 +1142,7 @@ function restBody(request: RestRequest): unknown {
   const releases = releasesBody(path);
   if (releases !== undefined) return releases;
   if (path.endsWith("/pulls/483/files")) return [...FILES, RULES_CHANGE];
+  if (path.endsWith("/pulls/484/files")) return [...FILES, SPEC_CHANGE];
   if (/\/pulls\/\d+\/files$/.test(path)) return FILES;
   if (path.endsWith("/readme")) {
     return '<div id="readme" class="md"><article class="markdown-body"><h1>Rocket</h1><p>Blazing fast uploads for everyone.</p><h2>Install</h2><pre><code>cargo add rocket-upload</code></pre><p>See <a href="docs/usage.md">the usage guide</a>.</p></article></div>';
@@ -1128,7 +1180,7 @@ function restBody(request: RestRequest): unknown {
     if (p.startsWith(".spec/") && p in ROCKET_SPEC_FILES) {
       const value = ROCKET_SPEC_FILES[p];
       const text = value === null ? "" : JSON.stringify(value, null, 2);
-      const picture = value === null ? BACKOFF_PICTURE : null;
+      const picture = value === null ? (request.query?.ref === "main" ? BACKOFF_PICTURE : BACKOFF_PICTURE_NEXT) : null;
       return { type: "file", name: p.split("/").pop(), path: p, size: text.length, encoding: "base64", content: btoa(text), download_url: picture, html_url: "" };
     }
     if (request.accept?.includes("html") === true) return "<h1>Rocket</h1><p>Rendered markdown preview.</p>";

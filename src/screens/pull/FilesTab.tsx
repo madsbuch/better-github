@@ -1,4 +1,5 @@
-import { CheckIcon, ChecklistIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
+import { CheckIcon, ChecklistIcon, ChevronRightIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, NoteIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { errorMessage } from "../../lib/api";
@@ -8,6 +9,7 @@ import type { DraftComment, useReviewDraft } from "../../lib/drafts";
 import { to, useNav } from "../../lib/nav";
 import { usePrefs } from "../../lib/prefs";
 import { useToast } from "../../lib/toast";
+import { SPEC_DIR } from "../../lib/spec";
 import { reviewGuide, riskRank, RULES_FILE, type FileReview, type Risk } from "../../lib/reviewRules";
 import type { FileViewedState, PullDetail, ReviewThread } from "../../lib/types";
 import { DiffFile, type LineTarget } from "../../components/DiffView";
@@ -143,6 +145,19 @@ export function FilesTab({
         baseRef={pr.baseRefName}
         onOpenGuide={() => setGuideOpen(true)}
       />
+      {files.some((file) => file.filename.startsWith(`${SPEC_DIR}/`) || file.previous_filename?.startsWith(`${SPEC_DIR}/`) === true) && (
+        // The JSON diffs below say which lines changed; this says what changed in the spec.
+        <Link {...to.specDiff(owner, repo, pr.baseRefName, pr.headRefOid)} className="spec-changes-link">
+          <NoteIcon size={16} className="c-accent" />
+          <span className="grow">
+            <span className="bold">This pull request changes the spec</span>
+            <span className="muted small" style={{ display: "block" }}>
+              See which items and requirements it adds, removes and rewords.
+            </span>
+          </span>
+          <ChevronRightIcon size={16} className="c-muted" />
+        </Link>
+      )}
       {files.map((file) => {
         const path = file.filename;
         return (

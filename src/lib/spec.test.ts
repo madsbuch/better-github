@@ -32,7 +32,7 @@ describe("buildSpec", () => {
     // Ordered items first, then the rest by title; assets is a folder without items.
     expect(spec.root.children.map((n) => n.id)).toEqual(["uploads", "cli"]);
     expect(spec.nodes.get("uploads")?.children.map((n) => n.title)).toEqual(["Limits", "Retries"]);
-    expect([...spec.assets]).toEqual(["assets/timeline.png"]);
+    expect([...spec.assets.keys()]).toEqual(["assets/timeline.png"]);
   });
 
   it("names a folder without an index.json after the folder", () => {

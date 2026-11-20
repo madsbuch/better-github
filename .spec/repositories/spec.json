@@ -68,6 +68,7 @@
     "e2e/spec.spec.ts"
   ],
   "related": [
+    "repositories/spec-diff",
     "pull-requests/review-rules",
     "foundations#F3"
   ]

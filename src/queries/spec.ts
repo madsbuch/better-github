@@ -35,12 +35,12 @@ function flatten(tree: NonNullable<SpecTree>): SpecFolder {
 function add(
   folder: SpecFolder,
   path: string,
-  object: { text?: string | null | undefined; isTruncated?: boolean | undefined; entries?: unknown } | null,
+  object: { oid?: string | undefined; text?: string | null | undefined; isTruncated?: boolean | undefined; entries?: unknown } | null,
 ): boolean {
   // Submodules have no object here.
   if (object === null) return false;
   if (object.entries !== undefined) return true;
-  folder.files.push({ path, text: object.text ?? null, truncated: object.isTruncated ?? false });
+  folder.files.push({ path, text: object.text ?? null, truncated: object.isTruncated ?? false, oid: object.oid });
   return false;
 }
 

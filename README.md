@@ -18,7 +18,7 @@ A fast GitHub client for Android, built around your repositories with [Tauri 2](
 - Merge box showing review decision, check status and mergeability, with *Ready for review* and auto-merge controls. Whenever the branch is behind its base, also while merging is blocked for another reason, *Update branch* brings the base in with a merge commit or a rebase (the last one you picked).
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
 - **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and a line above its diff that opens what to check in it, grouped by the rule it comes from. The *Review guide* lists every rule that applies to the pull request once, with the files it covers. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
-- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their requirements, pictures, open questions and the code they cover. See [Spec](#spec).
+- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their requirements, pictures, open questions and the code they cover. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. See [Spec](#spec).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
@@ -165,6 +165,16 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.
 
+### Comparing two specs
+
+The compare button in the spec browser shows what differs between the specs of
+two branches, by meaning rather than by line: which items were added, removed
+or changed, and in a changed item which fields, requirements, figures and
+lists. Items are matched by id and requirements by their id within the item, so
+a reworded requirement shows its old and new text with the differing words
+marked, and a figure whose file changed shows both pictures. A pull request
+that touches `.spec` links to the changes between its base branch and its head.
+
 The schema file is generated from the one the app reads with
 (`src/lib/spec.ts`): run `npm run spec:schema` after changing it. A test fails
 when they differ, and another when this repository's own `.spec` has problems.
@@ -271,6 +281,7 @@ src/                  React app
   lib/diff.ts         patch parsing and word-level diffs
   lib/reviewRules.ts  .review-rules: parsing, path patterns and per-file verdicts
   lib/spec.ts         .spec: the item schema, the outline built from the folder, filtering
+  lib/specDiff.ts     what changed between two specs, by item and requirement
   screens/            one file per screen; pull/ and actions/ hold their screens' parts
   dev/mock.ts         fixtures for VITE_MOCK=1
 e2e/                  Playwright tests against the fixtures

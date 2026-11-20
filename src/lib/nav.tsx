@@ -63,6 +63,9 @@ export const to = {
       search: { ref, id: item === "" ? undefined : item, r: hash === -1 ? undefined : id?.slice(hash + 1), q: q === "" ? undefined : q },
     });
   },
+  /** What changed in the spec from `base` (default: the default branch) to `head`. */
+  specDiff: (owner: string, repo: string, base?: string, head?: string) =>
+    linkOptions({ to: "/$owner/$repo/spec-diff", params: { owner, repo }, search: { base, head } }),
   pull: (owner: string, repo: string, number: number, tab?: PullTab) =>
     linkOptions({
       to: "/$owner/$repo/pull/$number",

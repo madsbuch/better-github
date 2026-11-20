@@ -104,6 +104,8 @@ export interface SpecFile {
   text: string | null;
   /** Too large for GitHub to send whole. */
   truncated: boolean;
+  /** The file's git object id: the same for the same content. Used to tell when a picture changed. */
+  oid?: string | undefined;
 }
 
 export interface SpecProblem {
@@ -132,8 +134,8 @@ export interface SpecNode {
 export interface Spec {
   root: SpecNode;
   nodes: Map<string, SpecNode>;
-  /** Paths from the spec folder of everything that isn't an item. */
-  assets: Set<string>;
+  /** Everything that isn't an item, by its path from the spec folder, with its git object id when known. */
+  assets: Map<string, string | null>;
   problems: SpecProblem[];
 }
 
@@ -169,7 +171,7 @@ export function splitSpecRef(ref: string): { id: string; requirement: string | n
 export function buildSpec(files: SpecFile[], tooDeep: string[] = []): Spec {
   const root: SpecNode = { id: "", name: "", title: "Spec", item: null, file: null, error: null, parent: null, children: [] };
   const nodes = new Map<string, SpecNode>([["", root]]);
-  const assets = new Set<string>();
+  const assets = new Map<string, string | null>();
   const problems: SpecProblem[] = tooDeep.map((path) => ({
     file: inSpec(path),
     message: `Items can be at most ${SPEC_MAX_DEPTH} folders deep. What's in this folder isn't shown.`,
@@ -189,7 +191,7 @@ export function buildSpec(files: SpecFile[], tooDeep: string[] = []): Spec {
 
   for (const file of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
     if (!file.path.endsWith(".json")) {
-      assets.add(file.path);
+      assets.set(file.path, file.oid ?? null);
       continue;
     }
     const withoutExtension = file.path.slice(0, -".json".length);

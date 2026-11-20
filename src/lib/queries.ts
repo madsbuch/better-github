@@ -1032,7 +1032,7 @@ export const REVIEW_RULES = gql(
 const specEntries = (depth: number): string =>
   depth === 0
     ? "entries { name }"
-    : `entries { name object { ... on Blob { text isTruncated } ... on Tree { ${specEntries(depth - 1)} } } }`;
+    : `entries { name object { ... on Blob { oid text isTruncated } ... on Tree { ${specEntries(depth - 1)} } } }`;
 
 /** A repository's spec folder (src/lib/spec.ts), as "<branch>:.spec": every file in it, in one request. */
 export const SPEC = gql(

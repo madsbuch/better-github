@@ -4,6 +4,7 @@ import {
   CodeIcon,
   FileDirectoryFillIcon,
   FileIcon,
+  GitCompareIcon,
   LockIcon,
   NoteIcon,
   SearchIcon,
@@ -65,12 +66,19 @@ export function SpecScreen() {
       title={node !== null && id !== "" ? node.title : "Spec"}
       subtitle={`${owner}/${repo}${gitRef !== "" ? ` · ${gitRef}` : ""}`}
       actions={
-        node !== null &&
-        node.file !== null && (
-          <Link {...to.blob(owner, repo, gitRef, node.file)} className="icon-btn" aria-label="View source">
-            <CodeIcon size={18} />
-          </Link>
-        )
+        <>
+          {!guest && gitRef !== "" && (
+            // From the default branch to the one being read; either side can be changed there.
+            <Link {...to.specDiff(owner, repo, undefined, search.ref)} className="icon-btn" aria-label="Compare with another branch">
+              <GitCompareIcon size={18} />
+            </Link>
+          )}
+          {node !== null && node.file !== null && (
+            <Link {...to.blob(owner, repo, gitRef, node.file)} className="icon-btn" aria-label="View source">
+              <CodeIcon size={18} />
+            </Link>
+          )}
+        </>
       }
       onRefresh={async () => loaded.retry()}
     >

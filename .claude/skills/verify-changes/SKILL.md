@@ -40,7 +40,8 @@ branches over three pages, with an old `staging` last, to exercise paging and
 ranking. `ROCKET_REVIEW_RULES` is acme/rocket's `.review-rules` on
 main: pull request 482 gets one file of each verdict, and pull request 483 also
 edits the rules. `ROCKET_SPEC` is acme/rocket's `.spec` folder on main (on
-`staging` one item can't be read). After changing the item schema in
+`staging` one item can't be read; `eng-629-retries` and pull request 484's head
+have `ROCKET_SPEC_NEXT`, which changes it in every way the spec diff shows). After changing the item schema in
 `src/lib/spec.ts`, run `npm run spec:schema` and commit `schema/spec.schema.json`.
 Android-only bridges (`window.GhCommanderDownloads`)
 are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or

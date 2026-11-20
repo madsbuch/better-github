@@ -21,6 +21,7 @@ import { Route as OwnerRepoIndexRouteImport } from "./routes/$owner/$repo/index"
 import { Route as OwnerRepoBlobRouteImport } from "./routes/$owner/$repo/blob";
 import { Route as OwnerRepoCompareRouteImport } from "./routes/$owner/$repo/compare";
 import { Route as OwnerRepoSpecRouteImport } from "./routes/$owner/$repo/spec";
+import { Route as OwnerRepoSpecDiffRouteImport } from "./routes/$owner/$repo/spec-diff";
 import { Route as OwnerRepoTreeRouteImport } from "./routes/$owner/$repo/tree";
 import { Route as OwnerRepoActionsIndexRouteImport } from "./routes/$owner/$repo/actions/index";
 import { Route as OwnerRepoCommitShaRouteImport } from "./routes/$owner/$repo/commit/$sha";
@@ -91,6 +92,11 @@ const OwnerRepoCompareRoute = OwnerRepoCompareRouteImport.update({
 const OwnerRepoSpecRoute = OwnerRepoSpecRouteImport.update({
   id: "/$owner/$repo/spec",
   path: "/$owner/$repo/spec",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const OwnerRepoSpecDiffRoute = OwnerRepoSpecDiffRouteImport.update({
+  id: "/$owner/$repo/spec-diff",
+  path: "/$owner/$repo/spec-diff",
   getParentRoute: () => rootRouteImport,
 } as any);
 const OwnerRepoTreeRoute = OwnerRepoTreeRouteImport.update({
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
   "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/spec": typeof OwnerRepoSpecRoute;
+  "/$owner/$repo/spec-diff": typeof OwnerRepoSpecDiffRoute;
   "/$owner/$repo/tree": typeof OwnerRepoTreeRoute;
   "/$owner/$repo/": typeof OwnerRepoIndexRoute;
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
   "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/spec": typeof OwnerRepoSpecRoute;
+  "/$owner/$repo/spec-diff": typeof OwnerRepoSpecDiffRoute;
   "/$owner/$repo/tree": typeof OwnerRepoTreeRoute;
   "/$owner/$repo": typeof OwnerRepoIndexRoute;
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
   "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/spec": typeof OwnerRepoSpecRoute;
+  "/$owner/$repo/spec-diff": typeof OwnerRepoSpecDiffRoute;
   "/$owner/$repo/tree": typeof OwnerRepoTreeRoute;
   "/$owner/$repo/": typeof OwnerRepoIndexRoute;
   "/$owner/$repo/commit/$sha": typeof OwnerRepoCommitShaRoute;
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | "/$owner/$repo/blob"
     | "/$owner/$repo/compare"
     | "/$owner/$repo/spec"
+    | "/$owner/$repo/spec-diff"
     | "/$owner/$repo/tree"
     | "/$owner/$repo/"
     | "/$owner/$repo/commit/$sha"
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | "/$owner/$repo/blob"
     | "/$owner/$repo/compare"
     | "/$owner/$repo/spec"
+    | "/$owner/$repo/spec-diff"
     | "/$owner/$repo/tree"
     | "/$owner/$repo"
     | "/$owner/$repo/commit/$sha"
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | "/$owner/$repo/blob"
     | "/$owner/$repo/compare"
     | "/$owner/$repo/spec"
+    | "/$owner/$repo/spec-diff"
     | "/$owner/$repo/tree"
     | "/$owner/$repo/"
     | "/$owner/$repo/commit/$sha"
@@ -318,6 +330,7 @@ export interface RootRouteChildren {
   OwnerRepoBlobRoute: typeof OwnerRepoBlobRoute;
   OwnerRepoCompareRoute: typeof OwnerRepoCompareRoute;
   OwnerRepoSpecRoute: typeof OwnerRepoSpecRoute;
+  OwnerRepoSpecDiffRoute: typeof OwnerRepoSpecDiffRoute;
   OwnerRepoTreeRoute: typeof OwnerRepoTreeRoute;
   OwnerRepoIndexRoute: typeof OwnerRepoIndexRoute;
   OwnerRepoCommitShaRoute: typeof OwnerRepoCommitShaRoute;
@@ -418,6 +431,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof OwnerRepoSpecRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/$owner/$repo/spec-diff": {
+      id: "/$owner/$repo/spec-diff";
+      path: "/$owner/$repo/spec-diff";
+      fullPath: "/$owner/$repo/spec-diff";
+      preLoaderRoute: typeof OwnerRepoSpecDiffRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/$owner/$repo/tree": {
       id: "/$owner/$repo/tree";
       path: "/$owner/$repo/tree";
@@ -510,6 +530,7 @@ const rootRouteChildren: RootRouteChildren = {
   OwnerRepoBlobRoute: OwnerRepoBlobRoute,
   OwnerRepoCompareRoute: OwnerRepoCompareRoute,
   OwnerRepoSpecRoute: OwnerRepoSpecRoute,
+  OwnerRepoSpecDiffRoute: OwnerRepoSpecDiffRoute,
   OwnerRepoTreeRoute: OwnerRepoTreeRoute,
   OwnerRepoIndexRoute: OwnerRepoIndexRoute,
   OwnerRepoCommitShaRoute: OwnerRepoCommitShaRoute,

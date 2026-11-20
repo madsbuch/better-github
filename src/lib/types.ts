@@ -709,6 +709,7 @@ export type ReviewRulesResult = z.infer<typeof ReviewRulesResult>;
 // there is anything below.
 const SpecTreeEnd = z
   .object({
+    oid: z.string().optional(),
     text: z.string().nullable().optional(),
     isTruncated: z.boolean().optional(),
     entries: z.array(z.object({ name: z.string() })).nullable().optional(),
@@ -717,6 +718,7 @@ const SpecTreeEnd = z
 const specTree = <T extends z.ZodType>(below: T) =>
   z
     .object({
+      oid: z.string().optional(),
       text: z.string().nullable().optional(),
       isTruncated: z.boolean().optional(),
       entries: z.array(z.object({ name: z.string(), object: below })).nullable().optional(),

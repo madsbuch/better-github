@@ -2157,3 +2157,238 @@ a.spec-link:active {
   padding: 10px 12px;
   color: inherit;
 }
+
+/* -------------------------------------------------------------- spec diff */
+
+.spec-diff-refs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.spec-diff-ref {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.spec-diff-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 12px 16px 4px;
+  font-size: 14px;
+}
+
+.spec-diff-count {
+  margin-left: 4px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.spec-diff-count[data-kind="added"] {
+  color: var(--success);
+}
+.spec-diff-count[data-kind="removed"] {
+  color: var(--danger);
+}
+.spec-diff-count[data-kind="changed"] {
+  color: var(--attention);
+}
+
+.spec-diff-item {
+  margin: 12px 16px;
+  padding-bottom: 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--attention);
+  border-radius: var(--radius);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+.spec-diff-item[data-kind="added"] {
+  border-left-color: var(--success);
+}
+.spec-diff-item[data-kind="removed"] {
+  border-left-color: var(--danger);
+}
+
+.spec-diff-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  background: var(--bg-subtle);
+  color: inherit;
+}
+
+.spec-diff-item-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.spec-diff-kind {
+  flex: none;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: var(--attention-bg);
+  color: var(--attention);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.spec-diff-kind[data-kind="added"] {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.spec-diff-kind[data-kind="removed"] {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.spec-diff-item h3 {
+  margin: 14px 12px 6px;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.spec-diff-note,
+.spec-diff-item > .spec-diff-move {
+  margin: 10px 12px 0;
+}
+
+.spec-diff-line {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px;
+  overflow-wrap: anywhere;
+}
+
+.spec-diff-line[data-kind="added"] {
+  background: var(--diff-add-bg);
+}
+.spec-diff-line[data-kind="removed"] {
+  background: var(--diff-del-bg);
+}
+
+.spec-diff-sign {
+  flex: none;
+  width: 10px;
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  user-select: none;
+}
+
+.spec-diff-text {
+  min-width: 0;
+}
+
+.spec-diff-line mark {
+  border-radius: 3px;
+  color: inherit;
+}
+
+.spec-diff-line[data-kind="added"] mark {
+  background: var(--diff-add-word);
+}
+.spec-diff-line[data-kind="removed"] mark {
+  background: var(--diff-del-word);
+}
+
+.spec-diff-item code {
+  font-family: var(--mono);
+  font-size: 85%;
+}
+
+.spec-diff-move {
+  font-size: 14px;
+}
+
+.spec-diff-move del {
+  color: var(--danger);
+}
+
+.spec-diff-move ins {
+  color: var(--success);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.spec-diff-req,
+.spec-diff-figure {
+  margin: 0 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.spec-diff-req + .spec-diff-req,
+.spec-diff-figure + .spec-diff-figure {
+  margin-top: 8px;
+}
+
+.spec-diff-req .spec-req-head,
+.spec-diff-figure .spec-req-head {
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.spec-diff-req .spec-diff-kind,
+.spec-diff-figure .spec-diff-kind {
+  margin-left: auto;
+}
+
+.spec-diff-same,
+.spec-diff-req .spec-diff-move {
+  padding: 0 12px 8px;
+}
+
+.spec-diff-same {
+  color: var(--fg-muted);
+}
+
+.spec-diff-req .spec-diff-line + .spec-diff-move {
+  padding-top: 8px;
+}
+
+.spec-diff-pictures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+
+.spec-diff-picture {
+  margin: 0;
+  min-width: 0;
+}
+
+.spec-diff-picture img {
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+}
+
+.spec-changes-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-muted);
+  background: var(--accent-bg);
+  color: inherit;
+  font-size: 14px;
+}

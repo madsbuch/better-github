@@ -1,0 +1,59 @@
+{
+  "$schema": "../../schema/spec.schema.json",
+  "title": "Spec changes",
+  "summary": "What differs between the specs of two branches, by item and requirement.",
+  "status": "implemented",
+  "order": 2,
+  "description": "A line diff of the JSON files says which lines changed. This says what changed in the spec: which items and requirements were added, removed or reworded.\n\nIt compares a base (by default the default branch) with another branch or commit.",
+  "requirements": [
+    {
+      "id": "D1",
+      "text": "Items are matched by id. An item only one side has is added or removed; one that differs is changed; one that is the same isn't listed."
+    },
+    {
+      "id": "D2",
+      "text": "Requirements are matched by their id within the item. A reworded requirement shows its old and new text with the words that differ marked."
+    },
+    {
+      "id": "D3",
+      "text": "A requirement whose level or status changed shows the old and the new value. Leaving `level` out and writing `must` are the same."
+    },
+    {
+      "id": "D4",
+      "text": "Changes are listed in the outline's order, with removed items and requirements where they used to be."
+    },
+    {
+      "id": "D5",
+      "text": "A figure whose file changed shows the picture from both sides. A changed caption alone doesn't."
+    },
+    {
+      "id": "D6",
+      "text": "A summary counts the added, changed and removed items and requirements."
+    },
+    {
+      "id": "D7",
+      "text": "A pull request that touches `.spec` links to the changes between its base branch and its head commit."
+    },
+    {
+      "id": "D8",
+      "text": "A side without a spec counts as an empty one: everything on the other side is added or removed."
+    },
+    {
+      "id": "D9",
+      "text": "Each changed item opens in the spec browser, on the side that has it."
+    }
+  ],
+  "questions": [
+    "Should a requirement that moved to another item be shown as moved rather than removed and added?"
+  ],
+  "code": [
+    "src/lib/specDiff.ts",
+    "src/screens/SpecDiffScreen.tsx",
+    "src/screens/pull/FilesTab.tsx",
+    "e2e/spec-diff.spec.ts"
+  ],
+  "related": [
+    "repositories/spec",
+    "pull-requests/reviewing"
+  ]
+}
