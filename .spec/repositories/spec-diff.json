@@ -48,7 +48,7 @@
     },
     {
       "id": "D11",
-      "text": "Changes that make the spec promise less are pointed out, in a list above the changes and on each item and requirement: a removed must or should requirement, a lowered level, a status that went back, a removed item with live requirements."
+      "text": "Changes that take something away from the spec are pointed out, in a list above the changes and on each item and requirement: a deleted requirement or item (it should have been deprecated), a deprecation with its reason, a lowered level, a status that went back."
     },
     {
       "id": "D12",

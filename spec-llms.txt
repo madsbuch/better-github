@@ -1,0 +1,329 @@
+# The spec format
+
+> A spec says what a codebase is meant to do. It is a `.spec` folder at the root of a repository: one JSON file per part of the product, all following one schema, each with requirements that can be checked against the code. This file is everything an agent needs to read, write and maintain one.
+
+The Better GitHub app shows a spec as an outline, compares two versions of it requirement by requirement, and reviews the spec changes of a pull request. The schema is also at https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json.
+
+## The format
+
+    .spec/
+      index.json            the root: what the product is and who it is for
+      uploads/
+        index.json          "Uploads", with the items below as its children
+        retries.json        "Retries"
+        errors.json
+      cli.json
+      assets/
+        backoff.png         a picture an item shows
+
+- Every `.json` file in `.spec` is one item. Anything else in the folder is an asset, such as a picture.
+- The folders are the outline. An item's id is its path without `.spec/` and `.json`: `uploads/retries`. A folder's own item is its `index.json` (id `uploads`; the root's is the empty id). Folders nest as deep as the product needs.
+- All items follow one schema. This is `.spec/uploads/retries.json`:
+
+    {
+      "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+      "title": "Retries",
+      "summary": "A failed upload is tried again, with growing pauses.",
+      "status": "implemented",
+      "order": 1,
+      "description": "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has",
+      "requirements": [
+        {
+          "id": "RET-1",
+          "text": "An upload that fails with a network error or a 5xx response is retried, up to five times."
+        },
+        {
+          "id": "RET-2",
+          "text": "The pause before a retry doubles each time, starting at 250 ms.",
+          "level": "should"
+        },
+        {
+          "id": "RET-3",
+          "text": "The caller can cancel while a retry is waiting.",
+          "level": "may",
+          "status": "accepted"
+        },
+        {
+          "id": "RET-4",
+          "text": "A retry starts the upload over from the first byte.",
+          "status": "deprecated",
+          "deprecation": {
+            "reason": "Large uploads never finished on bad networks. Uploads resume instead.",
+            "replacedBy": [
+              "#RES-1"
+            ],
+            "date": "2026-03-02"
+          }
+        }
+      ],
+      "figures": [
+        {
+          "src": "assets/backoff.png",
+          "alt": "Four pauses, each twice as long as the last",
+          "caption": "Pauses double between attempts."
+        }
+      ],
+      "questions": [
+        "Should a `429` count as retryable?"
+      ],
+      "code": [
+        "src/client.rs",
+        "src/retry/**"
+      ],
+      "related": [
+        "#ERR-1",
+        "cli"
+      ]
+    }
+
+- Only `title` is required. Unknown keys are errors: the app won't show an item that has one.
+- `status` is `draft` (still being written), `accepted` (agreed on, not built yet), `implemented` (the code does this) or `deprecated` (no longer wanted, see below). A requirement's `status` defaults to its item's.
+- A requirement's `level` is `must` (the default), `should` or `may`. Its `id` is unique in the whole spec, not just in its item, and never changes or gets reused: code, tests and other items refer to a requirement by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (`RET-1`, `RET-2` in Retries; `ERR-1` in Errors) so ids don't collide.
+- Text (`description`, a requirement's `text`, `questions`) is plain, not Markdown: a blank line starts a paragraph, lines starting with `- ` form a list, and `backticks` mark code. There are no headings, links or bold.
+- `order` places an item among its siblings, lowest first; items without one follow, by title.
+- `figures` name pictures by their path from `.spec`; the file has to be there. `code` lists paths from the repository's root, or patterns with `*` and `**`. `related` lists ids of other items (`cli`) or requirements (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
+- `$schema` is optional and lets editors check the file.
+
+## The schema
+
+    {
+      "$id": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "description": "Where this schema lives, so editors can check the file.",
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "description": "One line, shown wherever the item is listed.",
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "accepted",
+            "implemented",
+            "deprecated"
+          ],
+          "description": "draft: still being written. accepted: agreed on, not built yet. implemented: the code does this. deprecated: no longer wanted; kept, with a \"deprecation\" saying why."
+        },
+        "deprecation": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Why it is no longer wanted."
+            },
+            "replacedBy": {
+              "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "date": {
+              "description": "When it was deprecated, as YYYY-MM-DD.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "additionalProperties": false,
+          "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+        },
+        "order": {
+          "description": "Position among its siblings, lowest first. Items without one come last, by title.",
+          "type": "number"
+        },
+        "description": {
+          "description": "What this part does and why.",
+          "type": "string"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "description": "Unique in the whole spec, not just in its item, and stable once written: code, tests and other items refer to it by this id alone. A prefix per item (\"RET-1\", \"RET-2\") keeps ids apart."
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One statement that can be checked against the code."
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "must",
+                  "should",
+                  "may"
+                ],
+                "description": "How binding a requirement is. Defaults to must."
+              },
+              "status": {
+                "description": "Defaults to the item's status.",
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "accepted",
+                  "implemented",
+                  "deprecated"
+                ]
+              },
+              "deprecation": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Why it is no longer wanted."
+                  },
+                  "replacedBy": {
+                    "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "date": {
+                    "description": "When it was deprecated, as YYYY-MM-DD.",
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false,
+                "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+              }
+            },
+            "required": [
+              "id",
+              "text"
+            ],
+            "additionalProperties": false,
+            "description": "A single testable statement."
+          }
+        },
+        "figures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "src": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^/]",
+                "description": "An image in the spec folder, as a path from that folder: \"assets/retry-timeline.png\"."
+              },
+              "alt": {
+                "description": "What the image shows, for when it can't be seen.",
+                "type": "string"
+              },
+              "caption": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "src"
+            ],
+            "additionalProperties": false,
+            "description": "A picture: a mockup, a diagram, a screenshot."
+          }
+        },
+        "questions": {
+          "description": "What is still undecided.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Plain text. A blank line starts a new paragraph, lines starting with \"- \" form a list, and `backticks` mark code."
+          }
+        },
+        "code": {
+          "description": "Where this is implemented: paths from the repository's root, or patterns with * and ** (\"src/upload/**\").",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^/]"
+          }
+        },
+        "related": {
+          "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\".",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "One item of a repository's spec: a .json file in its .spec folder."
+    }
+
+## Nothing is deleted: deprecation
+
+A requirement that is no longer wanted is not deleted. It stays in its item with `"status": "deprecated"` and a `deprecation` that says why, so the spec keeps the record that it existed, that it was dropped, and for what reason:
+
+    {
+      "id": "RET-4",
+      "text": "A retry starts the upload over from the first byte.",
+      "status": "deprecated",
+      "deprecation": {
+        "reason": "Large uploads never finished on bad networks. Uploads resume instead.",
+        "replacedBy": [
+          "#RES-1"
+        ],
+        "date": "2026-03-02"
+      }
+    }
+
+- `deprecation.reason` is required with the status: what changed, in a sentence or two someone reading it in a year will understand. `replacedBy` names what takes its place, if anything: requirements (`#RES-1`) or items. `date` is the day it was deprecated, as `YYYY-MM-DD`.
+- The status and the record go together: `"status": "deprecated"` without a `deprecation`, or a `deprecation` without the status, is an error.
+- Leave a deprecated requirement's `text` and `level` as they were: they are the record of what was promised.
+- A whole item is deprecated the same way, with `status` and `deprecation` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
+- A deprecated requirement's id is never given to another requirement.
+- To change what a requirement says, edit its `text`. To replace it with something different, deprecate it and add a new requirement with a new id.
+- The app flags every deleted requirement and item when a pull request is reviewed.
+
+## A good spec
+
+- It says what the software does and why, not how the code is written. Someone who has never seen the code can read an item and know what to expect from that part; someone changing the code can tell whether they broke a promise.
+- The outline follows the product (its features, its surfaces, the rules that hold everywhere), not the source tree. `code` is what ties an item to files.
+- A requirement is one statement that can be checked: by a test, or by reading the code. "A failed upload is retried up to five times", not "uploads are robust". If it needs an "and", it is two requirements.
+- Requirements state behavior and limits a user or caller can observe: what happens, when, with which numbers, and what never happens. Leave out anything that is true of all software.
+- `summary` is one line that makes sense in a list. `description` gives the reason the part exists and the context its requirements need.
+- What isn't decided goes in `questions`, not into a vague requirement.
+- A few items with sharp requirements beat many thin ones. Add a folder when an item has grown parts of its own.
+
+## Working in a repository that has a spec
+
+- Before changing code, find the items that cover it: their `code` lists the paths. Read their requirements; they are what the change must keep true.
+- A change in behavior and the change to the spec go in the same pull request. New behavior gets new requirements; changed behavior gets its requirement's `text` edited; behavior that goes away gets its requirement deprecated, with the reason.
+- Set `status` honestly: `implemented` only once the code does it and a test or the code itself shows it.
+- Refer to requirements by their id in code comments, test names, commit messages and pull request descriptions (`RET-1`). Ids don't change, so the references stay good.
+- Never delete a requirement or an item, never renumber one, never reuse an id. Moving a requirement to another item keeps its id.
+- When something isn't decided, add it to `questions` and ask, rather than writing a requirement that guesses.
+- Keep `code` up to date when files move.
+
+## Checking a spec
+
+Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every `code` path or pattern matches real files (for example with `git ls-files`), every deprecated requirement or item has a `deprecation` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

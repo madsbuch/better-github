@@ -15,7 +15,7 @@
     "tauri": "tauri",
     "e2e": "playwright test",
     "lint": "oxlint --type-aware --deny-warnings",
-    "spec:schema": "node -e \"import('./src/lib/spec.ts').then((m) => require('node:fs').writeFileSync('schema/spec.schema.json', JSON.stringify(m.specJsonSchema(), null, 2) + '\\n'))\""
+    "spec:schema": "node -e \"Promise.all([import('./src/lib/spec.ts'), import('./src/lib/specPrompt.ts')]).then(([spec, prompt]) => { const fs = require('node:fs'); fs.writeFileSync('schema/spec.schema.json', JSON.stringify(spec.specJsonSchema(), null, 2) + '\\n'); fs.writeFileSync('spec-llms.txt', prompt.specLlmsText()); })\""
   },
   "dependencies": {
     "@primer/octicons-react": "^19.40.0",

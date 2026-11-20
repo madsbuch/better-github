@@ -66,6 +66,18 @@
     {
       "id": "S15",
       "text": "Requirement ids are unique in the whole spec, so a requirement can be referred to by its id alone: `#S15` in `related` finds it in whichever item it is. In a spec too large to read whole, ids are checked among the items read so far."
+    },
+    {
+      "id": "S16",
+      "text": "A requirement or item that is no longer wanted is kept, with the status `deprecated` and a `deprecation` giving the reason and optionally what replaced it and when. The status without the record, or the record without the status, is listed as a problem."
+    },
+    {
+      "id": "S17",
+      "text": "Deprecated requirements are folded away below the live ones, shown with why they were dropped, and not counted among the requirements. They are still found by the filter."
+    },
+    {
+      "id": "S18",
+      "text": "`spec-llms.txt` at the root of this repository describes the format for coding agents. It is generated from the same text as the agent prompt, and a test fails when it is stale."
     }
   ],
   "figures": [
@@ -86,7 +98,8 @@
     "src/lib/specPrompt.ts",
     "src/screens/SpecScreen.tsx",
     "schema/spec.schema.json",
-    "e2e/spec.spec.ts"
+    "e2e/spec.spec.ts",
+    "spec-llms.txt"
   ],
   "related": [
     "repositories/spec-diff",

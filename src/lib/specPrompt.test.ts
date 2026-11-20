@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSpec, SpecItem, type SpecFile } from "./spec";
-import { SPEC_PROMPT_EXAMPLE, specPrompt } from "./specPrompt";
+import llmsFile from "../../spec-llms.txt?raw";
+import { SPEC_PROMPT_EXAMPLE, specLlmsText, specPrompt } from "./specPrompt";
 
 const file = (path: string, value: unknown): SpecFile => ({ path, text: JSON.stringify(value), truncated: false });
 const setup = specPrompt({ repo: "acme/rocket", branch: "main", current: null });
@@ -15,6 +16,7 @@ describe("specPrompt", () => {
       file("uploads/index.json", { title: "Uploads" }),
       file("uploads/retries.json", SPEC_PROMPT_EXAMPLE),
       file("uploads/errors.json", { title: "Errors", requirements: [{ id: "ERR-1", text: "The caller gets the server's message." }] }),
+      file("uploads/resume.json", { title: "Resuming", requirements: [{ id: "RES-1", text: "A retry resumes where the upload stopped." }] }),
       file("cli.json", { title: "Command line" }),
       { path: "assets/backoff.png", text: null, truncated: false },
     ]);
@@ -57,5 +59,29 @@ describe("specPrompt", () => {
     );
     expect(prompt).toContain('- .spec/uploads/retries.json: Nothing in the spec is called "nowhere".');
     expect(prompt).toContain("- .spec/cli.json: ");
+  });
+
+  it("says that nothing is deleted, and how to deprecate", () => {
+    expect(setup).toContain("## Nothing is deleted: deprecation");
+    expect(setup).toContain('"reason": "Large uploads never finished on bad networks. Uploads resume instead."');
+    expect(specPrompt({ repo: "acme/rocket", branch: "main", current: buildSpec([file("index.json", { title: "Rocket" })]) })).toContain(
+      "Don't delete what is no longer wanted: deprecate it, with the reason.",
+    );
+  });
+});
+
+describe("spec-llms.txt", () => {
+  it("is the format as the app knows it (npm run spec:schema writes it)", () => {
+    expect(llmsFile).toBe(specLlmsText());
+  });
+
+  it("stands on its own: the layout, an example, the schema, deprecation and how to work with a spec", () => {
+    const text = specLlmsText();
+    for (const heading of ["# The spec format", "## The format", "## The schema", "## Nothing is deleted: deprecation", "## A good spec", "## Working in a repository that has a spec", "## Checking a spec"]) {
+      expect(text).toContain(`${heading}\n`);
+    }
+    expect(text).toContain('"additionalProperties": false');
+    // Nothing in it is about one repository.
+    expect(text).not.toContain("acme/rocket");
   });
 });

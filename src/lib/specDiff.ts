@@ -11,7 +11,8 @@ export type ChangeKind = "added" | "removed" | "changed";
 
 /** A value that differs; `undefined` on the side that doesn't have it. */
 export interface FieldChange {
-  field: "title" | "summary" | "status" | "description" | "order";
+  /** "deprecation" is the reason an item gives for being deprecated. */
+  field: "title" | "summary" | "status" | "description" | "order" | "deprecation";
   before: string | undefined;
   after: string | undefined;
 }
@@ -94,19 +95,33 @@ function statusStepBack(before: SpecStatus | undefined, after: SpecStatus | unde
   return after === "deprecated" ? "Deprecated." : `Back from ${before} to ${after}.`;
 }
 
+/** Why an item's new status is a step back, with the reason it gives for a deprecation. */
+function itemStepBack(a: SpecItem | null, b: SpecItem | null): string | null {
+  const step = statusStepBack(a?.status, b?.status);
+  if (step === null || b?.status !== "deprecated") return step;
+  return b.deprecation !== undefined ? `Deprecated: ${b.deprecation.reason}` : "Deprecated, without saying why.";
+}
+
 function requirementWeakened(before: SpecRequirement | null, after: SpecRequirement | null, was: SpecStatus | undefined, is: SpecStatus | undefined): string | null {
   if (before === null) return null;
   const level = before.level ?? "must";
-  const status = before.status ?? was;
+  const status = was === "deprecated" ? "deprecated" : (before.status ?? was);
   if (after === null) {
-    // Dropping what was already deprecated, or only optional, takes nothing away.
-    return status === "deprecated" || level === "may" ? null : `A ${level} requirement is removed.`;
+    // Nothing is ever deleted from a spec: what is no longer wanted is deprecated, with the reason.
+    return status === "deprecated"
+      ? "A deprecated requirement is deleted. Keep it: it is the record of what was dropped and why."
+      : `A ${level} requirement is deleted. Deprecate it instead, with the reason, so the record stays.`;
   }
   const next = after.level ?? "must";
+  const nextStatus = is === "deprecated" ? "deprecated" : (after.status ?? is);
+  if (nextStatus === "deprecated" && status !== "deprecated") {
+    const reason = after.deprecation?.reason;
+    return reason !== undefined ? `Deprecated: ${reason}` : "Deprecated, without saying why.";
+  }
   if (LEVEL_RANK[next] < LEVEL_RANK[level]) return `Lowered from ${level} to ${next}.`;
   // A requirement that only follows its item's status isn't flagged again for the item's step back.
   if (before.status === undefined && after.status === undefined) return null;
-  return statusStepBack(status, after.status ?? is);
+  return statusStepBack(status, nextStatus);
 }
 
 const FIELDS = ["title", "summary", "status", "description", "order"] as const;
@@ -117,7 +132,13 @@ function fieldText(item: SpecItem | null, field: (typeof FIELDS)[number]): strin
 }
 
 function sameRequirement(a: SpecRequirement, b: SpecRequirement): boolean {
-  return a.text === b.text && (a.level ?? "must") === (b.level ?? "must") && a.status === b.status;
+  return (
+    a.text === b.text &&
+    (a.level ?? "must") === (b.level ?? "must") &&
+    a.status === b.status &&
+    // The record of a deprecation is part of the requirement: a new reason is a change.
+    JSON.stringify(a.deprecation ?? null) === JSON.stringify(b.deprecation ?? null)
+  );
 }
 
 function diffRequirements(before: SpecRequirement[], after: SpecRequirement[], was: SpecStatus | undefined, is: SpecStatus | undefined): RequirementChange[] {
@@ -209,6 +230,10 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
     diffList("related", a?.related ?? [], b?.related ?? []),
   ].filter((list) => list !== null);
 
+  // The record of the item's own deprecation, when it is new or reworded.
+  const [oldReason, newReason] = [a?.deprecation?.reason, b?.deprecation?.reason];
+  if (both && oldReason !== newReason) fields.push({ field: "deprecation", before: oldReason, after: newReason });
+
   const [oldError, newError] = [old?.error ?? null, current?.error ?? null];
   const unreadable: ItemChange["unreadable"] =
     !both || (oldError === null) === (newError === null)
@@ -219,15 +244,8 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
 
   const requirements = diffRequirements(a?.requirements ?? [], b?.requirements ?? [], a?.status, b?.status);
   const touched = new Set(requirements.map((r) => r.id));
-  const live = (a?.requirements ?? []).filter((r) => (r.status ?? a?.status) !== "deprecated" && (r.level ?? "must") !== "may").length;
-  const weakened =
-    current === null
-      ? live > 0
-        ? `Removed, with ${live} requirement${live === 1 ? "" : "s"} that ${live === 1 ? "is" : "are"} no longer promised.`
-        : null
-      : both
-        ? statusStepBack(a?.status, b?.status)
-        : null;
+  // An item is never deleted either; what `diffSpecs` makes of this once it knows which requirements moved on.
+  const weakened = current === null ? "Deleted." : both ? itemStepBack(a, b) : null;
 
   const change: ItemChange = {
     ...base,
@@ -318,10 +336,16 @@ export function diffSpecs(before: Spec | null, after: Spec | null, renames?: Map
     }
   }
   for (const item of items) {
-    // A removed item takes away what it promised, less what lives on elsewhere.
+    // A deleted item takes its requirements with it, less those that live on elsewhere.
+    // One whose requirements all moved on, or that never had any, was only reorganized.
     if (item.kind !== "removed" || item.weakened === null) continue;
-    const lost = item.requirements.filter((r) => r.weakened !== null).length;
-    item.weakened = lost > 0 ? `Removed, with ${lost} requirement${lost === 1 ? "" : "s"} that ${lost === 1 ? "is" : "are"} no longer promised.` : null;
+    const lost = item.requirements.filter((r) => r.moved === null).length;
+    item.weakened =
+      lost > 0
+        ? `Deleted, with ${lost} requirement${lost === 1 ? "" : "s"}. Deprecate it instead, with the reason, so the record stays.`
+        : item.requirements.length > 0 || item.before?.item?.status !== "deprecated"
+          ? null
+          : "A deprecated item is deleted. Keep it: it is the record of what was dropped and why.";
   }
 
   const counts: SpecDiff["counts"] = {

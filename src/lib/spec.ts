@@ -27,7 +27,9 @@ export const SPEC_SCHEMA_URL = "https://raw.githubusercontent.com/madsbuch/bette
 
 export const SpecStatus = z
   .enum(["draft", "accepted", "implemented", "deprecated"])
-  .describe("draft: still being written. accepted: agreed on, not built yet. implemented: the code does this. deprecated: no longer wanted.");
+  .describe(
+    'draft: still being written. accepted: agreed on, not built yet. implemented: the code does this. deprecated: no longer wanted; kept, with a "deprecation" saying why.',
+  );
 export type SpecStatus = z.infer<typeof SpecStatus>;
 
 export const SpecLevel = z.enum(["must", "should", "may"]).describe("How binding a requirement is. Defaults to must.");
@@ -42,6 +44,24 @@ const RepoPath = z
   .min(1)
   .regex(/^[^/]/, "is relative to the repository's root, without a leading slash");
 
+export const SpecDeprecation = z
+  .strictObject({
+    reason: Text.min(1).describe("Why it is no longer wanted."),
+    replacedBy: z
+      .array(z.string().min(1))
+      .optional()
+      .describe('What takes its place, if anything: requirements ("#RET-7") or items ("uploads/resume").'),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .describe("When it was deprecated, as YYYY-MM-DD."),
+  })
+  .describe(
+    'The record of a deprecation. Goes with "status": "deprecated": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again.',
+  );
+export type SpecDeprecation = z.infer<typeof SpecDeprecation>;
+
 export const SpecRequirement = z
   .strictObject({
     id: z
@@ -53,6 +73,7 @@ export const SpecRequirement = z
     text: Text.min(1).describe("One statement that can be checked against the code."),
     level: SpecLevel.optional(),
     status: SpecStatus.optional().describe("Defaults to the item's status."),
+    deprecation: SpecDeprecation.optional(),
   })
   .describe("A single testable statement.");
 export type SpecRequirement = z.infer<typeof SpecRequirement>;
@@ -72,6 +93,7 @@ export const SpecItem = z
     title: z.string().min(1),
     summary: z.string().optional().describe("One line, shown wherever the item is listed."),
     status: SpecStatus.optional(),
+    deprecation: SpecDeprecation.optional(),
     order: z.number().optional().describe("Position among its siblings, lowest first. Items without one come last, by title."),
     description: Text.optional().describe("What this part does and why."),
     requirements: z.array(SpecRequirement).optional(),
@@ -271,6 +293,23 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     for (const figure of item.figures ?? []) {
       if (!assets.has(figure.src)) problems.push({ file, message: `Figure ${figure.src} isn't in ${SPEC_DIR}.` });
     }
+    // Deprecated things stay, with the reason: a status and its record go together.
+    const records = [
+      { what: "The item", status: item.status, deprecation: item.deprecation },
+      ...(item.requirements ?? []).map((r) => ({ what: `Requirement ${r.id}`, status: r.status, deprecation: r.deprecation })),
+    ];
+    for (const { what, status, deprecation } of records) {
+      if (status === "deprecated" && deprecation === undefined) {
+        problems.push({ file, message: `${what} is deprecated without saying why. Add "deprecation": { "reason": "..." }.` });
+      } else if (status !== "deprecated" && deprecation !== undefined) {
+        problems.push({ file, message: `${what} has a deprecation, but its status isn't "deprecated".` });
+      }
+      for (const ref of deprecation?.replacedBy ?? []) {
+        const { id, requirement } = splitSpecRef(ref);
+        if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
+        if (resolveSpecRef({ nodes, requirements }, ref) === null) problems.push({ file, message: `${what} is replaced by "${ref}", which isn't in the spec.` });
+      }
+    }
     for (const ref of item.related ?? []) {
       // Whether an item that isn't loaded has the requirement can't be said yet;
       // nor, while any item is unread, where a requirement named by its id alone is.
@@ -305,6 +344,11 @@ export function specTrail(node: SpecNode): SpecNode[] {
   return trail;
 }
 
+/** A requirement's status: its own, or its item's. Everything in a deprecated item is deprecated. */
+export function requirementStatus(item: SpecItem | null | undefined, requirement: SpecRequirement): SpecStatus | undefined {
+  return item?.status === "deprecated" ? "deprecated" : (requirement.status ?? item?.status);
+}
+
 export interface SpecCounts {
   /** Items below (not counting the node itself). */
   items: number;
@@ -312,17 +356,21 @@ export interface SpecCounts {
   requirements: number;
   /** How many of those are implemented. */
   implemented: number;
+  /** Deprecated requirements: kept for the record, not counted among the requirements. */
+  deprecated: number;
   /** Items below (and the node itself) whose contents aren't loaded: their requirements aren't counted yet. */
   unloaded: number;
 }
 
 export function specCounts(node: SpecNode): SpecCounts {
-  const counts: SpecCounts = { items: 0, requirements: 0, implemented: 0, unloaded: 0 };
+  const counts: SpecCounts = { items: 0, requirements: 0, implemented: 0, deprecated: 0, unloaded: 0 };
   const visit = (at: SpecNode) => {
     if (!at.loaded) counts.unloaded++;
     for (const requirement of at.item?.requirements ?? []) {
-      counts.requirements++;
-      if ((requirement.status ?? at.item?.status) === "implemented") counts.implemented++;
+      const status = requirementStatus(at.item, requirement);
+      if (status === "deprecated") counts.deprecated++;
+      else counts.requirements++;
+      if (status === "implemented") counts.implemented++;
     }
     for (const child of at.children) {
       if (child.file !== null) counts.items++;
@@ -350,7 +398,7 @@ export function searchSpec(spec: Spec, query: string): SpecMatch[] {
   const matches: SpecMatch[] = [];
   const visit = (node: SpecNode) => {
     const item = node.item;
-    const requirements = (item?.requirements ?? []).filter((r) => has(`${r.id} ${r.text}`));
+    const requirements = (item?.requirements ?? []).filter((r) => has(`${r.id} ${r.text} ${r.deprecation?.reason ?? ""}`));
     const own = has([node.id, node.title, item?.summary ?? "", item?.description ?? "", ...(item?.questions ?? [])].join("\n"));
     if (node.id !== "" && (own || requirements.length > 0)) matches.push({ node, requirements: own ? [] : requirements });
     node.children.forEach(visit);

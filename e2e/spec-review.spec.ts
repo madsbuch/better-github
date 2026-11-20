@@ -20,13 +20,13 @@ test("a pull request's spec files are reviewed by what they change in the spec",
   // Before any file: how much of the spec changes, and where it now promises less.
   const summary = activeScreen(page).locator(".spec-review-summary");
   await expect(summary.locator(".spec-diff-summary")).toHaveText("3 items +1~1−16 requirements +2~2−2");
-  await expect(summary.locator(".spec-weakened li")).toHaveCount(3);
+  await expect(summary.locator(".spec-weakened li")).toHaveCount(4);
 
   // Each item's file is a card saying what changed, with the file's verdict and viewed state.
   const retries = await shown(page, "uploads/retries");
   await expect(retries).toHaveAttribute("data-path", ".spec/uploads/retries.json");
   await expect(retries.locator(".spec-change-meta")).toContainText("Medium");
-  await expect(retries.locator(".spec-change-meta")).toContainText("Promises less");
+  await expect(retries.locator(".spec-change-meta")).toContainText("Takes away");
   await expect(retries.locator(".review-strip")).toContainText("1 check");
   await expect(retries.locator(".spec-diff-req .spec-req-id")).toHaveText(["R1", "R3", "R4", "R5"]);
   await expect(card(page, "uploads/resume").locator(".spec-change-meta")).toContainText("Added");

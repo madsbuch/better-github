@@ -159,6 +159,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   A prefix per item (`RET-1`, `RET-2`) keeps ids apart. An id used twice is
   listed as a problem. `level` is `must` (the default), `should` or `may`;
   `status` defaults to the item's.
+- **Nothing is deleted.** A requirement that is no longer wanted stays, with
+  `"status": "deprecated"` and a `deprecation` that says why (`reason`, and
+  optionally `replacedBy` and `date`), so the spec keeps the record that it
+  existed, that it was dropped, and for what reason. A whole item is deprecated
+  the same way. The status without the record, or the record without the
+  status, is listed as a problem. Deprecated requirements are folded away under
+  the live ones and aren't counted among them.
 - Text is plain: a blank line starts a paragraph, lines starting with `- ` form
   a list, and `` `backticks` `` mark code.
 - `figures` name pictures by their path from `.spec`. `code` lists paths from
@@ -167,6 +174,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
 - Unknown keys are errors, so a typo doesn't silently drop a field. A file the
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.
+
+[`spec-llms.txt`](spec-llms.txt) at the root of this repository describes the
+format for coding agents: the layout, an example, the schema, deprecation, and
+how to work in a repository that has a spec. Point an agent at
+`https://raw.githubusercontent.com/madsbuch/better-github/main/spec-llms.txt`.
+Like the schema, it is generated (`npm run spec:schema`) and a test fails when
+it is stale.
 
 To have a coding agent write a spec, for a new project or one that already has
 code, use *Copy spec prompt* in a repository's menu (or *Copy agent prompt* on a
@@ -183,10 +197,11 @@ lists. Items are matched by id and requirements by their id within the item, so
 a reworded requirement shows its old and new text with the differing words
 marked, and a figure whose file changed shows both pictures.
 
-Above the changes is a list of what makes the spec **promise less**: a removed
-requirement, a level lowered from must to should, a status that went back, an
-item removed with live requirements. Each is marked on its item too, and the
-changes can be narrowed to those.
+Above the changes is a list of what **takes something away** from the spec: a
+deleted requirement or item (it should have been deprecated), a deprecation
+with its reason, a level lowered from must to should, a status that went back.
+Each is marked on its item too, and the changes can be narrowed to those. A
+requirement that moved to another item is followed by its id and shown as moved.
 
 ### Reviewing spec changes in a pull request
 
@@ -196,7 +211,7 @@ has the file's *Viewed* toggle and review verdict. Every changed requirement and
 field takes a comment: it goes on the line of the file that part is on, so it is
 an ordinary review comment on GitHub, and here it shows at the requirement it is
 about. A summary above the files counts what changed in the spec and lists what
-promises less. The changes are measured against the commit the branch started
+takes something away. The changes are measured against the commit the branch started
 from, so what happened on the base branch since doesn't show up as the pull
 request's doing.
 
@@ -370,6 +385,7 @@ src-tauri/            Rust side
   src/store.rs        session/config persistence
   gen/android/        generated Android project (edge-to-edge insets, browser tabs, downloads, signing config)
 schema/               spec.schema.json, generated from lib/spec.ts (`npm run spec:schema`)
+spec-llms.txt         the spec format for coding agents, generated from lib/specPrompt.ts
 .spec/                this repository's own spec
 app-icon/             icon sources; regenerate with `npx tauri icon app-icon/app-icon.json`
 .claude/skills/       procedures: release, android-signing, verify-changes

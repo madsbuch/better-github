@@ -13,11 +13,13 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−16 requirements +2~2−2");
   // What a reviewer must not miss: where the spec now promises less.
   const weakened = activeScreen(page).locator(".spec-weakened");
-  await expect(weakened).toContainText("3 changes make the spec promise less");
+  await expect(weakened).toContainText("4 changes take something away from the spec");
   await expect(weakened.locator("li")).toHaveText([
     "Retries Back from implemented to accepted.",
-    "Command line Removed, with 1 requirement that is no longer promised.",
-    "Command line C1 A must requirement is removed.",
+    // Nothing is deleted from a spec: what is no longer wanted is deprecated, with the reason.
+    "Retries R4 A may requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
+    "Command line Deleted, with 1 requirement. Deprecate it instead, with the reason, so the record stays.",
+    "Command line C1 A must requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
   ]);
   await expect(items(page).locator(".spec-change-title")).toHaveText(["Retries", "Resuming", "Command line"]);
   await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Added", "Removed"]);
@@ -25,7 +27,10 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   const retries = item(page, "uploads/retries");
   await expect(retries.locator(".spec-part > .spec-diff-move")).toHaveText("Status Implemented → Accepted");
   const requirements = retries.locator(".spec-diff-req");
-  await expect(requirements.locator(".spec-req-head")).toHaveText(["R1mustChanged", "R3mustChanged", "R4mayRemoved", "R5mustAdded"]);
+  await expect(requirements.locator(".spec-req-id")).toHaveText(["R1", "R3", "R4", "R5"]);
+  await expect(requirements.locator(".spec-req-head .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Changed", "Removed", "Added"]);
+  // Deleting a requirement, instead of deprecating it, is flagged.
+  await expect(requirements.nth(2).locator(".spec-req-head")).toContainText("Takes away");
   // What it left alone is folded away, for context.
   await expect(retries.locator('.spec-diff-req[data-kind="unchanged"]')).toHaveCount(0);
   await retries.getByRole("button", { name: "1 unchanged requirement" }).click();
@@ -83,7 +88,7 @@ test("the changes can be narrowed to a kind, and to what promises less", async (
   await expect(items(page).locator(".spec-change-title")).toHaveText(["Feature 7.new"]);
 
   await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
-  await activeScreen(page).getByRole("radio", { name: /Promises less/ }).click();
+  await activeScreen(page).getByRole("radio", { name: /Takes away/ }).click();
   await expect(items(page).locator(".spec-change-title")).toHaveText(["Retries", "Command line"]);
   // From the list of what promises less, straight to the item.
   await activeScreen(page).locator(".spec-weakened").getByRole("button", { name: "Command line C1" }).click();

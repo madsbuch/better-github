@@ -226,6 +226,12 @@ const ROCKET_SPEC: Record<string, unknown> = {
     requirements: [
       { id: "E1", text: "When the last retry fails, the caller gets the server's message as `UploadError::Server`." },
       { id: "E2", text: "No error message contains the upload token." },
+      {
+        id: "E3",
+        text: "A failed upload writes the server's reply to a log file.",
+        status: "deprecated",
+        deprecation: { reason: "The reply could hold the upload token. `E1` hands the message to the caller instead.", replacedBy: ["#E1"], date: "2026-09-14" },
+      },
     ],
   },
   "cli.json": {

@@ -19,7 +19,7 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Rocket");
   // "- " lines are a list, and `code` shows as code.
   await expect(activeScreen(page).locator(".spec-item li code")).toHaveText(["upload", "rocket"]);
-  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented · 1 deprecated");
   await expect(rows(page).locator(".row-title")).toHaveText(["Uploads", "Command line"]);
   await expect(rows(page).nth(0)).toContainText("2 items · 6 requirements");
 
@@ -59,9 +59,36 @@ test("an item links to its code and to related items and requirements", async ({
   await expect(screenTitle(page)).toHaveText("client.rs");
 });
 
+test("deprecated requirements are kept, folded away, with why they went", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/errors");
+  // The live requirements read as the spec; the deprecated one isn't counted among them.
+  await expect(activeScreen(page).getByRole("region", { name: "Requirements", exact: true }).locator(".spec-req-id")).toHaveText(["E1", "E2"]);
+  const deprecated = activeScreen(page).getByRole("region", { name: "Deprecated requirements" });
+  await expect(deprecated.locator(".spec-req")).toHaveCount(0);
+  await deprecated.getByRole("button", { name: "1 deprecated requirement" }).click();
+  const e3 = deprecated.locator('.spec-req[data-req="E3"]');
+  await expect(e3).toHaveAttribute("data-deprecated", "true");
+  await expect(e3.locator(".spec-req-head")).toHaveText("E3mustDeprecated");
+  await expect(e3.locator(".spec-req-text")).toHaveText("A failed upload writes the server's reply to a log file.");
+  await expect(e3.locator(".spec-deprecation-why")).toContainText("The reply could hold the upload token.");
+  await expect(e3.locator(".spec-deprecation-why")).toContainText("Since 2026-09-14. Replaced by E1.");
+  // What replaced it is a link to the requirement.
+  await e3.getByRole("link", { name: "E1" }).click();
+  await expect(requirements(page).nth(0)).toHaveAttribute("data-current", "true");
+
+  // It is still found, by why it went, and opens unfolded.
+  await open(page, "/acme/rocket/spec?q=hold%20the%20upload%20token");
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page)).toContainText("E3");
+  await rows(page).click();
+  await expect(activeScreen(page).locator('.spec-req[data-req="E3"]')).toHaveAttribute("data-current", "true");
+  await open(page, "/acme/rocket/spec");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented · 1 deprecated");
+});
+
 test("the outline filters items and requirements", async ({ page }) => {
   await open(page, "/acme/rocket/spec");
-  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("token");
+  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("no error message");
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page)).toContainText("E2");
   await expect(rows(page)).toContainText("Uploads / Errors");
@@ -70,7 +97,7 @@ test("the outline filters items and requirements", async ({ page }) => {
 
   // Coming back shows the results again.
   await page.goBack();
-  await expect(activeScreen(page).getByRole("searchbox", { name: "Filter the spec" })).toHaveValue("token");
+  await expect(activeScreen(page).getByRole("searchbox", { name: "Filter the spec" })).toHaveValue("no error message");
   await expect(rows(page)).toHaveCount(1);
   await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("retries");
   await expect(rows(page).locator(".row-title")).toHaveText(["Retries"]);

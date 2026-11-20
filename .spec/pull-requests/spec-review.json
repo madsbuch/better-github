@@ -16,7 +16,7 @@
     },
     {
       "id": "SR3",
-      "text": "Above the files, a summary counts the changed items and requirements and lists what makes the spec promise less. Each entry leads to its item."
+      "text": "Above the files, a summary counts the changed items and requirements and lists what takes something away from the spec. Each entry leads to its item."
     },
     {
       "id": "SR4",

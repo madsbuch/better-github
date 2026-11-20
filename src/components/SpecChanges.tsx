@@ -51,7 +51,7 @@ const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ?
 
 // ----------------------------------------------------------------- summary
 
-/** How much changed, and what makes the spec promise less: the first thing a reviewer should see. */
+/** How much changed, and what takes something away from the spec: the first thing a reviewer should see. */
 export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: ((id: string) => void) | undefined }) {
   const line = <K extends ItemKind>(counts: Record<K, number>, kinds: readonly K[], noun: string) => {
     const total = kinds.reduce((sum, kind) => sum + counts[kind], 0);
@@ -86,7 +86,7 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
         <div className="banner banner-attention spec-weakened">
           <AlertIcon size={16} className="c-attention" />
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="bold">{plural(weakened.length, "change")} make the spec promise less</div>
+            <div className="bold">{plural(weakened.length, "change")} take something away from the spec</div>
             <ul>
               {weakened.slice(0, 12).map((entry) => (
                 <li key={entry.key}>
@@ -160,7 +160,7 @@ export function SpecChangeCard(props: CardProps) {
             </span>
             {weakened > 0 && (
               <span className="spec-diff-kind" data-kind="weakened">
-                <AlertIcon size={12} /> Promises less
+                <AlertIcon size={12} /> Takes away
               </span>
             )}
             {(["added", "changed", "removed"] as const)
@@ -425,6 +425,7 @@ const FIELD_LABEL: Record<FieldChange["field"], string> = {
   status: "Status",
   description: "Description",
   order: "Position",
+  deprecation: "Why it is deprecated",
 };
 
 const STATUS_LABEL: Record<SpecStatus, string> = { draft: "Draft", accepted: "Accepted", implemented: "Implemented", deprecated: "Deprecated" };
@@ -483,7 +484,7 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
         <span className="grow" />
         {change.weakened !== null && (
           <span className="spec-diff-kind" data-kind="weakened" title={change.weakened}>
-            <AlertIcon size={12} /> Promises less
+            <AlertIcon size={12} /> Takes away
           </span>
         )}
         <span className="spec-diff-kind" data-kind={change.moved !== null ? "moved" : change.kind}>
@@ -520,7 +521,21 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
           {before.status !== after.status && <Move label="Status" before={statusLabel(before.status)} after={statusLabel(after.status)} />}
         </>
       )}
-      {change.weakened !== null && <div className="spec-weakened-note small">{change.weakened}</div>}
+      {after?.deprecation !== undefined && (
+        <div className="spec-diff-same small">
+          <span className="bold">Why it is deprecated</span> <CheckText text={after.deprecation.reason} />
+          {(after.deprecation.replacedBy ?? []).length > 0 && (
+            <>
+              {" "}
+              Replaced by <span className="mono">{(after.deprecation.replacedBy ?? []).join(", ")}</span>.
+            </>
+          )}
+        </div>
+      )}
+      {/* The reason is right above; no need to say it twice. */}
+      {change.weakened !== null && !(after?.deprecation !== undefined && change.weakened.startsWith("Deprecated: ")) && (
+        <div className="spec-weakened-note small">{change.weakened}</div>
+      )}
       {comments}
     </div>
   );

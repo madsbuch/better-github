@@ -1,5 +1,6 @@
 import {
   AlertIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   CodeIcon,
   CopyIcon,
@@ -18,6 +19,7 @@ import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
   isSpecPattern,
+  requirementStatus,
   resolveSpecRef,
   searchSpec,
   SPEC_DIR,
@@ -28,6 +30,7 @@ import {
   splitSpecRef,
   unloadedBelow,
   type Spec,
+  type SpecDeprecation,
   type SpecFigure,
   type SpecNode,
   type SpecRequirement,
@@ -233,6 +236,7 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
             {/* Requirements are counted once everything is read; a large spec is read as it is looked at. */}
             {counts.unloaded === 0 && ` · ${plural(counts.requirements, "requirement")}`}
             {counts.unloaded === 0 && counts.requirements > 0 && ` · ${counts.implemented} implemented`}
+            {counts.unloaded === 0 && counts.deprecated > 0 && ` · ${counts.deprecated} deprecated`}
           </p>
           <Children node={spec.root} loaded={loaded} place={place} heading="Parts" />
         </>
@@ -334,6 +338,13 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
   const code = item?.code ?? [];
   const related = item?.related ?? [];
 
+  const isDeprecated = (requirement: SpecRequirement) => requirementStatus(item, requirement) === "deprecated";
+  const live = requirements.filter((requirement) => !isDeprecated(requirement));
+  const deprecated = requirements.filter(isDeprecated);
+  const [showDeprecated, setShowDeprecated] = useState(false);
+  // Folded away unless asked for, or it's the requirement this page was opened at.
+  const deprecatedOpen = showDeprecated || deprecated.some((requirement) => requirement.id === current);
+
   // Opened at one requirement (from a search result or another item): bring it into view.
   useEffect(() => {
     if (current === undefined) return;
@@ -364,16 +375,36 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
           </div>
         </div>
       )}
+      {item?.status === "deprecated" && (
+        <div className="banner banner-attention spec-deprecation" style={{ margin: "12px 0" }}>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="bold">This part is deprecated</div>
+            <Deprecation spec={spec} place={place} deprecation={item.deprecation} />
+          </div>
+        </div>
+      )}
       {item?.description !== undefined && <SpecText text={item.description} />}
       {figures.map((figure) => (
         <Figure key={figure.src} figure={figure} place={place} />
       ))}
-      {requirements.length > 0 && (
+      {live.length > 0 && (
         <section aria-label="Requirements">
           <h3>Requirements</h3>
-          {requirements.map((requirement) => (
-            <Requirement key={requirement.id} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
+          {live.map((requirement) => (
+            <Requirement key={requirement.id} spec={spec} place={place} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
           ))}
+        </section>
+      )}
+      {deprecated.length > 0 && (
+        // No longer wanted, and kept: that they existed, were dropped, and why.
+        <section aria-label="Deprecated requirements">
+          <button className="spec-unchanged-toggle spec-deprecated-toggle" onClick={() => setShowDeprecated(!deprecatedOpen)} aria-expanded={deprecatedOpen}>
+            {deprecatedOpen ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />} {plural(deprecated.length, "deprecated requirement")}
+          </button>
+          {deprecatedOpen &&
+            deprecated.map((requirement) => (
+              <Requirement key={requirement.id} spec={spec} place={place} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
+            ))}
         </section>
       )}
       {questions.length > 0 && (
@@ -454,10 +485,62 @@ function codeTarget(place: Place, path: string) {
   return isFolder(path) ? to.tree(place.owner, place.repo, place.gitRef, path.replace(/\/+$/, "")) : to.blob(place.owner, place.repo, place.gitRef, path);
 }
 
-function Requirement({ requirement, inherited, current }: { requirement: SpecRequirement; inherited: SpecStatus | undefined; current: boolean }) {
-  const level = requirement.level ?? "must";
+/** Why something was deprecated, when, and what took its place. */
+function Deprecation({ spec, place, deprecation }: { spec: Spec; place: Place; deprecation: SpecDeprecation | undefined }) {
+  if (deprecation === undefined) return <div className="small muted">No reason is given.</div>;
+  const replacedBy = deprecation.replacedBy ?? [];
   return (
-    <div className="spec-req" data-req={requirement.id} data-current={current}>
+    <div className="spec-deprecation-why">
+      <SpecText text={deprecation.reason} />
+      {(replacedBy.length > 0 || deprecation.date !== undefined) && (
+        <div className="small muted">
+          {deprecation.date !== undefined && <span>Since {deprecation.date}. </span>}
+          {replacedBy.length > 0 && (
+            <span>
+              Replaced by{" "}
+              {replacedBy.map((ref, i) => {
+                const target = resolveSpecRef(spec, ref);
+                const label = target?.requirement?.id ?? target?.node.title ?? ref;
+                return (
+                  <span key={ref}>
+                    {i > 0 && ", "}
+                    {target ? (
+                      <Link {...to.spec(place.owner, place.repo, place.gitRef, target.requirement ? `${target.node.id}#${target.requirement.id}` : target.node.id)}>
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className="mono">{ref}</span>
+                    )}
+                  </span>
+                );
+              })}
+              .
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Requirement({
+  spec,
+  place,
+  requirement,
+  inherited,
+  current,
+}: {
+  spec: Spec;
+  place: Place;
+  requirement: SpecRequirement;
+  inherited: SpecStatus | undefined;
+  current: boolean;
+}) {
+  const level = requirement.level ?? "must";
+  // Deprecated with its item, it has no record of its own: the item's says why.
+  const deprecated = requirement.status === "deprecated";
+  return (
+    <div className="spec-req" data-req={requirement.id} data-current={current} data-deprecated={deprecated || inherited === "deprecated"}>
       <div className="spec-req-head">
         <span className="spec-req-id">{requirement.id}</span>
         <span className="spec-level" data-level={level}>
@@ -468,6 +551,7 @@ function Requirement({ requirement, inherited, current }: { requirement: SpecReq
       <div className="spec-req-text">
         <SpecText text={requirement.text} />
       </div>
+      {deprecated && <Deprecation spec={spec} place={place} deprecation={requirement.deprecation} />}
     </div>
   );
 }

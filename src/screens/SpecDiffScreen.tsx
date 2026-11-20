@@ -18,7 +18,7 @@ const route = getRouteApi("/$owner/$repo/spec-diff");
 type Filter = "all" | "weakened" | ItemChange["kind"];
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "weakened", label: "Promises less" },
+  { value: "weakened", label: "Takes away" },
   { value: "added", label: "Added" },
   { value: "changed", label: "Changed" },
   { value: "moved", label: "Moved" },

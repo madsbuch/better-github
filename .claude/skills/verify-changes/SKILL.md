@@ -54,7 +54,8 @@ Pull request 484 changes the spec from main's to `eng-629-retries`'s; its patche
 are generated from the two, so line numbers are real. The mock logs
 `[mock] spec-blobs <n>` per batch of files read and `[mock] spec-root <ref>` per
 version asked for, which the e2e tests count. After changing the item schema in
-`src/lib/spec.ts`, run `npm run spec:schema` and commit `schema/spec.schema.json`.
+`src/lib/spec.ts` or the format guide in `src/lib/specPrompt.ts`, run
+`npm run spec:schema` and commit `schema/spec.schema.json` and `spec-llms.txt`.
 Android-only bridges (`window.GhCommanderDownloads`)
 are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or
 endpoint, add a fixture there too, or the screen renders empty in dev and in the
