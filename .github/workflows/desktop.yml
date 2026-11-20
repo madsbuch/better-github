@@ -135,10 +135,13 @@ jobs:
           if [ -n "${{ matrix.find2 }}" ]; then collect "${{ matrix.find2 }}" "${{ matrix.asset2 }}"; fi
           ls -la out
           if [ "$RUNNER_OS" = macOS ]; then
-            # What it was signed with, and for which architecture.
-            app=$(ls -d $release/bundle/macos/*.app | head -n 1)
-            codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Signature|Authority|Identifier' || true
-            lipo -archs "$app"/Contents/MacOS/* || true
+            # What's inside the disk image: how the app is signed, and for which processor.
+            hdiutil attach "out/${{ matrix.asset }}" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/dmg" >/dev/null
+            app=$(find "$RUNNER_TEMP/dmg" -maxdepth 1 -name '*.app' | head -n 1)
+            codesign --verify --deep --strict "$app" && echo "The signature is valid."
+            codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Signature|Authority|Identifier|flags' || true
+            lipo -archs "$app"/Contents/MacOS/*
+            hdiutil detach "$RUNNER_TEMP/dmg" >/dev/null || true
           fi
 
       - uses: actions/upload-artifact@v5
