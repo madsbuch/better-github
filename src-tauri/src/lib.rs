@@ -280,6 +280,9 @@ pub fn run() {
             app.manage(AppState::new(app.path().app_data_dir()?)?);
             Ok(())
         });
+    // Desktop windows reopen at the size and position they were closed at.
+    #[cfg(desktop)]
+    let app = app.plugin(tauri_plugin_window_state::Builder::default().build());
     if let Err(error) = app.run(tauri::generate_context!()) {
         eprintln!("error while running Better GitHub: {error}");
         std::process::exit(1);

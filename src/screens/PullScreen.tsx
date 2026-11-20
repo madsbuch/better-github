@@ -14,8 +14,6 @@ import {
   LinkExternalIcon,
   SyncIcon,
   TrashIcon,
-  UnwrapIcon,
-  WrapIcon,
   XIcon,
 } from "@primer/octicons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,7 +22,8 @@ import { useEffect, useState } from "react";
 import { backend } from "../lib/backend";
 import { draftKey, useReviewDraft } from "../lib/drafts";
 import { to, useNav, type PullTab } from "../lib/nav";
-import { setPref, usePrefs } from "../lib/prefs";
+import { usePrefs } from "../lib/prefs";
+import { DiffLayoutButtons } from "../components/DiffView";
 import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
 import type { StatusState, UpdateBranchMethod } from "../lib/types";
@@ -133,9 +132,7 @@ export function PullScreen() {
         <>
           {tab === "files" && (
             <>
-              <button className="icon-btn" aria-label="Toggle line wrap" onClick={() => setPref("wrapDiff", !prefs.wrapDiff)}>
-                {prefs.wrapDiff ? <UnwrapIcon size={18} /> : <WrapIcon size={18} />}
-              </button>
+              <DiffLayoutButtons />
               <button className="icon-btn" aria-label="Jump to file" onClick={() => setJumpOpen(true)}>
                 <ListUnorderedIcon size={18} />
               </button>

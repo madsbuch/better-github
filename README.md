@@ -1,6 +1,6 @@
 # Better GitHub
 
-A fast GitHub client for Android phones and tablets and for the Mac, built around your repositories with [Tauri 2](https://tauri.app), React and Rust.
+A fast GitHub client for Android phones and tablets and for the desktop (macOS, Windows, Linux), built around your repositories with [Tauri 2](https://tauri.app), React and Rust.
 
 ## Features
 
@@ -237,23 +237,31 @@ CI signs release builds with this app's own upload key, from these repository se
 
 For local release builds, put the same values in the git-ignored `src-tauri/gen/android/keystore.properties` (`keyAlias`, `password`, `storeFile`). Keep the keystore: Android only installs updates signed with the same key. Without the secrets, CI signs with a throwaway debug key, and you have to uninstall the old build before installing a new one.
 
-## Installing on a Mac
+## Installing on a computer
 
-Every push to `main` also builds the desktop app for Apple silicon Macs (M1 and
-later) and publishes it on the same release:
+Every push to `main` also builds the desktop app and publishes it on the same
+release, at `https://github.com/madsbuch/better-github/releases/download/latest/<file>`:
 
-<https://github.com/madsbuch/better-github/releases/download/latest/better-github-macos-arm64.dmg>
+| Computer | File |
+| --- | --- |
+| Mac with Apple silicon (M1 and later) | `better-github-macos-arm64.dmg` |
+| Mac with an Intel processor | `better-github-macos-x64.dmg` |
+| Windows | `better-github-windows-x64-setup.exe` |
+| Linux | `better-github-linux-x86_64.AppImage` or `better-github-linux-amd64.deb` |
 
-Open the disk image and drag *Better GitHub* to Applications. The build isn't
-notarized by Apple (that takes a paid developer account), so the first time you
-open it macOS refuses: go to System Settings > Privacy & Security and choose
-*Open Anyway*. To have CI sign and notarize it instead, add the `APPLE_*`
-secrets described in the `release` skill.
+On a Mac, open the disk image and drag *Better GitHub* to Applications. The
+builds aren't signed with a paid certificate, so the first launch needs a
+confirmation: on a Mac in System Settings > Privacy & Security > *Open Anyway*,
+on Windows under *More info* > *Run anyway*. To have CI sign and notarize the
+Mac builds instead, add the `APPLE_*` secrets described in the `release` skill.
 
 On a desktop the app is used with a mouse and a keyboard:
 
-- The window opens wide: the main sections are in a sidebar, lists and prose
-  stay a readable width, and code, diffs and logs use the rest.
+- The window opens wide, and reopens where and as large as you left it. The
+  main sections are in a sidebar, lists and prose stay a readable width, and
+  code, diffs and logs use the rest.
+- Diffs show the old and the new file side by side from 1100 px wide. A button
+  in the top bar (and Settings) switches back to one column.
 - Rows, buttons and menus respond to the pointer, and icon buttons show their
   name. A refresh button stands in for pulling down.
 - Dialogs and menus take keyboard focus, keep Tab inside, close on Esc, and

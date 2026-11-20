@@ -74,6 +74,14 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       const draft = activeScreen(page).locator(".draft-comment");
       await expect(draft).toContainText("Keep this comment readable on a tablet.");
       const content = activeScreen(page).locator(".content");
+      // A window this wide shows the two sides next to each other; wrapping is for one column.
+      const oneColumn = activeScreen(page).getByRole("button", { name: "Show in one column" });
+      if (viewport.width >= 1100) {
+        await expect(file.locator(".diff-body").first()).toHaveClass("diff-body split");
+        await oneColumn.tap();
+      } else {
+        await expect(oneColumn).toHaveCount(0);
+      }
       for (const wrap of [true, false]) {
         if (!wrap) await activeScreen(page).getByRole("button", { name: "Toggle line wrap" }).tap();
         await expect(file.locator(".diff-body").first()).toHaveClass(wrap ? /\bwrap\b/ : /^diff-body$/);

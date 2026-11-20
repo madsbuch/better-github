@@ -116,3 +116,44 @@ test("settings list the shortcuts", async ({ page }) => {
   await expect(activeScreen(page).getByRole("heading", { name: "Keyboard shortcuts" })).toBeVisible();
   await expect(activeScreen(page).locator(".shortcut-keys").first()).toContainText("/");
 });
+
+test("wide windows show diffs side by side, and lines on either side take comments", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/acme/rocket/pull/482?tab=files");
+  const file = activeScreen(page).locator('.diff-file[data-path="src/client.rs"]');
+  const rows = file.locator(".dl-row");
+  await expect(file.locator(".diff-body.split")).toBeVisible();
+  // An unchanged line is on both sides; a replaced one has the old text left and the new right.
+  await expect(rows.nth(0).locator(".dl.ctx")).toHaveCount(2);
+  const replaced = rows.filter({ has: page.locator(".dl.del") }).first();
+  await expect(replaced.locator(".dl").nth(0)).toHaveClass(/del/);
+  await expect(replaced.locator(".dl").nth(0).locator(".dl-num")).toHaveText("18");
+  await expect(replaced.locator(".dl").nth(1)).toHaveClass(/add/);
+  await expect(replaced.locator(".dl").nth(1).locator(".dl-num")).toHaveText("20");
+  // An added line with nothing removed next to it leaves the left side blank.
+  await expect(rows.filter({ has: page.locator(".dl.empty") }).first().locator(".dl").nth(1)).toHaveClass(/add/);
+  // Neither side scrolls sideways.
+  expect(await file.locator(".diff-body").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  // Commenting on the old side anchors there.
+  await replaced.locator(".dl.del").click();
+  await expect(page.locator(".sheet")).toBeVisible();
+  await expect(replaced.locator(".dl.del")).toHaveClass(/selected/);
+  await page.keyboard.press("Escape");
+
+  // It's a preference, and narrow windows always get one column.
+  await open(page, "/settings");
+  await activeScreen(page).getByLabel("Show diffs side by side in wide windows").uncheck();
+  await open(page, "/acme/rocket/pull/482?tab=files");
+  await expect(file.locator(".dl").first()).toBeVisible();
+  await expect(file.locator(".diff-body.split")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("a narrower window keeps diffs in one column", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 800 });
+  await open(page, "/acme/rocket/pull/482?tab=files");
+  const file = activeScreen(page).locator('.diff-file[data-path="src/client.rs"]');
+  await expect(file.locator(".dl").first()).toBeVisible();
+  await expect(file.locator(".diff-body.split")).toHaveCount(0);
+});

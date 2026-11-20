@@ -1,0 +1,161 @@
+name: Desktop
+
+# Every push builds the desktop app for each platform (downloadable as workflow
+# artifacts). Pushes to main also publish the files to the continuously updated
+# "latest" release, next to the Android APK:
+# https://github.com/madsbuch/better-github/releases/latest
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # update the `latest` release
+    strategy:
+      # One platform failing must not keep the others from publishing.
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple silicon)
+            os: macos-latest # Apple silicon runners: a native build
+            target: aarch64-apple-darwin
+            bundles: dmg
+            find: bundle/dmg/*.dmg
+            asset: better-github-macos-arm64.dmg
+          - name: macOS (Intel)
+            os: macos-latest # cross-compiled from Apple silicon
+            target: x86_64-apple-darwin
+            bundles: dmg
+            find: bundle/dmg/*.dmg
+            asset: better-github-macos-x64.dmg
+          - name: Windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            find: bundle/nsis/*.exe
+            asset: better-github-windows-x64-setup.exe
+          - name: Linux
+            # The oldest supported Ubuntu, so the build runs on older systems too.
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+            find: bundle/appimage/*.AppImage
+            asset: better-github-linux-x86_64.AppImage
+            find2: bundle/deb/*.deb
+            asset2: better-github-linux-amd64.deb
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Install WebKitGTK and bundling tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf file
+
+      - run: npm ci
+
+      - name: Choose how to sign
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo 'SIGNING_CONFIG={}' >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" != macOS ]; then
+            # Windows and Linux builds aren't signed. Windows SmartScreen asks
+            # the user to confirm ("More info" > "Run anyway").
+            exit 0
+          fi
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            # A Developer ID certificate: Tauri signs with it, and notarizes
+            # when the Apple ID is there too. Empty values must not be passed
+            # on, Tauri would try to use them.
+            for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              value="${!name}"
+              if [ -n "$value" ]; then
+                {
+                  echo "$name<<__END__"
+                  echo "$value"
+                  echo "__END__"
+                } >> "$GITHUB_ENV"
+              fi
+            done
+          else
+            echo "::warning::APPLE_CERTIFICATE is not set. The app is signed ad hoc and not notarized: macOS asks for confirmation in System Settings > Privacy & Security the first time it is opened."
+            # Apple silicon refuses to run unsigned code; an ad-hoc signature ("-") is enough to run.
+            echo 'SIGNING_CONFIG={"bundle":{"macOS":{"signingIdentity":"-"}}}' >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        shell: bash
+        env:
+          # Public OAuth app client id for "Sign in with GitHub" (a repository variable, not a secret).
+          GH_COMMANDER_CLIENT_ID: ${{ vars.GH_COMMANDER_CLIENT_ID }}
+        run: npm run tauri build -- --target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}" --config "$SIGNING_CONFIG"
+
+      - name: Collect
+        shell: bash
+        run: |
+          release="src-tauri/target/${{ matrix.target }}/release"
+          mkdir -p out
+          collect() {
+            file=$(ls $release/$1 2>/dev/null | head -n 1)
+            if [ -z "$file" ]; then echo "::error::Nothing matches $1"; exit 1; fi
+            cp "$file" "out/$2"
+          }
+          collect "${{ matrix.find }}" "${{ matrix.asset }}"
+          if [ -n "${{ matrix.find2 }}" ]; then collect "${{ matrix.find2 }}" "${{ matrix.asset2 }}"; fi
+          ls -la out
+          if [ "$RUNNER_OS" = macOS ]; then
+            # What it was signed with, and for which architecture.
+            app=$(ls -d $release/bundle/macos/*.app | head -n 1)
+            codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Signature|Authority|Identifier' || true
+            lipo -archs "$app"/Contents/MacOS/* || true
+          fi
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.asset }}
+          path: out/*
+          if-no-files-found: error
+
+      - name: Publish to the "latest" release
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The Android workflow moves the `latest` tag and writes the release
+          # notes; this only adds files. Whichever finishes first creates the release.
+          if ! gh release view latest >/dev/null 2>&1; then
+            gh release create latest --latest --target "$GITHUB_SHA" --title "Latest build" --notes "Automated build of \`main\`." || gh release view latest >/dev/null
+          fi
+          gh release upload latest out/* --clobber

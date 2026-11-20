@@ -108,7 +108,13 @@ jobs:
 
           On your phone or tablet, download **better-github.apk** below and open it to install or update.
 
-          On a Mac with Apple silicon, download **better-github-macos-arm64.dmg**, open it and drag the app to Applications. The first time, macOS asks you to confirm in System Settings > Privacy & Security > Open Anyway. The macOS workflow uploads it separately, so it can be a few minutes behind the APK."
+          On a computer, the Desktop workflow adds its files a few minutes later:
+          - Mac with Apple silicon (M1 and later): **better-github-macos-arm64.dmg**
+          - Mac with an Intel processor: **better-github-macos-x64.dmg**
+          - Windows: **better-github-windows-x64-setup.exe**
+          - Linux: **better-github-linux-x86_64.AppImage** or **better-github-linux-amd64.deb**
+
+          The desktop builds aren't signed with a paid certificate. On a Mac, confirm the first launch in System Settings > Privacy & Security > Open Anyway; on Windows, choose More info > Run anyway."
           # A full release marked Latest, so it shows in the repository sidebar and
           # at /releases/latest (GitHub leaves pre-releases out of both).
           if gh release view latest >/dev/null 2>&1; then

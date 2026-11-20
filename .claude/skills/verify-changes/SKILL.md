@@ -26,9 +26,9 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 - Android itself only builds in CI (it needs the Android SDK and NDK). For changes
   under `src-tauri/gen/android`, push and watch the Android run.
 
-- The macOS app only builds in CI too (`.github/workflows/macos.yml`). For changes
-  to `src-tauri/tauri.conf.json` or that workflow, push to a branch and read the
-  macOS run.
+- The macOS and Windows apps only build in CI too (`.github/workflows/desktop.yml`).
+  For changes to `src-tauri/tauri.conf.json`, Rust dependencies or that workflow,
+  push to a branch and read the Desktop run.
 - `e2e/desktop.spec.ts` runs the UI as a desktop window (mouse, keyboard, no
   touch). Anything that only works by touch (a gesture, a long press) needs a
   button or a shortcut too (`src/lib/desktop.ts`); hover styles go under

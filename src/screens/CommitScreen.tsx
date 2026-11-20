@@ -1,13 +1,13 @@
-import { CopyIcon, LinkExternalIcon, UnwrapIcon, WrapIcon } from "@primer/octicons-react";
+import { CopyIcon, LinkExternalIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { backend } from "../lib/backend";
 import { to } from "../lib/nav";
-import { setPref, usePrefs } from "../lib/prefs";
+import { usePrefs } from "../lib/prefs";
 import { useToast } from "../lib/toast";
 import { repoQueries } from "../queries/repos";
-import { DiffFile } from "../components/DiffView";
+import { DiffFile, DiffLayoutButtons } from "../components/DiffView";
 import { Screen } from "../components/Screen";
 import { Avatar, CenterSpinner, DiffStat, ErrorView, Time } from "../components/ui";
 
@@ -31,9 +31,7 @@ export function CommitScreen() {
       subtitle={`${owner}/${repo}`}
       actions={
         <>
-          <button className="icon-btn" aria-label="Toggle line wrap" onClick={() => setPref("wrapDiff", !prefs.wrapDiff)}>
-            {prefs.wrapDiff ? <UnwrapIcon size={18} /> : <WrapIcon size={18} />}
-          </button>
+          <DiffLayoutButtons />
           <button className="icon-btn" aria-label="Open in browser" onClick={() => void backend.openUrl(`https://github.com/${owner}/${repo}/commit/${sha}`)}>
             <LinkExternalIcon size={18} />
           </button>

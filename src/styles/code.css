@@ -546,3 +546,46 @@
   padding-top: 8px;
   border-top: 1px solid var(--border-muted);
 }
+
+/* ----------------------------------------------------- side-by-side diffs */
+
+/* In wide windows: the old file on the left, the new one on the right. Each
+   side wraps, so neither needs its own horizontal scrolling. */
+.diff-body.split {
+  overflow-x: hidden;
+}
+
+.diff-body.split .dl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.diff-body.split .dl {
+  min-width: 0;
+}
+
+.diff-body.split .dl + .dl {
+  border-left: 1px solid var(--border-muted);
+}
+
+.diff-body.split .dl.empty {
+  background: var(--bg-subtle);
+  cursor: default;
+}
+
+.diff-body.split .dl-num {
+  position: static;
+  width: 46px;
+  border-right: 1px solid var(--border-muted);
+}
+
+.diff-body.split .dl-code {
+  min-width: 0;
+  padding-left: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-body.split .diff-hunk-header {
+  min-width: 0;
+}

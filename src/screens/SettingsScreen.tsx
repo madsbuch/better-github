@@ -148,6 +148,10 @@ function AppSettings() {
         <span className="grow">Wrap long lines in diffs</span>
       </label>
       <label className="kv checkbox-row">
+        <input type="checkbox" checked={prefs.splitDiff} onChange={(e) => setPref("splitDiff", e.target.checked)} />
+        <span className="grow">Show diffs side by side in wide windows</span>
+      </label>
+      <label className="kv checkbox-row">
         <input type="checkbox" checked={prefs.wrapCode} onChange={(e) => setPref("wrapCode", e.target.checked)} />
         <span className="grow">Wrap long lines in files</span>
       </label>

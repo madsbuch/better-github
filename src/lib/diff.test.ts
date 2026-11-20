@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorOf, hunkSides, intralineDiffs, parsePatch, suggestionBody, wordDiff } from "./diff";
+import { anchorOf, hunkSides, intralineDiffs, parsePatch, splitRows, suggestionBody, wordDiff } from "./diff";
 
 const PATCH = [
   "@@ -1,4 +1,5 @@ fn main() {",
@@ -102,5 +102,22 @@ describe("wordDiff", () => {
 describe("suggestionBody", () => {
   it("wraps lines in a suggestion block", () => {
     expect(suggestionBody(["const x = 1;"])).toBe("```suggestion\nconst x = 1;\n```\n");
+  });
+});
+
+describe("splitRows", () => {
+  it("puts unchanged lines on both sides and pairs removed lines with added ones", () => {
+    const [hunk] = parsePatch("@@ -1,5 +1,5 @@\n a\n-b\n-c\n+B\n d\n+e\n-f\n\\ No newline at end of file");
+    if (!hunk) throw new Error("no hunk");
+    const text = (index: number | null) => (index === null ? null : (hunk.lines[index]?.text ?? null));
+    expect(splitRows(hunk).map((row) => [text(row.left), text(row.right)])).toEqual([
+      ["a", "a"],
+      ["b", "B"],
+      ["c", null],
+      ["d", "d"],
+      [null, "e"],
+      ["f", null],
+      ["No newline at end of file", null],
+    ]);
   });
 });

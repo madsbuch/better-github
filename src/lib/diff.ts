@@ -89,6 +89,42 @@ export function anchorKey(side: Side, line: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Side by side
+
+/** A row of a side-by-side diff: indexes into the hunk's lines, null where that side is empty. */
+export interface SplitRow {
+  left: number | null;
+  right: number | null;
+}
+
+/**
+ * Lays a hunk out in two columns. Unchanged lines are on both sides; in a run
+ * of removed lines followed by added ones, the first removed line is next to
+ * the first added one, and so on, with what's left over on its own side.
+ */
+export function splitRows(hunk: Hunk): SplitRow[] {
+  const rows: SplitRow[] = [];
+  const lines = hunk.lines;
+  let i = 0;
+  while (i < lines.length) {
+    const kind = lines[i]?.kind;
+    if (kind !== "del" && kind !== "add") {
+      // "\ No newline at end of file" belongs to the line above it, on that line's side.
+      const above = kind === "meta" ? lines[i - 1]?.kind : undefined;
+      rows.push({ left: above === "add" ? null : i, right: above === "del" ? null : i });
+      i++;
+      continue;
+    }
+    const removed: number[] = [];
+    const added: number[] = [];
+    while (lines[i]?.kind === "del") removed.push(i++);
+    while (lines[i]?.kind === "add") added.push(i++);
+    for (let k = 0; k < Math.max(removed.length, added.length); k++) rows.push({ left: removed[k] ?? null, right: added[k] ?? null });
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
 // Word diff
 
 export interface Segment {

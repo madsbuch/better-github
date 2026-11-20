@@ -1,6 +1,6 @@
 ---
 name: release
-description: Ship a new build of Better GitHub (the Android APK and the macOS disk image). Use when asked to release, deploy, publish or ship the app, to check whether a build reached the phone or Mac download link, or when the "latest" release looks stale or wrong.
+description: Ship a new build of Better GitHub (the Android APK and the desktop builds for macOS, Windows and Linux). Use when asked to release, deploy, publish or ship the app, to check whether a build reached the phone or desktop download links, or when the "latest" release looks stale or wrong.
 ---
 
 # Releasing Better GitHub
@@ -34,31 +34,44 @@ The legacy `gh-commander.apk` asset is uploaded from the same build so existing
 download links keep working. Preserve the Android application ID and signing key
 when changing the display name so installed copies can update in place.
 
-## The macOS disk image
+## The desktop builds
 
-`.github/workflows/macos.yml` (job "Build DMG (Apple silicon)") runs on the same
-pushes, on an Apple silicon runner:
+`.github/workflows/desktop.yml` runs on the same pushes, one job per platform
+(`fail-fast: false`, so one failing doesn't stop the others):
 
-1. Builds the desktop app for `aarch64-apple-darwin` and bundles it as a DMG.
-2. Signs it. Without the `APPLE_CERTIFICATE` secret the signature is ad hoc
-   (enough to run on Apple silicon, which refuses unsigned code) and the run
-   warns about it: macOS then asks the user to confirm in System Settings >
-   Privacy & Security > Open Anyway on first launch. With `APPLE_CERTIFICATE`
-   (a base64 Developer ID Application `.p12`), `APPLE_CERTIFICATE_PASSWORD` and
-   `APPLE_SIGNING_IDENTITY` it is signed properly, and with `APPLE_ID`,
-   `APPLE_PASSWORD` (an app-specific password) and `APPLE_TEAM_ID` as well Tauri
-   notarizes it, so it opens without a prompt.
-3. Uploads it as the run's `better-github-macos-arm64` artifact.
-4. Only on `main`: replaces `better-github-macos-arm64.dmg` on the `latest`
-   release. It doesn't move the tag or touch the notes; the Android job does.
+| Job | Runner | File on the release |
+| --- | --- | --- |
+| macOS (Apple silicon) | `macos-latest`, native | `better-github-macos-arm64.dmg` |
+| macOS (Intel) | `macos-latest`, cross-compiled | `better-github-macos-x64.dmg` |
+| Windows | `windows-latest` | `better-github-windows-x64-setup.exe` (NSIS installer) |
+| Linux | `ubuntu-22.04` | `better-github-linux-x86_64.AppImage`, `better-github-linux-amd64.deb` |
 
-Mac download link, always the newest `main` build that built:
-<https://github.com/madsbuch/better-github/releases/download/latest/better-github-macos-arm64.dmg>
+Each job builds with `tauri build --target <triple> --bundles <kind>`, uploads
+its files as a run artifact named after the first file, and, only on `main`,
+replaces them on the `latest` release. It doesn't move the tag or touch the
+notes; the Android job does.
 
-The two workflows are independent. If one fails, the release keeps that
-platform's previous file while its notes name the new commit, so check both runs.
-macOS builds can't be reproduced in a Linux cloud session; push to a branch and
-read the macOS run instead.
+Signing:
+
+- **macOS** without the `APPLE_CERTIFICATE` secret is signed ad hoc (enough to
+  run on Apple silicon, which refuses unsigned code) and the run warns about
+  it: macOS then asks the user to confirm in System Settings > Privacy &
+  Security > Open Anyway on first launch. With `APPLE_CERTIFICATE` (a base64
+  Developer ID Application `.p12`), `APPLE_CERTIFICATE_PASSWORD` and
+  `APPLE_SIGNING_IDENTITY` it is signed properly, and with `APPLE_ID`,
+  `APPLE_PASSWORD` (an app-specific password) and `APPLE_TEAM_ID` as well Tauri
+  notarizes it, so it opens without a prompt.
+- **Windows** and **Linux** builds aren't signed. Windows SmartScreen asks the
+  user to confirm (More info > Run anyway).
+
+Download links follow the pattern
+`https://github.com/madsbuch/better-github/releases/download/latest/<file>`.
+
+The Android and Desktop workflows are independent. If a job fails, the release
+keeps that platform's previous file while its notes name the new commit, so
+check every job. Only the Linux desktop build can be reproduced in a Linux cloud
+session (and only with WebKitGTK installed); for the others, push to a branch
+and read the Desktop run.
 
 Pushes to other branches and pull requests build the artifact but never touch the
 release. `.github/workflows/ci.yml` (lint, tests, e2e) runs separately and does
@@ -68,7 +81,7 @@ release. `.github/workflows/ci.yml` (lint, tests, e2e) runs separately and does
 
 1. Run the checks in the `verify-changes` skill. They are the only gate.
 2. Commit and `git push origin main`.
-3. Watch the **Android** and **macOS** runs: `gh run list --workflow Android --branch main`, then
+3. Watch the **Android** and **Desktop** runs: `gh run list --workflow Android --branch main`, then
    `gh run watch <id>`. A warm build takes about 6 minutes, a cold one (new
    dependencies or an expired cache) about 13.
 4. Confirm: `gh release view latest` shows the new commit in its notes and a fresh

@@ -13,12 +13,14 @@ export interface Prefs {
   theme: ThemePref;
   wrapDiff: boolean;
   wrapCode: boolean;
+  /** Old and new side by side, where the window is wide enough for two columns of code. */
+  splitDiff: boolean;
   /** How "Update branch" brings in the base branch; the last one picked. */
   updateBranchMethod: UpdateBranchMethod;
 }
 
 const KEY = "ghc.prefs";
-const DEFAULTS: Prefs = { theme: "system", wrapDiff: true, wrapCode: false, updateBranchMethod: "MERGE" };
+const DEFAULTS: Prefs = { theme: "system", wrapDiff: true, wrapCode: false, splitDiff: true, updateBranchMethod: "MERGE" };
 const listeners = new Set<() => void>();
 
 /**
@@ -29,6 +31,7 @@ const StoredPrefs = z.object({
   theme: ThemePref.default(DEFAULTS.theme),
   wrapDiff: z.boolean().default(DEFAULTS.wrapDiff),
   wrapCode: z.boolean().default(DEFAULTS.wrapCode),
+  splitDiff: z.boolean().default(DEFAULTS.splitDiff),
   updateBranchMethod: UpdateBranchMethod.default(DEFAULTS.updateBranchMethod),
 });
 
@@ -63,4 +66,16 @@ export function subscribePrefs(listener: () => void): () => void {
 
 export function usePrefs(): Prefs {
   return useSyncExternalStore(subscribePrefs, () => current);
+}
+
+/** Whether the window currently matches a media query, e.g. "(min-width: 1100px)". */
+export function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      const media = matchMedia(query);
+      media.addEventListener("change", listener);
+      return () => media.removeEventListener("change", listener);
+    },
+    () => matchMedia(query).matches,
+  );
 }
