@@ -185,6 +185,93 @@ unmatched medium
   - No rule covers this file. Consider adding one.
 `;
 
+// acme/rocket's spec on main: the files of its .spec folder (null for
+// pictures). On staging one item has a typo in a key, and so can't be read.
+const ROCKET_SPEC: Record<string, unknown> = {
+  "index.json": {
+    title: "Rocket",
+    summary: "Uploads that don't give up.",
+    description:
+      "Rocket sends files to a server and keeps going when the network doesn't.\n\nThis spec says what it promises:\n- to the programs that call `upload`\n- to the people running `rocket` in a terminal",
+  },
+  "uploads/index.json": {
+    title: "Uploads",
+    summary: "Sending a file, whatever the network does.",
+    order: 1,
+    status: "implemented",
+    code: ["src/client.rs", "src"],
+  },
+  "uploads/retries.json": {
+    title: "Retries",
+    summary: "A failed upload is tried again, with growing pauses.",
+    status: "implemented",
+    order: 1,
+    description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
+    requirements: [
+      { id: "R1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
+      { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
+      { id: "R3", text: "The pause before a retry doubles each time, starting at 250 ms and never exceeding 30 s.", level: "should" },
+      { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may", status: "accepted" },
+    ],
+    figures: [{ src: "assets/backoff.png", alt: "Pauses of 250 ms, 500 ms, 1 s and 2 s between five attempts", caption: "Pauses double between attempts." }],
+    questions: ["Should a `429` count as retryable, honoring `Retry-After`?"],
+    code: ["src/client.rs", "src/retry/**"],
+    related: ["uploads/errors#E1", "cli"],
+  },
+  "uploads/errors.json": {
+    title: "Errors",
+    summary: "What the caller is told when an upload fails for good.",
+    status: "accepted",
+    order: 2,
+    requirements: [
+      { id: "E1", text: "When the last retry fails, the caller gets the server's message as `UploadError::Server`." },
+      { id: "E2", text: "No error message contains the upload token." },
+    ],
+  },
+  "cli.json": {
+    title: "Command line",
+    summary: "The `rocket` command.",
+    order: 2,
+    status: "draft",
+    requirements: [{ id: "C1", text: "`rocket upload <file>` exits with 1 when the upload fails." }],
+  },
+  "assets/backoff.png": null,
+};
+
+const BACKOFF_PICTURE = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" font-family="sans-serif" font-size="14"><rect width="640" height="160" fill="#f6f8fa"/><path d="M30 90H610" stroke="#8c959f" stroke-width="2"/><g fill="#0969da"><circle cx="40" cy="90" r="8"/><circle cx="90" cy="90" r="8"/><circle cx="170" cy="90" r="8"/><circle cx="310" cy="90" r="8"/><circle cx="570" cy="90" r="8"/></g><g fill="#57606a" text-anchor="middle"><text x="65" y="70">250 ms</text><text x="130" y="120">500 ms</text><text x="240" y="70">1 s</text><text x="440" y="120">2 s</text></g></svg>',
+)}`;
+
+/** The same files by their path in the repository, for the file viewer. */
+const ROCKET_SPEC_FILES: Record<string, unknown> = Object.fromEntries(Object.entries(ROCKET_SPEC).map(([path, value]) => [`.spec/${path}`, value]));
+
+interface SpecEntry {
+  name: string;
+  object: { text: string | null; isTruncated: boolean } | { entries: SpecEntry[] };
+}
+
+/** The spec's files as GitHub's nested tree entries. */
+function specTree(files: Record<string, unknown>): { entries: SpecEntry[] } {
+  const root: { entries: SpecEntry[] } = { entries: [] };
+  for (const [path, value] of Object.entries(files)) {
+    let folder = root;
+    const parts = path.split("/");
+    const name = parts.pop() ?? "";
+    for (const part of parts) {
+      const found = folder.entries.find((e) => e.name === part)?.object;
+      if (found !== undefined && "entries" in found) {
+        folder = found;
+      } else {
+        const next = { entries: [] };
+        folder.entries.push({ name: part, object: next });
+        folder = next;
+      }
+    }
+    folder.entries.push({ name, object: { text: value === null ? null : JSON.stringify(value, null, 2), isTruncated: false } });
+  }
+  return root;
+}
+
 // Pull request 483 also edits the rules.
 const RULES_CHANGE = {
   filename: ".review-rules",
@@ -838,6 +925,14 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       const drafting = variables.owner === "octocat" && variables.name === "drafting" && variables.expression === `${PR_DETAIL.headRefOid}:.review-rules`;
       return { repository: { object: rocket || drafting ? { text: ROCKET_REVIEW_RULES, isTruncated: false } : null } };
     }
+    case "Spec": {
+      if (variables.owner !== "acme" || variables.name !== "rocket") return { repository: { object: null } };
+      if (variables.expression === "main:.spec") return { repository: { object: specTree(ROCKET_SPEC) } };
+      if (variables.expression === "staging:.spec") {
+        return { repository: { object: specTree({ ...ROCKET_SPEC, "cli.json": { title: "Command line", sumary: "The `rocket` command." } }) } };
+      }
+      return { repository: { object: null } };
+    }
     case "PullFiles":
       return {
         repository: {
@@ -1029,6 +1124,12 @@ function restBody(request: RestRequest): unknown {
         { type: "file", name: "README.md", path: `${dir}README.md` },
         { type: "file", name: "client.rs", path: `${dir}client.rs` },
       ].map((e) => ({ ...e, sha: "x", size: 100, url: "", html_url: "", git_url: "", download_url: null, _links: {} }));
+    }
+    if (p.startsWith(".spec/") && p in ROCKET_SPEC_FILES) {
+      const value = ROCKET_SPEC_FILES[p];
+      const text = value === null ? "" : JSON.stringify(value, null, 2);
+      const picture = value === null ? BACKOFF_PICTURE : null;
+      return { type: "file", name: p.split("/").pop(), path: p, size: text.length, encoding: "base64", content: btoa(text), download_url: picture, html_url: "" };
     }
     if (request.accept?.includes("html") === true) return "<h1>Rocket</h1><p>Rendered markdown preview.</p>";
     const source = p.endsWith(".md")

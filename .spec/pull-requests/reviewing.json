@@ -1,0 +1,34 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Reviewing",
+  "summary": "Commenting on lines, suggesting changes and submitting a review.",
+  "status": "implemented",
+  "order": 2,
+  "requirements": [
+    {
+      "id": "RV1",
+      "text": "Tapping a line of a diff offers a comment or a suggested change on it."
+    },
+    {
+      "id": "RV2",
+      "text": "Comments are added to a pending review, kept on the device until it is submitted, or posted right away."
+    },
+    {
+      "id": "RV3",
+      "text": "What is typed into a comment survives rotating the device and leaving the screen."
+    },
+    {
+      "id": "RV4",
+      "text": "A review is submitted as a comment, an approval or a request for changes."
+    }
+  ],
+  "code": [
+    "src/screens/pull/FilesTab.tsx",
+    "src/components/DiffView.tsx",
+    "src/components/Composer.tsx",
+    "src/lib/drafts.ts"
+  ],
+  "related": [
+    "pull-requests/review-rules#RR5"
+  ]
+}

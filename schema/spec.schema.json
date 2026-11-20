@@ -1,0 +1,136 @@
+{
+  "$id": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Where this schema lives, so editors can check the file.",
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "description": "One line, shown wherever the item is listed.",
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "accepted",
+        "implemented",
+        "deprecated"
+      ],
+      "description": "draft: still being written. accepted: agreed on, not built yet. implemented: the code does this. deprecated: no longer wanted."
+    },
+    "order": {
+      "description": "Position among its siblings, lowest first. Items without one come last, by title.",
+      "type": "number"
+    },
+    "description": {
+      "description": "What this part does and why.",
+      "type": "string"
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Unique within the item and stable once written: other items, code and tests refer to it as \"<item id>#<id>\"."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One statement that can be checked against the code."
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "must",
+              "should",
+              "may"
+            ],
+            "description": "How binding a requirement is. Defaults to must."
+          },
+          "status": {
+            "description": "Defaults to the item's status.",
+            "type": "string",
+            "enum": [
+              "draft",
+              "accepted",
+              "implemented",
+              "deprecated"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "additionalProperties": false,
+        "description": "A single testable statement."
+      }
+    },
+    "figures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^/]",
+            "description": "An image in the spec folder, as a path from that folder: \"assets/retry-timeline.png\"."
+          },
+          "alt": {
+            "description": "What the image shows, for when it can't be seen.",
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "src"
+        ],
+        "additionalProperties": false,
+        "description": "A picture: a mockup, a diagram, a screenshot."
+      }
+    },
+    "questions": {
+      "description": "What is still undecided.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Plain text. A blank line starts a new paragraph, lines starting with \"- \" form a list, and `backticks` mark code."
+      }
+    },
+    "code": {
+      "description": "Where this is implemented: paths from the repository's root, or patterns with * and ** (\"src/upload/**\").",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^/]"
+      }
+    },
+    "related": {
+      "description": "Ids of other items (\"uploads/limits\"), or of one of their requirements (\"uploads/limits#R2\").",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": false,
+  "description": "One item of a repository's spec: a .json file in its .spec folder."
+}

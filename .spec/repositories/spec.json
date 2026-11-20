@@ -1,0 +1,74 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Spec browser",
+  "summary": "A `.spec` folder says what the code is meant to do. The app lets you read it.",
+  "status": "implemented",
+  "order": 1,
+  "description": "Code says what a program does, not what it was meant to do. A repository's `.spec` folder holds that: one JSON file per part of the product, all following one schema, next to the pictures they show.\n\nThe folders are the outline. An item's id is its path without `.spec/` and `.json`, and a folder's own item is its `index.json`.",
+  "requirements": [
+    {
+      "id": "S1",
+      "text": "Every `.json` file in `.spec` is one item. Every other file is an asset."
+    },
+    {
+      "id": "S2",
+      "text": "All items follow one schema, published as `schema/spec.schema.json`. The file is generated from the schema the app reads with, and a test fails when they differ."
+    },
+    {
+      "id": "S3",
+      "text": "A file that can't be read (not JSON, an unknown key, a missing title) is listed as a problem with the reason. The rest of the spec still shows."
+    },
+    {
+      "id": "S4",
+      "text": "A figure that isn't in the folder, a related id that leads nowhere and a requirement id used twice are listed as problems."
+    },
+    {
+      "id": "S5",
+      "text": "The whole folder loads in one request, so moving between items never waits."
+    },
+    {
+      "id": "S6",
+      "text": "The outline can be filtered by the words in titles, summaries, descriptions and requirements. A matching requirement opens its item with that requirement highlighted."
+    },
+    {
+      "id": "S7",
+      "text": "The spec of any branch can be browsed, and links inside it stay on that branch."
+    },
+    {
+      "id": "S8",
+      "text": "A path under an item's code opens that file or folder in the app."
+    },
+    {
+      "id": "S9",
+      "text": "A repository whose default branch has a spec shows a way into it on its overview."
+    },
+    {
+      "id": "S10",
+      "text": "Items can be nested three folders deep. A deeper folder is listed as a problem.",
+      "level": "should"
+    }
+  ],
+  "figures": [
+    {
+      "src": "assets/spec-item.png",
+      "alt": "An item in the spec browser, with its requirements, a figure, code and related items",
+      "caption": "An item: status, requirements, pictures, and where it lives in the code."
+    }
+  ],
+  "questions": [
+    "Should a pull request show which items its changed files belong to, from each item's `code`?",
+    "Should requirements name the tests that prove them?",
+    "Guests can't browse a spec: reading the folder in one request needs GitHub's GraphQL API, which needs a token. Worth a slower path over REST?"
+  ],
+  "code": [
+    "src/lib/spec.ts",
+    "src/queries/spec.ts",
+    "src/screens/SpecScreen.tsx",
+    "schema/spec.schema.json",
+    "e2e/spec.spec.ts"
+  ],
+  "related": [
+    "pull-requests/review-rules",
+    "foundations#F3"
+  ]
+}

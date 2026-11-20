@@ -1948,3 +1948,212 @@ details.disclosure[open] > summary {
     bottom: calc(24px + env(safe-area-inset-bottom));
   }
 }
+
+/* ------------------------------------------------------------------- spec */
+
+.spec-item {
+  padding: 16px 16px 4px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.spec-item h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.spec-item h2 .pill {
+  vertical-align: middle;
+}
+
+.spec-item h3 {
+  margin: 22px 0 8px;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.spec-item p {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.spec-item ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.spec-item li + li {
+  margin-top: 4px;
+}
+
+.spec-item code,
+.spec-row code {
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--bg-inset);
+  font-family: var(--mono);
+  font-size: 85%;
+  overflow-wrap: anywhere;
+}
+
+.spec-summary {
+  color: var(--fg-muted);
+  font-size: 16px;
+}
+
+.spec-counts {
+  margin: 0;
+  padding: 0 16px;
+}
+
+.spec-req {
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+}
+
+.spec-req + .spec-req {
+  margin-top: 8px;
+}
+
+.spec-req[data-current="true"] {
+  border-color: var(--accent-emphasis);
+  background: var(--accent-bg);
+}
+
+.spec-req-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.spec-req-id {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--bg-inset);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.spec-level {
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spec-level[data-level="must"] {
+  color: var(--fg);
+}
+
+.spec-req-text > :last-child {
+  margin-bottom: 0;
+}
+
+.spec-figure {
+  margin: 14px 0;
+}
+
+.spec-figure img {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+}
+
+.spec-figure figcaption {
+  margin-top: 6px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.spec-figure-missing {
+  padding: 24px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.spec-links {
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.spec-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: inherit;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.spec-link.mono {
+  font-size: 13px;
+}
+
+.spec-link + .spec-link {
+  border-top: 1px solid var(--border-muted);
+}
+
+a.spec-link:active {
+  background: var(--bg-hover);
+}
+
+.spec-link svg {
+  flex: none;
+}
+
+.spec-row {
+  align-items: center;
+}
+
+.spec-row .row-title {
+  margin-bottom: 1px;
+}
+
+.spec-row-summary {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--fg-muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.spec-problems ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.spec-problems li + li {
+  margin-top: 4px;
+}
+
+.spec-problems a {
+  overflow-wrap: anywhere;
+}
+
+.spec-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: inherit;
+}

@@ -704,6 +704,30 @@ export const ReviewRulesResult = z.object({
 });
 export type ReviewRulesResult = z.infer<typeof ReviewRulesResult>;
 
+// The spec folder (src/lib/spec.ts): a tree's entries, with the text of its
+// files, a fixed number of folders deep. The last level only says whether
+// there is anything below.
+const SpecTreeEnd = z
+  .object({
+    text: z.string().nullable().optional(),
+    isTruncated: z.boolean().optional(),
+    entries: z.array(z.object({ name: z.string() })).nullable().optional(),
+  })
+  .nullable();
+const specTree = <T extends z.ZodType>(below: T) =>
+  z
+    .object({
+      text: z.string().nullable().optional(),
+      isTruncated: z.boolean().optional(),
+      entries: z.array(z.object({ name: z.string(), object: below })).nullable().optional(),
+    })
+    .nullable();
+const SpecTree = specTree(specTree(specTree(specTree(SpecTreeEnd))));
+export type SpecTree = z.infer<typeof SpecTree>;
+
+export const SpecResult = z.object({ repository: z.object({ object: SpecTree }).nullable() });
+export type SpecResult = z.infer<typeof SpecResult>;
+
 export const SearchBranchesResult = z.object({
   repository: z.object({ refs: z.object({ nodes: nodes(BranchNameNode) }).nullable() }).nullable(),
 });

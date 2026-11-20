@@ -1,0 +1,10 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Repositories",
+  "summary": "A repository's overview, code, builds and releases.",
+  "order": 3,
+  "code": [
+    "src/screens/RepoScreen.tsx",
+    "src/queries/repos.ts"
+  ]
+}

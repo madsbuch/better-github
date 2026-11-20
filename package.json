@@ -14,7 +14,8 @@
     "test": "vitest run",
     "tauri": "tauri",
     "e2e": "playwright test",
-    "lint": "oxlint --type-aware --deny-warnings"
+    "lint": "oxlint --type-aware --deny-warnings",
+    "spec:schema": "node -e \"import('./src/lib/spec.ts').then((m) => require('node:fs').writeFileSync('schema/spec.schema.json', JSON.stringify(m.specJsonSchema(), null, 2) + '\\n'))\""
   },
   "dependencies": {
     "@primer/octicons-react": "^19.40.0",

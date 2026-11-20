@@ -1,0 +1,50 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Review rules",
+  "summary": "A `.review-rules` file says how risky each changed file is and what to check in it.",
+  "status": "implemented",
+  "order": 1,
+  "description": "Not every file deserves the same attention. A repository's `.review-rules` gives each path a risk (low, medium or high) and instructions for whoever reviews a change to it. The app shows the verdict on every changed file and puts the riskiest files first.",
+  "requirements": [
+    {
+      "id": "RR1",
+      "text": "A file gets the instructions of every rule that matches it. Its verdict is the highest risk among those rules."
+    },
+    {
+      "id": "RR2",
+      "text": "Verdicts use the rules on the branch the pull request merges into, never the pull request's own version, so a change can't lower its own risk."
+    },
+    {
+      "id": "RR3",
+      "text": "A change to `.review-rules` itself is always high risk."
+    },
+    {
+      "id": "RR4",
+      "text": "Files are ordered riskiest first."
+    },
+    {
+      "id": "RR5",
+      "text": "Approving asks first when a high-risk file isn't marked viewed."
+    },
+    {
+      "id": "RR6",
+      "text": "A line of the rules file that can't be read is left out and reported, without hiding the other rules."
+    },
+    {
+      "id": "RR7",
+      "text": "A repository without rules offers a prompt for a coding agent to write them.",
+      "level": "should"
+    }
+  ],
+  "code": [
+    "src/lib/reviewRules.ts",
+    "src/queries/reviewRules.ts",
+    "src/components/ReviewRules.tsx",
+    "src/lib/rulesPrompt.ts",
+    "e2e/review-rules.spec.ts"
+  ],
+  "related": [
+    "foundations#F3",
+    "repositories/spec"
+  ]
+}

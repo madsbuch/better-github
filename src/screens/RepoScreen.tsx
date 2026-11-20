@@ -13,6 +13,7 @@ import {
   LinkExternalIcon,
   LinkIcon,
   LockIcon,
+  NoteIcon,
   RepoForkedIcon,
   StarFillIcon,
   StarIcon,
@@ -35,6 +36,8 @@ import { releaseQueries } from "../queries/releases";
 import { repoQueries, useStarRepo } from "../queries/repos";
 import { reviewQueries, useCopyRulesPrompt } from "../queries/reviewRules";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
+import { specQueries, useSpec } from "../queries/spec";
+import { specCounts } from "../lib/spec";
 import { ActionsTab } from "./actions/ActionsTab";
 import { ReleasesTab } from "./releases/ReleasesTab";
 import { Markdown, type MarkdownBase } from "../components/Markdown";
@@ -88,6 +91,10 @@ export function RepoScreen() {
   useEffect(() => {
     if (hasDefaultBranch && !guest) void queryClient.prefetchQuery(reviewQueries.rules(owner, repo, defaultBranch));
   }, [queryClient, owner, repo, defaultBranch, hasDefaultBranch, guest]);
+  // The branch being looked at: its spec is one tap away from the overview and the menu.
+  useEffect(() => {
+    if (gitRef !== "" && !guest) void queryClient.prefetchQuery(specQueries.folder(owner, repo, gitRef));
+  }, [queryClient, owner, repo, gitRef, guest]);
   const copyRulesPrompt = useCopyRulesPrompt();
 
   const setTab = (next: RepoTab) => nav.replace(to.repo(owner, repo, { tab: next, ref: search.ref }));
@@ -196,6 +203,12 @@ export function RepoScreen() {
             label: "Copy clone URL",
             icon: <CopyIcon size={18} />,
             onSelect: () => void backend.copyText(`https://github.com/${fullName}.git`).then(() => toast.show("Clone URL copied")),
+          },
+          {
+            label: "Browse spec",
+            icon: <NoteIcon size={18} />,
+            hidden: gitRef === "" || guest,
+            onSelect: () => nav.navigate(to.spec(owner, repo, search.ref)),
           },
           {
             label: "Copy review rules prompt",
@@ -334,6 +347,7 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
             {!guest && repo.releases.totalCount > 1 && <span className="muted small nowrap">+{repo.releases.totalCount - 1} more</span>}
           </Link>
         )}
+        {hasBranch && !guest && <SpecCard owner={owner} repo={name} branch={branch} />}
       </div>
       <div className="pad">
         {readme.isPending && hasBranch ? (
@@ -347,6 +361,30 @@ function About({ repo, onSelect, guest }: { repo: RepoDetail; onSelect: (tab: Re
         )}
       </div>
     </>
+  );
+}
+
+/** A way into the repository's spec, when its default branch has one. */
+function SpecCard({ owner, repo, branch }: { owner: string; repo: string; branch: string }) {
+  const { spec } = useSpec(owner, repo, branch);
+  if (spec === null) return null;
+  const counts = specCounts(spec.root);
+  const summary = spec.root.item?.summary;
+  return (
+    <Link {...to.spec(owner, repo)} className="card spec-card">
+      <NoteIcon size={16} className="c-accent" />
+      <span className="grow" style={{ minWidth: 0 }}>
+        <span className="bold" style={{ display: "block" }}>
+          Spec
+        </span>
+        <span className="muted small ellipsis" style={{ display: "block" }}>
+          {summary !== undefined && summary !== "" ? summary : "What this code is meant to do"}
+        </span>
+      </span>
+      <span className="muted small nowrap">
+        {counts.items} items · {counts.requirements} requirements
+      </span>
+    </Link>
   );
 }
 

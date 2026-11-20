@@ -4,6 +4,7 @@
 
 import type { z } from "zod";
 import { gql, type GraphQLDocument } from "./schema";
+import { SPEC_MAX_DEPTH } from "./spec";
 import {
   Acknowledged,
   AddCommentResult,
@@ -25,6 +26,7 @@ import {
   RepoResult,
   ResolveThreadResult,
   ReviewRulesResult,
+  SpecResult,
   SearchBranchesResult,
   SearchCountsResult,
   SearchIssuesResult,
@@ -1025,6 +1027,28 @@ export const REVIEW_RULES = gql(
 `,
 );
 
+// A folder's files with their text, and its folders `depth` levels down; the
+// level below that only lists names, to tell when a spec is nested too deep.
+const specEntries = (depth: number): string =>
+  depth === 0
+    ? "entries { name }"
+    : `entries { name object { ... on Blob { text isTruncated } ... on Tree { ${specEntries(depth - 1)} } } }`;
+
+/** A repository's spec folder (src/lib/spec.ts), as "<branch>:.spec": every file in it, in one request. */
+export const SPEC = gql(
+  SpecResult,
+  /* GraphQL */ `
+  query Spec($owner: String!, $name: String!, $expression: String!) {
+    repository(owner: $owner, name: $name) {
+      object(expression: $expression) {
+        ... on Blob { text isTruncated }
+        ... on Tree { ${specEntries(SPEC_MAX_DEPTH + 1)} }
+      }
+    }
+  }
+`,
+);
+
 /** What the "open a pull request" screen needs to know about the base repository. */
 export const NEW_PULL = gql(
   NewPullResult,
@@ -1095,6 +1119,7 @@ export const ALL_DOCUMENTS: Record<string, GraphQLDocument<z.ZodType>> = {
   REPO_BRANCHES,
   SEARCH_BRANCHES,
   REVIEW_RULES,
+  SPEC,
   NEW_PULL,
   ASSIGNABLE_USERS,
 };

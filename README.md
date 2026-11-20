@@ -18,6 +18,7 @@ A fast GitHub client for Android, built around your repositories with [Tauri 2](
 - Merge box showing review decision, check status and mergeability, with *Ready for review* and auto-merge controls. Whenever the branch is behind its base, also while merging is blocked for another reason, *Update branch* brings the base in with a merge commit or a rebase (the last one you picked).
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
 - **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and a line above its diff that opens what to check in it, grouped by the rule it comes from. The *Review guide* lists every rule that applies to the pull request once, with the files it covers. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
+- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their requirements, pictures, open questions and the code they cover. See [Spec](#spec).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
@@ -107,6 +108,66 @@ unmatched medium
 - The rules are always read from the branch the pull request merges into, so a
   pull request can't lower its own verdicts. A change to `.review-rules` itself is
   always high risk.
+
+## Spec
+
+A `.spec` folder at the root of a repository says what its code is meant to do.
+Every `.json` file in it is one item of the spec, and all of them follow one
+schema: [`schema/spec.schema.json`](schema/spec.schema.json). Anything else in
+the folder is an asset, such as a picture an item shows. This repository has
+one; open it from the repository's Overview, or *Browse spec* in its menu.
+
+```
+.spec/
+  index.json              the root: what the product is
+  uploads/
+    index.json            "Uploads", with the items below as its children
+    retries.json          "Retries"
+  assets/
+    backoff.png
+```
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "title": "Retries",
+  "summary": "A failed upload is tried again, with growing pauses.",
+  "status": "implemented",
+  "description": "Networks drop. An upload that fails for a reason that may pass is tried again.",
+  "requirements": [
+    { "id": "R1", "text": "An upload that fails with a 5xx response is retried, up to five times." },
+    { "id": "R2", "text": "The pause before a retry doubles each time.", "level": "should", "status": "accepted" }
+  ],
+  "figures": [{ "src": "assets/backoff.png", "caption": "Pauses double between attempts." }],
+  "questions": ["Should a `429` count as retryable?"],
+  "code": ["src/client.rs", "src/retry/**"],
+  "related": ["uploads/errors#E1"]
+}
+```
+
+- **The folders are the outline.** An item's id is its path without `.spec/` and
+  `.json` (`uploads/retries`). A folder's own item is its `index.json`; a folder
+  without one is still a group, named after the folder. Folders nest up to three
+  deep.
+- Only `title` is required. `status` is `draft`, `accepted`, `implemented` or
+  `deprecated`. `order` places an item among its siblings; the rest follow by
+  title.
+- **Requirements** are single statements that can be checked against the code.
+  Each has an `id` that is unique in its item and doesn't change, so it can be
+  referred to as `uploads/retries#R1`. `level` is `must` (the default), `should`
+  or `may`; `status` defaults to the item's.
+- Text is plain: a blank line starts a paragraph, lines starting with `- ` form
+  a list, and `` `backticks` `` mark code.
+- `figures` name pictures by their path from `.spec`. `code` lists paths from
+  the repository's root, or patterns with `*` and `**`. `related` lists ids of
+  other items or requirements.
+- Unknown keys are errors, so a typo doesn't silently drop a field. A file the
+  app can't read, a figure that isn't there or a reference that leads nowhere is
+  listed above the outline; everything else still shows.
+
+The schema file is generated from the one the app reads with
+(`src/lib/spec.ts`): run `npm run spec:schema` after changing it. A test fails
+when they differ, and another when this repository's own `.spec` has problems.
 
 ## Signing in
 
@@ -209,6 +270,7 @@ src/                  React app
   lib/logs.ts         Actions log parsing: steps, groups, ANSI colors
   lib/diff.ts         patch parsing and word-level diffs
   lib/reviewRules.ts  .review-rules: parsing, path patterns and per-file verdicts
+  lib/spec.ts         .spec: the item schema, the outline built from the folder, filtering
   screens/            one file per screen; pull/ and actions/ hold their screens' parts
   dev/mock.ts         fixtures for VITE_MOCK=1
 e2e/                  Playwright tests against the fixtures
@@ -217,6 +279,8 @@ src-tauri/            Rust side
   src/github.rs       authenticated REST/GraphQL proxy, locked to api.github.com; job logs, download links
   src/store.rs        session/config persistence
   gen/android/        generated Android project (edge-to-edge insets, browser tabs, downloads, signing config)
+schema/               spec.schema.json, generated from lib/spec.ts (`npm run spec:schema`)
+.spec/                this repository's own spec
 app-icon/             icon sources; regenerate with `npx tauri icon app-icon/app-icon.json`
 .claude/skills/       procedures: release, android-signing, verify-changes
 ```

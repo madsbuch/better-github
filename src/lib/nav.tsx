@@ -53,6 +53,16 @@ export const to = {
     linkOptions({ to: "/$owner/$repo/tree", params: { owner, repo }, search: { ref, path: path === "" ? undefined : path } }),
   blob: (owner: string, repo: string, ref: string | undefined, path: string) =>
     linkOptions({ to: "/$owner/$repo/blob", params: { owner, repo }, search: { ref, path } }),
+  /** The spec browser: the item `id` ("uploads/retries", optionally "#R2" for one requirement), or the outline, filtered by `q`. */
+  spec: (owner: string, repo: string, ref?: string, id?: string, q?: string) => {
+    const hash = id?.indexOf("#") ?? -1;
+    const item = hash === -1 ? id : id?.slice(0, hash);
+    return linkOptions({
+      to: "/$owner/$repo/spec",
+      params: { owner, repo },
+      search: { ref, id: item === "" ? undefined : item, r: hash === -1 ? undefined : id?.slice(hash + 1), q: q === "" ? undefined : q },
+    });
+  },
   pull: (owner: string, repo: string, number: number, tab?: PullTab) =>
     linkOptions({
       to: "/$owner/$repo/pull/$number",

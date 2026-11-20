@@ -1,0 +1,97 @@
+import { expect, test, type Page } from "@playwright/test";
+import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
+
+// acme/rocket's .spec (src/dev/mock.ts): Uploads (with Retries and Errors
+// below it) and Command line. On staging, Command line can't be read.
+const rows = (page: Page) => activeScreen(page).locator(".spec-row");
+const requirements = (page: Page) => activeScreen(page).locator(".spec-req");
+
+test("a repository with a spec links to it, and the outline leads to its items", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/acme/rocket");
+  const card = activeScreen(page).locator(".spec-card");
+  await expect(card).toContainText("Uploads that don't give up.");
+  await expect(card).toContainText("4 items · 7 requirements");
+  await card.click();
+
+  await expect(screenTitle(page)).toHaveText("Spec");
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Rocket");
+  // "- " lines are a list, and `code` shows as code.
+  await expect(activeScreen(page).locator(".spec-item li code")).toHaveText(["upload", "rocket"]);
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented");
+  await expect(rows(page).locator(".row-title")).toHaveText(["Uploads", "Command line"]);
+  await expect(rows(page).nth(0)).toContainText("2 items · 6 requirements");
+
+  await rows(page).nth(0).click();
+  await expect(screenTitle(page)).toHaveText("Uploads");
+  await expect(rows(page).locator(".row-title")).toHaveText(["Retries", "Errors"]);
+  await rows(page).nth(0).click();
+
+  await expect(activeScreen(page).locator(".breadcrumbs")).toHaveText("Spec/Uploads/Retries");
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Retries Implemented");
+  await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4mayAccepted"]);
+  await expect(activeScreen(page).locator(".spec-figure img")).toHaveAttribute("alt", /^Pauses of 250 ms/);
+  await expect(activeScreen(page).locator(".spec-figure figcaption")).toHaveText("Pauses double between attempts.");
+
+  // Back goes up the way you came.
+  await page.goBack();
+  await expect(screenTitle(page)).toHaveText("Uploads");
+  expect(errors).toEqual([]);
+});
+
+test("an item links to its code and to related items and requirements", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
+  const code = activeScreen(page).getByRole("region", { name: "Code" });
+  await expect(code.locator(".spec-link")).toHaveText(["src/client.rs", "src/retry/**"]);
+  // A pattern isn't one file to open.
+  await expect(code.locator("a.spec-link")).toHaveCount(1);
+
+  const related = activeScreen(page).getByRole("region", { name: "Related" });
+  await expect(related.locator(".spec-link")).toHaveCount(2);
+  await related.locator(".spec-link").nth(0).click();
+  await expect(screenTitle(page)).toHaveText("Errors");
+  await expect(requirements(page).nth(0)).toHaveAttribute("data-current", "true");
+  await expect(requirements(page).nth(1)).toHaveAttribute("data-current", "false");
+
+  await page.goBack();
+  await code.locator("a.spec-link").click();
+  await expect(screenTitle(page)).toHaveText("client.rs");
+});
+
+test("the outline filters items and requirements", async ({ page }) => {
+  await open(page, "/acme/rocket/spec");
+  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("token");
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page)).toContainText("E2");
+  await expect(rows(page)).toContainText("Uploads / Errors");
+  await rows(page).click();
+  await expect(requirements(page).nth(1)).toHaveAttribute("data-current", "true");
+
+  // Coming back shows the results again.
+  await page.goBack();
+  await expect(activeScreen(page).getByRole("searchbox", { name: "Filter the spec" })).toHaveValue("token");
+  await expect(rows(page)).toHaveCount(1);
+  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("retries");
+  await expect(rows(page).locator(".row-title")).toHaveText(["Retries"]);
+  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("zzz");
+  await expect(activeScreen(page)).toContainText("Nothing matches");
+});
+
+test("a file that can't be read is a problem, and the rest still shows", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=staging");
+  const problems = activeScreen(page).locator(".spec-problems");
+  await expect(problems).toContainText("1 problem in this spec");
+  await expect(problems.locator("li")).toHaveText('cli.json Unrecognized key: "sumary"');
+  await expect(rows(page).locator(".row-title")).toHaveText(["Uploads", "cli"]);
+  await rows(page).nth(1).click();
+  await expect(activeScreen(page).locator(".banner-danger")).toContainText("This item couldn't be read");
+});
+
+test("a repository without a spec says so", async ({ page }) => {
+  await open(page, "/octocat/hello");
+  await expect(activeScreen(page).locator(".repo-header")).toBeVisible();
+  await expect(activeScreen(page).locator(".spec-card")).toHaveCount(0);
+  await activeScreen(page).getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Browse spec" }).click();
+  await expect(activeScreen(page)).toContainText("No spec here");
+});

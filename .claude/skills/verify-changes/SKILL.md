@@ -39,7 +39,10 @@ by path (Actions: `actionsBody`; releases: `releasesBody`; new pull requests:
 branches over three pages, with an old `staging` last, to exercise paging and
 ranking. `ROCKET_REVIEW_RULES` is acme/rocket's `.review-rules` on
 main: pull request 482 gets one file of each verdict, and pull request 483 also
-edits the rules. Android-only bridges (`window.GhCommanderDownloads`)
+edits the rules. `ROCKET_SPEC` is acme/rocket's `.spec` folder on main (on
+`staging` one item can't be read). After changing the item schema in
+`src/lib/spec.ts`, run `npm run spec:schema` and commit `schema/spec.schema.json`.
+Android-only bridges (`window.GhCommanderDownloads`)
 are faked in e2e with `page.addInitScript` (see `e2e/releases.spec.ts`). When adding a query or
 endpoint, add a fixture there too, or the screen renders empty in dev and in the
 e2e smoke tests.

@@ -1,0 +1,7 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Better GitHub",
+  "summary": "A GitHub client for phones and tablets, built for reviewing.",
+  "description": "Better GitHub is an Android app (Tauri and React) for the parts of GitHub you do away from a desk: reviewing pull requests, checking builds, reading code.\n\nThis spec says what the app is meant to do. It covers:\n- what a reviewer sees in a pull request\n- what a repository's screens show, including this spec browser\n- the rules the whole app keeps, such as where the token lives",
+  "code": ["src", "src-tauri/src"]
+}
