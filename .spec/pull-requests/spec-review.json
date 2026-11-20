@@ -56,7 +56,16 @@
     },
     {
       "id": "SR11",
-      "text": "In the Spec tab, reworded text reads as one text with what went out struck through and what came in marked, unless the two versions have little in common."
+      "text": "Reworded text shows which words changed. In a wide window the old is beside the new, each with its own words marked; otherwise it is one text with what went out struck through and what came in marked. A setting and a button choose one column in a wide window too.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "In the Spec tab, reworded text reads as one text with what went out struck through and what came in marked, unless the two versions have little in common.",
+          "reason": "One text was hard to compare on a large screen, and applied to the Spec tab only. Old beside new is how a wide window is used everywhere else in the app.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "SR12",
@@ -65,6 +74,18 @@
     {
       "id": "SR13",
       "text": "A changed part shows its user stories before its requirements: each added, reworded, deprecated with its reason, or deleted. A deleted story counts as taking something away. Stories take comments like requirements."
+    },
+    {
+      "id": "SR14",
+      "text": "Long text is compared paragraph by paragraph and list item by list item. Unchanged paragraphs away from a change are folded into one line that opens them."
+    },
+    {
+      "id": "SR15",
+      "text": "A part that is new or gone as a whole reads as plain text, not as added or removed lines. Its long text and all but its first requirements start folded and open on demand."
+    },
+    {
+      "id": "SR16",
+      "text": "A requirement the pull request left unchanged takes comments where the pull request's diff reaches its lines. Every comment button says which line of which file the comment lands on."
     }
   ],
   "related": [

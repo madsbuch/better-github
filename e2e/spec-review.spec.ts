@@ -70,6 +70,23 @@ test("a comment on a requirement lands on its line of the file and shows at the 
   await sheet.getByRole("button", { name: "Add to review" }).click();
   await expect(r4.locator(".draft-comment")).toContainText("Is cancelling gone for good?");
 
+  // A user story takes one too, on its lines of the file.
+  const us3 = retries.locator('.spec-diff-story[data-story="US-3"]');
+  await expect(us3.getByRole("button", { name: "Comment on US-3" })).toHaveAttribute("title", /^Comment on line \d+ of \.spec\/uploads\/retries\.json$/);
+  await us3.getByRole("button", { name: "Comment on US-3" }).click();
+  await expect(sheet.locator(".sheet-header")).toContainText("Comment · line");
+  await sheet.locator("textarea").fill("Who asked for this?");
+  await sheet.getByRole("button", { name: "Add to review" }).click();
+  await expect(us3.locator(".draft-comment")).toContainText("Who asked for this?");
+
+  // And a requirement the pull request left alone, where its diff shows it.
+  await retries.getByRole("button", { name: /unchanged requirement/ }).click();
+  const r2 = retries.locator('.spec-diff-req[data-req="R2"]');
+  await r2.getByRole("button", { name: "Comment on R2" }).click();
+  await sheet.locator("textarea").fill("Still true with 429s?");
+  await sheet.getByRole("button", { name: "Add to review" }).click();
+  await expect(r2.locator(".draft-comment")).toContainText("Still true with 429s?");
+
   // So does a field of the item.
   await retries.getByRole("button", { name: "Comment on the status" }).click();
   await expect(sheet.locator(".dl.add")).toContainText('"status": "draft"');
@@ -79,11 +96,13 @@ test("a comment on a requirement lands on its line of the file and shows at the 
   await retries.getByRole("button", { name: "File actions" }).click();
   await page.getByRole("menuitem", { name: "Show the JSON diff" }).click();
   const json = file(page, ".spec/uploads/retries.json");
+  // Diffs mount when they come near the viewport.
+  await json.scrollIntoViewIfNeeded();
   await expect(json.locator(".diff-body")).toBeVisible();
-  await expect(json.locator(".draft-comment")).toHaveCount(2);
+  await expect(json.locator(".draft-comment")).toHaveCount(4);
   await json.getByRole("button", { name: "File actions" }).click();
   await page.getByRole("menuitem", { name: "Show what changed in the spec" }).click();
-  await expect((await shown(page, "uploads/retries")).locator(".draft-comment")).toHaveCount(2);
+  await expect((await shown(page, "uploads/retries")).locator(".draft-comment")).toHaveCount(4);
 });
 
 test("an item is marked viewed like the file it is", async ({ page }) => {

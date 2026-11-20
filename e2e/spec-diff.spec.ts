@@ -44,8 +44,8 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await retries.getByRole("button", { name: "1 unchanged requirement" }).click();
   await expect(retries.locator('.spec-diff-req[data-kind="unchanged"] .spec-req-id')).toHaveText("R2");
   // A reworded requirement: both texts, with the words that differ marked.
-  await expect(requirements.nth(0).locator('.spec-diff-line[data-kind="removed"] mark')).toHaveText(["five"]);
-  await expect(requirements.nth(0).locator('.spec-diff-line[data-kind="added"] mark')).toContainText(["429", "three"]);
+  await expect(requirements.nth(0).locator(".spec-diff-inline del")).toHaveText(["five"]);
+  await expect(requirements.nth(0).locator(".spec-diff-inline ins")).toContainText(["429", "three"]);
   // Its meaning changed, so it is a new version, and says why.
   await expect(requirements.nth(0).locator(".spec-diff-version")).toContainText("Version 1 → 2");
   await expect(requirements.nth(0).locator(".spec-diff-version")).toContainText("Why it changed Five retries kept phones awake for minutes.");
@@ -107,4 +107,40 @@ test("the changes can be narrowed to a kind, and to what promises less", async (
   await activeScreen(page).locator(".spec-weakened").getByRole("button", { name: "Command line C1" }).click();
   await expect(activeScreen(page).getByRole("radio", { name: /All/ })).toBeChecked();
   await expect(item(page, "cli")).toBeInViewport();
+});
+
+test("long text is compared paragraph by paragraph, with what didn't change folded away", async ({ page }) => {
+  await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
+  const prose = item(page, "uploads/retries").locator(".spec-prose").first();
+  // On a phone: one column. A reworded paragraph is one text; a new list item is whole.
+  await expect(prose.locator(".spec-split-row")).toHaveCount(0);
+  await expect(prose.locator('.spec-prose-block[data-kind="added"]')).toHaveText("a retry waits as long as the server asks");
+  await expect(prose.locator(".spec-diff-inline del")).toHaveText(["last", "last"]);
+  await expect(prose.locator(".spec-diff-inline ins")).toContainText(["third", "first"]);
+  // What is far from any change is one line, until asked for.
+  await expect(prose).not.toContainText("Networks drop.");
+  await prose.getByRole("button", { name: "3 unchanged paragraphs" }).click();
+  await expect(prose).toContainText("Networks drop.");
+});
+
+test.describe("in a wide window", () => {
+  test.use({ viewport: { width: 1280, height: 860 }, hasTouch: false, isMobile: false });
+
+  test("the old is beside the new, each with its changed words marked", async ({ page }) => {
+    await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
+    const r1 = item(page, "uploads/retries").locator('.spec-diff-req[data-req="R1"]');
+    await expect(r1.locator('.spec-split-cell[data-side="before"]')).toHaveText("An upload that fails with a network error or a 5xx response is retried, up to five times.");
+    await expect(r1.locator('.spec-split-cell[data-side="before"] mark')).toHaveText(["five"]);
+    await expect(r1.locator('.spec-split-cell[data-side="after"] mark')).toContainText(["429", "three"]);
+    const [before, after] = [await r1.locator('.spec-split-cell[data-side="before"]').boundingBox(), await r1.locator('.spec-split-cell[data-side="after"]').boundingBox()];
+    expect(after?.x ?? 0).toBeGreaterThan((before?.x ?? 0) + (before?.width ?? 0) - 1);
+    expect(Math.abs((after?.y ?? 0) - (before?.y ?? 1000))).toBeLessThan(2);
+
+    // One column is a button away, and comes back.
+    await page.getByRole("button", { name: "Show in one column" }).click();
+    await expect(r1.locator(".spec-split-row")).toHaveCount(0);
+    await expect(r1.locator(".spec-diff-inline del")).toHaveText(["five"]);
+    await page.getByRole("button", { name: "Show side by side" }).click();
+    await expect(r1.locator(".spec-split-row")).toHaveCount(1);
+  });
 });

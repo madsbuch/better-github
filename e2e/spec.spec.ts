@@ -231,7 +231,7 @@ test("comparing two versions of a huge spec reads only what differs", async ({ p
   const changed = activeScreen(page).locator(".spec-change");
   await expect(changed.locator(".spec-change-title")).toHaveText(["Feature 7.1", "Feature 7.2", "Feature 7.3", "Feature 7.new"]);
   await expect(changed.nth(0).locator(".dir")).toHaveText("Area 7 / ");
-  await expect(changed.nth(0).locator('.spec-diff-line[data-kind="added"] mark')).toHaveText("100");
+  await expect(changed.nth(0).locator(".spec-diff-inline ins")).toHaveText("100");
   // Three changed items on each side, one new, and the folders above them for their names: 9 of 6,083 files.
   expect(read.reduce((sum, count) => sum + count, 0)).toBe(9);
 });

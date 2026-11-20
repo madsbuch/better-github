@@ -10,7 +10,7 @@ import { repoQueries } from "../queries/repos";
 import { useSpecDiff } from "../queries/spec";
 import { BranchSheet } from "../components/BranchSheet";
 import { Screen } from "../components/Screen";
-import { SpecChangeCard, SpecChangesSummary } from "../components/SpecChanges";
+import { SpecChangeCard, SpecChangesSummary, SpecLayoutButton } from "../components/SpecChanges";
 import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
 
 const route = getRouteApi("/$owner/$repo/spec-diff");
@@ -56,7 +56,7 @@ export function SpecDiffScreen() {
   };
 
   return (
-    <Screen title="Spec changes" subtitle={`${owner}/${repo}`} onRefresh={async () => retry()}>
+    <Screen title="Spec changes" subtitle={`${owner}/${repo}`} onRefresh={async () => retry()} actions={<SpecLayoutButton />}>
       {guest ? (
         <EmptyState icon={<LockIcon size={32} />} title="Sign in to compare specs">
           Reading a repository's {SPEC_DIR} folder needs a GitHub account.

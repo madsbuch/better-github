@@ -236,10 +236,10 @@ export interface InlinePart {
  * what was put in marked where it happened: how an edit to a sentence reads
  * best. Null when they have too little in common for that to help.
  */
-export function inlineDiff(oldText: string, newText: string): InlinePart[] | null {
+export function inlineDiff(oldText: string, newText: string, maxTokens = MAX_TOKENS): InlinePart[] | null {
   const a = tokenize(oldText);
   const b = tokenize(newText);
-  if (a.length === 0 || b.length === 0 || a.length > MAX_TOKENS || b.length > MAX_TOKENS) return null;
+  if (a.length === 0 || b.length === 0 || a.length > maxTokens || b.length > maxTokens) return null;
   const dp: Uint16Array[] = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
   const lcs = (i: number, j: number): number => dp[i]?.[j] ?? 0;
   for (let i = a.length - 1; i >= 0; i--) {

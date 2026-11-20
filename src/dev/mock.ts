@@ -205,7 +205,8 @@ const ROCKET_SPEC: Record<string, unknown> = {
     summary: "A failed upload is tried again, with growing pauses.",
     status: "accepted",
     order: 1,
-    description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
+    description:
+      "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has\n\nA retry is never visible to the caller, except as time.\n\nWhat counts as a reason that may pass is decided by the server's answer, not by the client's guess.\n\nRetries stop when the caller cancels.\n\nAn upload that still fails after the last retry fails the caller with the last error.",
     stories: [
       { id: "US-1", as: "a commuter sending a file from a train", want: "the upload to survive the tunnel", soThat: "I don't have to start it again", requirements: ["#R1", "#R2"] },
       { id: "US-2", as: "a developer calling `upload`", want: "to stop an upload that is waiting to retry", requirements: ["#R4"] },
@@ -264,7 +265,8 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
     summary: "A failed upload is tried again, with growing pauses.",
     status: "draft",
     order: 1,
-    description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
+    description:
+      "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has\n- a retry waits as long as the server asks\n\nA retry is never visible to the caller, except as time.\n\nWhat counts as a reason that may pass is decided by the server's answer, not by the client's guess.\n\nRetries stop when the caller cancels.\n\nAn upload that still fails after the third retry fails the caller with the first error it met.",
     stories: [
       { id: "US-1", as: "a commuter sending a file from a train", want: "the upload to survive the tunnel", soThat: "my phone can stay in my pocket", requirements: ["#R1", "#R2"] },
       {

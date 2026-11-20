@@ -4,15 +4,17 @@
 // state, and the comments on the file's lines shown at the requirement or
 // field those lines belong to.
 
-import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon } from "@primer/octicons-react";
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ColumnsIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon, RowsIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { anchorKey, inlineDiff, wordDiff, type Hunk, type Segment, type Side } from "../lib/diff";
+import { anchorKey, type Hunk, type Segment, type Side } from "../lib/diff";
 import { to } from "../lib/nav";
+import { setPref, useMediaQuery, usePrefs } from "../lib/prefs";
 import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStatus, type SpecStory } from "../lib/spec";
 import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange } from "../lib/specDiff";
 import { commentLine, entrySpan, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
+import { foldUnchanged, proseDiff, proseUnits, sideParts, type ProseBlock } from "../lib/specProse";
 import { repoQueries } from "../queries/repos";
 import { CheckText } from "./ReviewRules";
 
@@ -46,11 +48,11 @@ export interface SpecFileReview {
 }
 
 /**
- * How changed text is shown. Reading (the pull request's Spec tab): one text,
- * with what went out struck through and what came in marked, the way an
- * edited sentence reads. Otherwise the old line above the new one.
+ * Set for a part that is new or gone as a whole. Its text is then simply its
+ * text, to be read: marking every line of a new part as added says nothing
+ * the card's "Added" doesn't.
  */
-const ReadingContext = createContext(false);
+const WholeContext = createContext(false);
 
 const KIND_LABEL: Record<ItemKind, string> = { added: "Added", removed: "Removed", changed: "Changed", moved: "Moved" };
 const KIND_SIGN: Record<ItemKind, string> = { added: "+", removed: "−", changed: "~", moved: "→" };
@@ -201,9 +203,9 @@ export function SpecChangeCard(props: CardProps) {
       {!collapsed && (
         <LazyMount>
           {props.top}
-          <ReadingContext.Provider value={props.reading === true}>
-            <CardBody {...props} />
-          </ReadingContext.Provider>
+            <WholeContext.Provider value={change.kind === "added" || change.kind === "removed"}>
+              <CardBody {...props} />
+            </WholeContext.Provider>
         </LazyMount>
       )}
     </div>
@@ -237,6 +239,7 @@ interface Spans {
 }
 
 function CardBody({ change, sides, review }: CardProps) {
+  const node = change.after ?? change.before;
   // Where each part of the item is in its file, on each side.
   const lines = useMemo(() => {
     const [before, after] = [review?.text.before ?? null, review?.text.after ?? null];
@@ -280,7 +283,13 @@ function CardBody({ change, sides, review }: CardProps) {
     return {
       button:
         review && target ? (
-          <button className="icon-btn sm spec-comment-btn" aria-label={`Comment on ${label}`} onClick={() => review.onComment(target)}>
+          <button
+            className="icon-btn sm spec-comment-btn"
+            aria-label={`Comment on ${label}`}
+            // Where the comment lands: a line of the part's file, as in the pull request's Files tab.
+            title={`Comment on line ${target.number} of ${node?.file ?? "the file"}`}
+            onClick={() => review.onComment(target)}
+          >
             <CommentIcon size={16} />
           </button>
         ) : null,
@@ -333,11 +342,14 @@ function CardBody({ change, sides, review }: CardProps) {
           )}
           {(change.requirements.length > 0 || change.unchanged.length > 0) && (
             <Section title="Requirements">
-              {change.requirements.map((requirement) => {
-                const talk = discuss(`requirement:${requirement.id}`, lines.requirement(requirement.id), requirement.id);
-                return <Requirement key={requirement.id} change={requirement} action={talk.button} comments={talk.comments} selected={talk.selected} />;
-              })}
-              <Unchanged requirements={change.unchanged} comments={(id) => placed.byPart.get(`requirement:${id}`)} />
+              {/* A part that is new or gone as a whole can have dozens: the first few, and the rest on demand. */}
+              <Capped limit={whole ? WHOLE_SHOWN : Infinity} noun="requirement" open={change.requirements.some((r) => placed.byPart.has(`requirement:${r.id}`))}>
+                {change.requirements.map((requirement) => {
+                  const talk = discuss(`requirement:${requirement.id}`, lines.requirement(requirement.id), requirement.id);
+                  return <Requirement key={requirement.id} change={requirement} action={talk.button} comments={talk.comments} selected={talk.selected} />;
+                })}
+              </Capped>
+              <Unchanged requirements={change.unchanged} talk={(id) => discuss(`requirement:${id}`, lines.requirement(id), id)} discussed={(id) => placed.byPart.has(`requirement:${id}`)} />
             </Section>
           )}
           {change.figures.length > 0 && (
@@ -381,9 +393,36 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
   );
 }
 
+/** How many requirements of a part that is new or gone as a whole are shown before asking. */
+const WHOLE_SHOWN = 6;
+
+/** The first `limit` of its children, and a button for the rest. `open`: start with all of them. */
+function Capped({ limit, noun, open: startOpen, children }: { limit: number; noun: string; open: boolean; children: ReactNode[] }) {
+  const [open, setOpen] = useState(startOpen);
+  // One more than the limit isn't worth a button.
+  if (open || startOpen || children.length <= limit + 1) return <>{children}</>;
+  return (
+    <>
+      {children.slice(0, limit)}
+      <button className="spec-prose-fold" onClick={() => setOpen(true)} aria-expanded={false}>
+        <ChevronRightIcon size={12} /> {plural(children.length - limit, `more ${noun}`)}
+      </button>
+    </>
+  );
+}
+
 /** The requirements a change left alone, folded away: context for the ones it didn't. */
-function Unchanged({ requirements, comments }: { requirements: SpecRequirement[]; comments: (id: string) => ReactNode[] | undefined }) {
-  const discussed = requirements.some((r) => comments(r.id) !== undefined);
+function Unchanged({
+  requirements,
+  talk,
+  discussed: has,
+}: {
+  requirements: SpecRequirement[];
+  /** The comments on one, and the button to add one where the pull request's diff reaches it. */
+  talk: (id: string) => { button: ReactNode; comments: ReactNode; selected: boolean };
+  discussed: (id: string) => boolean;
+}) {
+  const discussed = requirements.some((r) => has(r.id));
   const [open, setOpen] = useState(false);
   if (requirements.length === 0) return null;
   return (
@@ -393,21 +432,23 @@ function Unchanged({ requirements, comments }: { requirements: SpecRequirement[]
       </button>
       {(open || discussed) &&
         requirements.map((requirement) => {
-          const own = comments(requirement.id);
           // Folded, only the ones under discussion show.
-          if (!open && own === undefined) return null;
+          if (!open && !has(requirement.id)) return null;
+          const own = talk(requirement.id);
           return (
-            <div key={requirement.id} className="spec-diff-req" data-kind="unchanged" data-req={requirement.id}>
+            <div key={requirement.id} className="spec-diff-req" data-kind="unchanged" data-req={requirement.id} data-selected={own.selected}>
               <div className="spec-req-head">
                 <span className="spec-req-id">{requirement.id}</span>
                 <span className="spec-level" data-level={levelOf(requirement)}>
                   {levelOf(requirement)}
                 </span>
+                <span className="grow" />
+                {own.button}
               </div>
               <div className="spec-diff-same">
                 <CheckText text={requirement.text} />
               </div>
-              {own !== undefined && <div className="spec-comments">{own}</div>}
+              {own.comments}
             </div>
           );
         })}
@@ -433,24 +474,172 @@ function Line({ kind, text, segments }: { kind: "added" | "removed"; text: strin
   );
 }
 
-/** Text that changed: the old line and the new one, with the words that differ marked. */
-function TextChange({ before, after }: { before: string | undefined; after: string | undefined }) {
-  const reading = useContext(ReadingContext);
-  const inline = reading && before !== undefined && after !== undefined ? inlineDiff(before, after) : null;
-  if (inline !== null) {
+/** A reworded text's old side (what went out marked) or new side (what came in marked). */
+function Marked({ block, side }: { block: Extract<ProseBlock, { kind: "changed" }>; side: "before" | "after" }) {
+  return <>{sideParts(block.parts, side).map((part, i) => (part.marked ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>))}</>;
+}
+
+/** A row of a compared text: what a paragraph or list item was, and what it is. */
+interface ProseRow {
+  kind: "same" | "changed" | "added" | "removed" | "replaced";
+  before: ProseBlock | null;
+  after: ProseBlock | null;
+}
+
+/** Blocks as rows: something taken out next to something put in is one row, old beside new. */
+function proseRows(blocks: ProseBlock[]): ProseRow[] {
+  const rows: ProseRow[] = [];
+  let index = 0;
+  while (index < blocks.length) {
+    const block = blocks[index];
+    if (block === undefined) break;
+    if (block.kind === "same" || block.kind === "changed") {
+      rows.push({ kind: block.kind, before: block, after: block });
+      index++;
+      continue;
+    }
+    const run: ProseBlock[] = [];
+    while (index < blocks.length && (blocks[index]?.kind === "removed" || blocks[index]?.kind === "added")) {
+      const next = blocks[index];
+      if (next !== undefined) run.push(next);
+      index++;
+    }
+    const [removed, added] = [run.filter((b) => b.kind === "removed"), run.filter((b) => b.kind === "added")];
+    for (let k = 0; k < Math.max(removed.length, added.length); k++) {
+      const [before, after] = [removed[k] ?? null, added[k] ?? null];
+      rows.push({ kind: before !== null && after !== null ? "replaced" : before !== null ? "removed" : "added", before, after });
+    }
+  }
+  return rows;
+}
+
+function Cell({ block, side, kind }: { block: ProseBlock | null; side: "before" | "after"; kind: ProseRow["kind"] }) {
+  if (block === null) return <div className="spec-split-cell" data-side={side} data-kind="none" aria-hidden />;
+  const state = kind === "same" ? "same" : side === "before" ? "removed" : "added";
+  return (
+    <div className="spec-split-cell" data-side={side} data-kind={state} data-list={block.list}>
+      {block.kind === "changed" ? <Marked block={block} side={side} /> : <CheckText text={block.text} />}
+    </div>
+  );
+}
+
+/** One column: a reworded text reads as one text, with what went out struck through and what came in marked. */
+function UnifiedRow({ row }: { row: ProseRow }) {
+  const one = (block: ProseBlock, kind: "same" | "added" | "removed") => (
+    <div className="spec-prose-block" data-kind={kind} data-list={block.list}>
+      <CheckText text={block.text} />
+    </div>
+  );
+  if (row.before !== null && row.before.kind === "changed") {
     return (
-      <p className="spec-diff-inline">
-        {inline.map((part, i) => (part.kind === "del" ? <del key={i}>{part.text}</del> : part.kind === "ins" ? <ins key={i}>{part.text}</ins> : <span key={i}>{part.text}</span>))}
-      </p>
+      <div className="spec-prose-block spec-diff-inline" data-kind="changed" data-list={row.before.list}>
+        {row.before.parts.map((part, i) => (part.kind === "del" ? <del key={i}>{part.text}</del> : part.kind === "ins" ? <ins key={i}>{part.text}</ins> : <span key={i}>{part.text}</span>))}
+      </div>
     );
   }
-  const words = before !== undefined && after !== undefined ? wordDiff(before, after) : null;
+  if (row.kind === "same" && row.after !== null) return one(row.after, "same");
   return (
     <>
-      {before !== undefined && <Line kind="removed" text={before} segments={words?.[0]} />}
-      {after !== undefined && <Line kind="added" text={after} segments={words?.[1]} />}
+      {row.before !== null && one(row.before, "removed")}
+      {row.after !== null && one(row.after, "added")}
     </>
   );
+}
+
+function ProseRows({ rows, split }: { rows: ProseRow[]; split: boolean }) {
+  return (
+    <>
+      {rows.map((row, i) =>
+        split ? (
+          <div key={i} className="spec-split-row" data-kind={row.kind}>
+            <Cell block={row.before} side="before" kind={row.kind} />
+            <Cell block={row.after} side="after" kind={row.kind} />
+          </div>
+        ) : (
+          <UnifiedRow key={i} row={row} />
+        ),
+      )}
+    </>
+  );
+}
+
+/** Unchanged paragraphs away from any change, folded: there to open, not to wade through. */
+function ProseFold({ blocks, split }: { blocks: ProseBlock[]; split: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (open) return <ProseRows rows={proseRows(blocks)} split={split} />;
+  return (
+    <button className="spec-prose-fold" onClick={() => setOpen(true)} aria-expanded={false}>
+      <ChevronRightIcon size={12} /> {plural(blocks.length, "unchanged paragraph")}
+    </button>
+  );
+}
+
+/** Whether a change to the spec's text shows the old beside the new: the preference, in a window with room for it. */
+function useSplitSpec(): boolean {
+  const wide = useMediaQuery(SPLIT_SPEC_QUERY);
+  return usePrefs().splitDiff && wide;
+}
+
+/** From this width, a sentence has room next to what it used to say. */
+export const SPLIT_SPEC_QUERY = "(min-width: 900px)";
+
+/** App bar button: old beside new, or one column. Only where there is room for the choice. */
+export function SpecLayoutButton() {
+  const prefs = usePrefs();
+  const wide = useMediaQuery(SPLIT_SPEC_QUERY);
+  if (!wide) return null;
+  const split = prefs.splitDiff;
+  return (
+    <button className="icon-btn" aria-label={split ? "Show in one column" : "Show side by side"} onClick={() => setPref("splitDiff", !split)}>
+      {split ? <RowsIcon size={18} /> : <ColumnsIcon size={18} />}
+    </button>
+  );
+}
+
+/**
+ * A text of the spec compared with what it was, as prose: paragraph by
+ * paragraph and list item by list item, each one unchanged, reworded (the
+ * words that changed marked), new or taken out. In a wide window the old
+ * is beside the new.
+ */
+function Prose({ before, after }: { before: string | undefined; after: string | undefined }) {
+  const split = useSplitSpec();
+  const stretches = useMemo(() => foldUnchanged(proseDiff(before, after)), [before, after]);
+  return (
+    <div className={split ? "spec-prose spec-split" : "spec-prose"}>
+      {stretches.map((stretch, i) => (stretch.fold ? <ProseFold key={i} blocks={stretch.blocks} split={split} /> : <ProseRows key={i} rows={proseRows(stretch.blocks)} split={split} />))}
+    </div>
+  );
+}
+
+/** Longer than this, a text that is only there to be read starts shortened. */
+const PLAIN_CHARS = 420;
+
+/** A text as it reads, with its paragraphs and lists; a long one starts shortened. */
+function PlainProse({ text }: { text: string }) {
+  const rows = useMemo(() => proseRows(proseUnits(text).map((unit): ProseBlock => ({ kind: "same", ...unit }))), [text]);
+  const long = text.length > PLAIN_CHARS;
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="spec-prose">
+      <div className={long && !open ? "spec-prose-clamp" : undefined}>
+        <ProseRows rows={rows} split={false} />
+      </div>
+      {long && (
+        <button className="spec-prose-fold" onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />} {open ? "Show less" : "Show all of it"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Text that changed. */
+function TextChange({ before, after }: { before: string | undefined; after: string | undefined }) {
+  const whole = useContext(WholeContext);
+  // Part of something new or gone as a whole: nothing to compare it with, so it is simply read.
+  if (whole) return <PlainProse text={after ?? before ?? ""} />;
+  return <Prose before={before} after={after} />;
 }
 
 const FIELD_LABEL: Record<FieldChange["field"], string> = {
@@ -510,6 +699,7 @@ function Story({ change, action, comments, selected }: { change: StoryChange; ac
   if (shown === null) return null;
   const [was, is] = [before === null ? null : storySentence(before), after === null ? null : storySentence(after)];
   const refs = (story: SpecStory) => (story.requirements ?? []).map((ref) => ref.replace(/^#/, "")).join(", ");
+  const whole = useContext(WholeContext);
   return (
     <div className="spec-diff-req spec-diff-story" data-kind={change.kind} data-story={change.id} data-selected={selected}>
       <div className="spec-req-head">
@@ -520,12 +710,18 @@ function Story({ change, action, comments, selected }: { change: StoryChange; ac
             <AlertIcon size={12} /> Takes away
           </span>
         )}
-        <span className="spec-diff-kind" data-kind={change.kind}>
-          {REQUIREMENT_KIND[change.kind]}
-        </span>
+        {!whole && (
+          <span className="spec-diff-kind" data-kind={change.kind}>
+            {REQUIREMENT_KIND[change.kind]}
+          </span>
+        )}
         {action}
       </div>
-      {was !== null && is !== null ? (
+      {whole ? (
+        <div className="spec-diff-same spec-whole-text">
+          <PlainProse text={storySentence(shown)} />
+        </div>
+      ) : was !== null && is !== null ? (
         was !== is ? (
           <TextChange before={was} after={is} />
         ) : (
@@ -560,11 +756,12 @@ function Story({ change, action, comments, selected }: { change: StoryChange; ac
 }
 
 function Requirement({ change, action, comments, selected }: { change: RequirementChange; action: ReactNode; comments: ReactNode; selected: boolean }) {
+  const whole = useContext(WholeContext);
   const { before, after } = change;
   const shown = after ?? before;
   if (shown === null) return null;
   return (
-    <div className="spec-diff-req" data-kind={change.kind} data-req={change.id} data-selected={selected}>
+    <div className="spec-diff-req" data-kind={change.kind} data-req={change.id} data-selected={selected} data-whole={whole}>
       <div className="spec-req-head">
         <span className="spec-req-id">{change.id}</span>
         <span className="spec-level" data-level={levelOf(shown)}>
@@ -576,9 +773,12 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
             <AlertIcon size={12} /> Takes away
           </span>
         )}
-        <span className="spec-diff-kind" data-kind={change.moved !== null ? "moved" : change.kind}>
-          {change.moved !== null ? "Moved" : REQUIREMENT_KIND[change.kind]}
-        </span>
+        {/* In a part that is new or gone as a whole, every requirement is: no need to say so on each. */}
+        {(!whole || change.moved !== null) && (
+          <span className="spec-diff-kind" data-kind={change.moved !== null ? "moved" : change.kind}>
+            {change.moved !== null ? "Moved" : REQUIREMENT_KIND[change.kind]}
+          </span>
+        )}
         {action}
       </div>
       {change.moved !== null && (
@@ -601,6 +801,10 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
             <CheckText text={after.text} />
           </div>
         )
+      ) : whole ? (
+        <div className="spec-diff-same spec-whole-text">
+          <PlainProse text={shown.text} />
+        </div>
       ) : (
         <Line kind={after !== null ? "added" : "removed"} text={shown.text} />
       )}

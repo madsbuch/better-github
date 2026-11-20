@@ -2641,7 +2641,7 @@ kbd {
   margin-top: 0;
 }
 
-/* Comment buttons stay out of the way until a part is pointed at or focused. */
+/* Always there: a part that can be commented on says so. */
 .spec-comment-btn {
   color: var(--fg-muted);
 }
@@ -2689,15 +2689,8 @@ kbd {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .spec-comment-btn {
-    opacity: 0;
-  }
-
-  .spec-diff-req:hover .spec-comment-btn,
-  .spec-part:hover .spec-comment-btn,
-  .spec-change-body section:hover > h3 .spec-comment-btn,
-  .spec-comment-btn:focus-visible {
-    opacity: 1;
+  .spec-comment-btn:hover {
+    color: var(--accent);
   }
 }
 
@@ -2868,29 +2861,6 @@ kbd {
 
 .spec-change.reading .diff-file-header .path {
   font-size: 17px;
-}
-
-.spec-diff-inline {
-  margin: 0;
-  padding: 4px 12px;
-  overflow-wrap: anywhere;
-}
-
-.spec-diff-inline del {
-  border-radius: 3px;
-  background: var(--diff-del-bg);
-  color: var(--fg-muted);
-  text-decoration: line-through;
-}
-
-.spec-diff-inline ins {
-  border-radius: 3px;
-  background: var(--diff-add-word);
-  text-decoration: none;
-}
-
-.spec-diff-req .spec-diff-inline {
-  padding-bottom: 8px;
 }
 
 .spec-tab-contents {
@@ -3130,4 +3100,140 @@ kbd {
 
 .settings.two-panes .settings-menu {
   align-self: flex-start;
+}
+
+/* ------------------------------------------------------------- spec prose */
+
+/* A compared text, read as text: paragraphs and list items, each unchanged,
+   reworded (the words that changed marked), new or taken out. */
+.spec-prose {
+  padding: 2px 12px 4px;
+  overflow-wrap: anywhere;
+}
+
+.spec-prose-block,
+.spec-split-cell {
+  margin: 0;
+  padding: 3px 8px;
+  border-left: 3px solid transparent;
+  border-radius: 3px;
+}
+
+.spec-prose-block + .spec-prose-block,
+.spec-split-row + .spec-split-row {
+  margin-top: 4px;
+}
+
+/* A list item keeps its bullet, whichever side it is on. */
+.spec-prose [data-list="true"] {
+  padding-left: 24px;
+  background-image: radial-gradient(circle, currentColor 2.5px, transparent 3px);
+  background-repeat: no-repeat;
+  background-position: 9px 0.72em;
+  background-size: 6px 6px;
+}
+
+.spec-prose [data-kind="same"] {
+  color: var(--fg-muted);
+}
+
+.spec-prose [data-kind="added"] {
+  border-left-color: var(--success);
+  background-color: var(--diff-add-bg);
+}
+
+.spec-prose [data-kind="removed"] {
+  border-left-color: var(--danger);
+  background-color: var(--diff-del-bg);
+}
+
+/* One column: a paragraph taken out is struck through, a reworded one is one text. */
+.spec-prose-block[data-kind="removed"] {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--danger) 50%, transparent);
+}
+
+.spec-prose-block[data-kind="changed"] {
+  border-left-color: var(--attention);
+}
+
+.spec-diff-inline del {
+  border-radius: 3px;
+  background: var(--diff-del-word);
+  color: var(--fg-muted);
+  text-decoration: line-through;
+}
+
+.spec-diff-inline ins {
+  border-radius: 3px;
+  background: var(--diff-add-word);
+  text-decoration: none;
+}
+
+/* Side by side: what it said on the left, what it says on the right. */
+.spec-split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.spec-split-cell mark {
+  border-radius: 3px;
+  color: inherit;
+}
+
+.spec-split-cell[data-kind="removed"] mark {
+  background: var(--diff-del-word);
+}
+
+.spec-split-cell[data-kind="added"] mark {
+  background: var(--diff-add-word);
+}
+
+/* Nothing on this side: the other side is new, or gone. */
+.spec-split-cell[data-kind="none"] {
+  background-image: repeating-linear-gradient(-45deg, transparent 0 6px, var(--border-muted) 6px 7px);
+  opacity: 0.6;
+}
+
+.spec-prose-fold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: 2px 0;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font);
+  font-size: 13px;
+}
+
+section > .spec-prose-fold {
+  margin-left: 12px;
+}
+
+/* A long text that is only there to be read starts as its first lines. */
+.spec-prose-clamp {
+  max-height: 7.5em;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+/* A part that is new or gone as a whole reads as itself; the card says which. */
+.spec-whole-text {
+  padding: 0 0 4px;
+}
+
+.spec-whole-text .spec-prose [data-kind="same"],
+.spec-change[data-kind="added"] .spec-prose [data-kind="same"] {
+  color: var(--fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spec-prose-fold:hover {
+    color: var(--fg);
+  }
 }

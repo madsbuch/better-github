@@ -24,6 +24,7 @@ import { draftKey, useReviewDraft } from "../lib/drafts";
 import { to, useNav, type PullTab } from "../lib/nav";
 import { usePrefs } from "../lib/prefs";
 import { DiffLayoutButtons } from "../components/DiffView";
+import { SpecLayoutButton } from "../components/SpecChanges";
 import { useViewer } from "../lib/session";
 import { useToast } from "../lib/toast";
 import type { StatusState, UpdateBranchMethod } from "../lib/types";
@@ -138,6 +139,7 @@ export function PullScreen() {
       subtitle={`${owner}/${repo} #${number}`}
       actions={
         <>
+          {tab === "spec" && <SpecLayoutButton />}
           {tab === "files" && (
             <>
               <DiffLayoutButtons />
