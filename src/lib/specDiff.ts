@@ -160,6 +160,8 @@ function requirementWeakened(before: SpecRequirement | null, after: SpecRequirem
   if (LEVEL_RANK[next] < LEVEL_RANK[level]) return `Lowered from ${level} to ${next}.`;
   // A requirement that only follows its item's status isn't flagged again for the item's step back.
   if (before.status === undefined && after.status === undefined) return null;
+  // A new version isn't implemented yet: going back to accepted is what that looks like.
+  if (requirementVersion(after) > requirementVersion(before) && nextStatus !== "draft") return null;
   return statusStepBack(status, nextStatus);
 }
 

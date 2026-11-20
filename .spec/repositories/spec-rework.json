@@ -1,0 +1,75 @@
+{
+  "$schema": "../../schema/spec.schema.json",
+  "title": "Reworking a spec",
+  "summary": "Revise, deprecate and add requirements while reading, then hand the changes to a coding agent.",
+  "status": "implemented",
+  "order": 3,
+  "description": "Reading a spec is when what is wrong with it shows. The spec browser can be switched to reworking: the same pages, with the means to change them.\n\nThe app never writes to the repository. What it produces is a handover: the change to the spec, for a coding agent to make together with the change to the code.",
+  "requirements": [
+    {
+      "id": "RW1",
+      "text": "Reworking is switched on and off in the spec browser. While it is on, the spec is shown with the changes made; while it is off, as the repository has it."
+    },
+    {
+      "id": "RW2",
+      "text": "The changes are kept on the device per repository and branch, survive leaving the app, and are never written to the repository."
+    },
+    {
+      "id": "RW3",
+      "text": "A requirement can be revised. A revision that changes what it means, or how binding it is, needs a reason and becomes a new version, with what it said recorded in its history. A wording fix keeps its version."
+    },
+    {
+      "id": "RW4",
+      "text": "A requirement can be deprecated, with a reason and optionally what replaces it. It stays in the item."
+    },
+    {
+      "id": "RW5",
+      "text": "A requirement can be added. It is offered an id that continues its item's numbering, and an id already in the spec is refused."
+    },
+    {
+      "id": "RW6",
+      "text": "A part's title, summary, description and status can be edited, and a new part added below any part. Deprecating a part needs a reason."
+    },
+    {
+      "id": "RW7",
+      "text": "A requirement that was implemented and gets a new version, and a new requirement in an implemented part, are marked accepted: the code doesn't do them yet."
+    },
+    {
+      "id": "RW8",
+      "text": "Every change can be undone on its own, and all of them discarded at once."
+    },
+    {
+      "id": "RW9",
+      "text": "The changes are reviewed as a comparison of the spec with and without them, with what takes something away pointed out."
+    },
+    {
+      "id": "RW10",
+      "text": "The handover that is copied states what changed and why for each part, gives the complete new contents of each changed file, and says what to do about the code. It stands on its own."
+    },
+    {
+      "id": "RW11",
+      "text": "The files in the handover fit the schema: the app would read them back without problems."
+    },
+    {
+      "id": "RW12",
+      "text": "A change the repository already has, because it was merged or undone, drops out of the draft by itself."
+    }
+  ],
+  "questions": [
+    "Should requirements be reorderable, and movable to another part?",
+    "Should figures, code paths and related items be editable here too?",
+    "Should the app be able to open the pull request itself, without an agent, for spec-only changes?"
+  ],
+  "code": [
+    "src/lib/specRework.ts",
+    "src/screens/spec/Rework.tsx",
+    "src/screens/SpecScreen.tsx",
+    "e2e/spec-rework.spec.ts"
+  ],
+  "related": [
+    "repositories/spec",
+    "repositories/spec-diff",
+    "#S19",
+    "#S16"
+  ]
+}

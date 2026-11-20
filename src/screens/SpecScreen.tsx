@@ -9,6 +9,7 @@ import {
   GitCompareIcon,
   LockIcon,
   NoteIcon,
+  PencilIcon,
   SearchIcon,
   XIcon,
 } from "@primer/octicons-react";
@@ -39,10 +40,12 @@ import {
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
 import { useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
+import { applyRework, useSpecRework } from "../lib/specRework";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
 import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
+import { AddItem, AddRequirement, ItemTools, RequirementTools, ReworkBar, ReworkContext, useReworking, type Reworking } from "./spec/Rework";
 
 const route = getRouteApi("/$owner/$repo/spec");
 
@@ -65,7 +68,23 @@ export function SpecScreen() {
   const gitRef = search.ref ?? detail.data?.repository?.defaultBranchRef?.name ?? "";
   // Reading the folder in one request needs GitHub's GraphQL API, which needs a token.
   const loaded = useSpec(owner, repo, guest ? "" : gitRef);
-  const spec = loaded.spec;
+  // Reworking: the spec is shown with the changes made here, which stay on the device until they are handed to an agent.
+  const rework = useSpecRework(owner, repo, gitRef);
+  const [original, files] = [loaded.spec, loaded.files];
+  const reworked = useMemo(
+    () => (rework.draft.active && original !== null && files !== null ? applyRework(files, original, rework.draft) : null),
+    [rework.draft, original, files],
+  );
+  const reworking = useMemo(
+    (): Reworking | null => (reworked !== null && original !== null ? { rework, original, reworked, owner, repo, gitRef } : null),
+    [rework, original, reworked, owner, repo, gitRef],
+  );
+  // A change the repository has caught up with (the agent's pull request merged, or it was undone) is no longer a change.
+  const settled = reworked?.settled;
+  useEffect(() => {
+    settled?.forEach((item) => rework.setItem(item, null));
+  }, [settled, rework]);
+  const spec = reworked?.spec ?? loaded.spec;
   const node = spec?.nodes.get(id) ?? null;
   const place: Place = { owner, repo, gitRef };
   // What this page shows: the item, the folders above it, what it links to. Its children ask for themselves as they show.
@@ -81,8 +100,19 @@ export function SpecScreen() {
     <Screen
       title={node !== null && id !== "" ? node.title : "Spec"}
       subtitle={`${owner}/${repo}${gitRef !== "" ? ` · ${gitRef}` : ""}`}
+      footer={reworking !== null && <ReworkBar state={reworking} onDone={() => rework.setActive(false)} />}
       actions={
         <>
+          {!guest && original !== null && (
+            <button
+              className={`icon-btn${rework.draft.active ? " on" : ""}`}
+              aria-label={rework.draft.active ? "Stop reworking the spec" : "Rework the spec"}
+              aria-pressed={rework.draft.active}
+              onClick={() => rework.setActive(!rework.draft.active)}
+            >
+              <PencilIcon size={18} />
+            </button>
+          )}
           {!guest && gitRef !== "" && (
             // From the default branch to the one being read; either side can be changed there.
             <Link {...to.specDiff(owner, repo, undefined, search.ref)} className="icon-btn" aria-label="Compare with another branch">
@@ -133,14 +163,18 @@ export function SpecScreen() {
             <EmptyState title="Not in the spec">
               Nothing on {gitRef} is called <span className="mono">{id}</span>. <Link {...to.spec(owner, repo, gitRef)}>Open the outline</Link>
             </EmptyState>
-          ) : id === "" ? (
-            <Outline spec={spec} loaded={loaded} place={place} initialFilter={search.q ?? ""} />
           ) : (
-            <>
-              <Trail node={node} place={place} />
-              {node.loaded ? <Item spec={spec} node={node} place={place} current={search.r} /> : <SkeletonList rows={4} />}
-              <Children node={node} loaded={loaded} place={place} heading="In this part" />
-            </>
+            <ReworkContext.Provider value={reworking}>
+              {id === "" ? (
+                <Outline spec={spec} loaded={loaded} place={place} initialFilter={search.q ?? ""} />
+              ) : (
+                <>
+                  <Trail node={node} place={place} />
+                  {node.loaded ? <Item spec={spec} node={node} place={place} current={search.r} /> : <SkeletonList rows={4} />}
+                  <Children node={node} loaded={loaded} place={place} heading="In this part" />
+                </>
+              )}
+            </ReworkContext.Provider>
           )}
           {loaded.contentsError !== null && (
             <div className="banner banner-danger">
@@ -339,12 +373,13 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
   const code = item?.code ?? [];
   const related = item?.related ?? [];
 
+  const reworking = useReworking() !== null;
   const isDeprecated = (requirement: SpecRequirement) => requirementStatus(item, requirement) === "deprecated";
   const live = requirements.filter((requirement) => !isDeprecated(requirement));
   const deprecated = requirements.filter(isDeprecated);
   const [showDeprecated, setShowDeprecated] = useState(false);
   // Folded away unless asked for, or it's the requirement this page was opened at.
-  const deprecatedOpen = showDeprecated || deprecated.some((requirement) => requirement.id === current);
+  const deprecatedOpen = showDeprecated || reworking || deprecated.some((requirement) => requirement.id === current);
 
   // Opened at one requirement (from a search result or another item): bring it into view.
   useEffect(() => {
@@ -362,6 +397,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
             <CheckText text={item.summary} />
           </p>}
       </header>
+      <ItemTools node={node} />
       {node.error !== null && node.file !== null && (
         <div className="banner banner-danger" style={{ margin: "12px 0" }}>
           <AlertIcon size={16} className="c-danger" />
@@ -388,12 +424,13 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
       {figures.map((figure) => (
         <Figure key={figure.src} figure={figure} place={place} />
       ))}
-      {live.length > 0 && (
+      {(live.length > 0 || (reworking && item !== null)) && (
         <section aria-label="Requirements">
           <h3>Requirements</h3>
           {live.map((requirement) => (
-            <Requirement key={requirement.id} spec={spec} place={place} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
+            <Requirement key={requirement.id} spec={spec} place={place} node={node} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
           ))}
+          <AddRequirement node={node} />
         </section>
       )}
       {deprecated.length > 0 && (
@@ -404,7 +441,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
           </button>
           {deprecatedOpen &&
             deprecated.map((requirement) => (
-              <Requirement key={requirement.id} spec={spec} place={place} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
+              <Requirement key={requirement.id} spec={spec} place={place} node={node} requirement={requirement} inherited={item?.status} current={requirement.id === current} />
             ))}
         </section>
       )}
@@ -527,12 +564,14 @@ function Deprecation({ spec, place, deprecation }: { spec: Spec; place: Place; d
 function Requirement({
   spec,
   place,
+  node,
   requirement,
   inherited,
   current,
 }: {
   spec: Spec;
   place: Place;
+  node: SpecNode;
   requirement: SpecRequirement;
   inherited: SpecStatus | undefined;
   current: boolean;
@@ -561,6 +600,7 @@ function Requirement({
         <SpecText text={requirement.text} />
       </div>
       {deprecated && <Deprecation spec={spec} place={place} deprecation={requirement.deprecation} />}
+      <RequirementTools node={node} requirement={requirement} />
       {showHistory && (
         // Newest first: why it says what it says now, then how it got there.
         <ol className="spec-history" aria-label={`Earlier versions of ${requirement.id}`}>
@@ -617,7 +657,8 @@ function Children({ node, loaded, place, heading }: { node: SpecNode; loaded: Lo
   // The rows on screen need their titles and summaries; the rest wait until they're scrolled to.
   const visible = useMemo(() => node.children.slice(0, shown), [node, shown]);
   useSpecContents(loaded, visible);
-  if (node.children.length === 0) return null;
+  const reworking = useReworking() !== null;
+  if (node.children.length === 0 && !reworking) return null;
   return (
     <section aria-label={heading}>
       <div className="section-title">
@@ -628,6 +669,7 @@ function Children({ node, loaded, place, heading }: { node: SpecNode; loaded: Lo
         <NodeRow key={child.id} node={child} place={place} />
       ))}
       <LoadMore hasMore={node.children.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />
+      <AddItem node={node} />
     </section>
   );
 }

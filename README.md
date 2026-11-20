@@ -224,6 +224,25 @@ takes something away. The changes are measured against the commit the branch sta
 from, so what happened on the base branch since doesn't show up as the pull
 request's doing.
 
+### Reworking a spec
+
+The pencil in the spec browser turns reading into reworking. Each requirement
+gets *Revise* and *Deprecate*, each part *Edit this part*, and there are buttons
+to add a requirement or a part. The forms do the bookkeeping: a revision that
+changes what a requirement means becomes a new version and asks why, a wording
+fix doesn't, a deprecation asks why, a new requirement gets an id nothing else
+in the spec has, and anything not built yet is marked accepted rather than
+implemented.
+
+Nothing is written to the repository. The changes are a draft on the device,
+laid over the spec you are reading, that survives leaving the app; turning the
+pencil off shows the repository's spec again. *Review & copy* shows the draft
+like any change to a spec (what changed, what takes something away) and copies
+a handover for your coding agent: what changed and why, the complete new
+contents of each changed file, and what to do about the code. Once the agent's
+pull request is merged, the draft's changes are the repository's and drop out
+of the draft by themselves.
+
 ### Large specs
 
 A spec's size doesn't matter. The app lists the folder's files in one request and
@@ -383,6 +402,7 @@ src/                  React app
   lib/spec.ts         .spec: the item schema, the outline built from the folder, filtering
   lib/desktop.ts      keyboard shortcuts and mouse behavior for desktop windows
   lib/specDiff.ts     what changed between two specs, by item and requirement
+  lib/specRework.ts   editing a spec as a draft on the device, and the handover for an agent
   lib/specLines.ts    where a requirement is in its file, to put review comments on its lines
   lib/specPrompt.ts   the prompt for a coding agent to write or improve a spec
   screens/            one file per screen; pull/ and actions/ hold their screens' parts

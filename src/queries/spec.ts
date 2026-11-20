@@ -220,6 +220,8 @@ export const SPEC_READ_WHOLE = 300;
 export interface LoadedSpec {
   /** Null while loading, and when the branch has no spec. Items may still be on their way (`node.loaded`). */
   spec: Spec | null;
+  /** The folder's files with the contents read so far; what `spec` is built from. */
+  files: SpecFile[] | null;
   /** Whether the branch has been checked, and its files listed. */
   loaded: boolean;
   isPending: boolean;
@@ -239,7 +241,8 @@ export function useSpec(owner: string, repo: string, ref: string): LoadedSpec {
   const contents = useContentsVersion();
   const files = listing.data;
   // Rebuilt as files arrive (`contents` counts arrivals); each file is only parsed once (see readItem).
-  const spec = useMemo(() => (files === undefined ? null : buildSpec(filesAsOf(files, contents), files.cutOff)), [files, contents]);
+  const read = useMemo(() => (files === undefined ? null : filesAsOf(files, contents)), [files, contents]);
+  const spec = useMemo(() => (read === null ? null : buildSpec(read, files?.cutOff ?? false)), [read, files?.cutOff]);
 
   const want = useCallback(
     (nodes: Iterable<SpecNode>) => {
@@ -263,6 +266,7 @@ export function useSpec(owner: string, repo: string, ref: string): LoadedSpec {
 
   return {
     spec: tree === null ? null : spec,
+    files: tree === null ? null : read,
     loaded: root.isSuccess && (tree === null || listing.isSuccess),
     isPending: root.isPending || (tree !== null && listing.isPending),
     error: root.error ?? listing.error,

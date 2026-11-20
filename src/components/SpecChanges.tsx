@@ -533,7 +533,10 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
       {before !== null && after !== null && (
         <>
           {levelOf(before) !== levelOf(after) && <Move label="Level" before={levelOf(before)} after={levelOf(after)} />}
-          {before.status !== after.status && <Move label="Status" before={statusLabel(before.status)} after={statusLabel(after.status)} />}
+          {before.status !== after.status && (
+            // Without one of its own, a requirement has its item's status.
+            <Move label="Status" before={before.status === undefined ? "its item's" : statusLabel(before.status)} after={after.status === undefined ? "its item's" : statusLabel(after.status)} />
+          )}
         </>
       )}
       {after?.deprecation !== undefined && (
