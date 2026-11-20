@@ -54,7 +54,15 @@
     },
     {
       "id": "S8",
-      "text": "A path under an item's code opens that file or folder in the app."
+      "text": "A path under an item's code opens that file or folder in the app.",
+      "status": "deprecated",
+      "deprecation": {
+        "reason": "Items no longer list code files. A spec says what the product does and isn't tied to any code base, so the format has no field that points into one.",
+        "replacedBy": [
+          "#S22"
+        ],
+        "date": "2026-11-20"
+      }
     },
     {
       "id": "S9",
@@ -119,6 +127,10 @@
       "id": "S21",
       "text": "A reference can name a version of a requirement, as `#S19@1`. A version the requirement hasn't reached leads nowhere.",
       "level": "should"
+    },
+    {
+      "id": "S22",
+      "text": "The format has nothing that points into a code base: no field for files or paths. An item that still has the old `code` list is read without it, and listed as a problem that says to remove it."
     }
   ],
   "figures": [
@@ -132,15 +144,6 @@
     "Should a pull request show which items its changed files belong to, from each item's `code`?",
     "Should requirements name the tests that prove them?",
     "Guests can't browse a spec: reading the folder in one request needs GitHub's GraphQL API, which needs a token. Worth a slower path over REST?"
-  ],
-  "code": [
-    "src/lib/spec.ts",
-    "src/queries/spec.ts",
-    "src/lib/specPrompt.ts",
-    "src/screens/SpecScreen.tsx",
-    "schema/spec.schema.json",
-    "e2e/spec.spec.ts",
-    "spec-llms.txt"
   ],
   "related": [
     "repositories/spec-diff",

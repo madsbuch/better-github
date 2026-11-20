@@ -355,7 +355,7 @@ ${files.map((file) => `### \`${file.path}\`${file.isNew ? " (new)" : ""}\n\n${fi
 
 1. Start from ${branch}, on a new branch. If a file below has changed there since I read it, keep those changes and apply mine on top; don't drop either.
 2. Write the files above.
-3. Make the code do what the spec now says${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. Each item's \`code\` lists where it is implemented. For a new requirement, or a new version of one, change the code and its tests until it holds. For a deprecated one, remove the behavior it described unless its reason says otherwise, and the tests that only checked it.
+3. Make the code do what the spec now says${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. For a new requirement, or a new version of one, change the code and its tests until it holds. For a deprecated one, remove the behavior it described unless its reason says otherwise, and the tests that only checked it.
 4. Set each requirement's \`status\` to \`implemented\` once the code does it and a test, or the code itself, shows it. Leave it \`accepted\` if you couldn't get there, and say so.
 5. Keep the spec's rules:
    - A requirement's \`id\` is unique in the whole spec and never changes or gets reused.

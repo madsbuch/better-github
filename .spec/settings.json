@@ -42,14 +42,6 @@
       "text": "On a desktop, Cmd or Ctrl+comma (and +4) opens Settings."
     }
   ],
-  "code": [
-    "src/screens/SettingsScreen.tsx",
-    "src/routes/settings",
-    "src/lib/theme.ts",
-    "src/lib/prefs.ts",
-    "src/screens/Shell.tsx",
-    "e2e/settings.spec.ts"
-  ],
   "related": [
     "desktop",
     "#K11",

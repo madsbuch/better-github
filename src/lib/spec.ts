@@ -124,10 +124,6 @@ export const SpecItem = z
     requirements: z.array(SpecRequirement).optional(),
     figures: z.array(SpecFigure).optional(),
     questions: z.array(Text).optional().describe("What is still undecided."),
-    code: z
-      .array(RepoPath)
-      .optional()
-      .describe('Where this is implemented: paths from the repository\'s root, or patterns with * and ** ("src/upload/**").'),
     related: z
       .array(z.string().min(1))
       .optional()
@@ -200,7 +196,15 @@ export interface Spec {
 
 const inSpec = (path: string) => `${SPEC_DIR}/${path}`;
 
-type ReadItem = { item: SpecItem } | { error: string };
+/** `notes`: what is wrong with a file that could still be read. */
+type ReadItem = { item: SpecItem; notes: string[] } | { error: string };
+
+/**
+ * Items used to list the files that implement them, as `code`. A spec says
+ * what the product does and is not tied to any code base, so the format no
+ * longer has it. A file that still does is read without it, and says so.
+ */
+const LEGACY_CODE = "`code` is no longer part of the format: a spec doesn't point into a code base. Remove it.";
 
 /** What each file read as, by git object id: a spec is rebuilt as its files arrive, and most don't change. */
 const readItems = new Map<string, ReadItem>();
@@ -224,8 +228,14 @@ function parseItem(file: SpecFile): ReadItem {
   } catch {
     return { error: "The file isn't valid JSON." };
   }
+  const notes: string[] = [];
+  if (typeof value === "object" && value !== null && !Array.isArray(value) && "code" in value) {
+    const { code: _code, ...rest } = value;
+    value = rest;
+    notes.push(LEGACY_CODE);
+  }
   const result = SpecItem.safeParse(value);
-  if (result.success) return { item: result.data };
+  if (result.success) return { item: result.data, notes };
   const issues = result.error.issues.map((issue) => {
     const at = issue.path.map((part) => part.toString()).join(".");
     return at !== "" ? `${at}: ${issue.message}` : issue.message;
@@ -292,6 +302,7 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     } else {
       node.item = read.item;
       node.title = read.item.title;
+      for (const message of read.notes) problems.push({ file: node.file, message });
     }
   }
 
@@ -486,9 +497,6 @@ export function specTextBlocks(text: string): SpecTextBlock[] {
   flush();
   return blocks;
 }
-
-/** Whether a `code` entry is a pattern rather than one path. */
-export const isSpecPattern = (path: string) => path.includes("*");
 
 /** The files a node needs to show properly: its own, its children's, and those of the folders above it. */
 export function specFilesAround(node: SpecNode): SpecNode[] {

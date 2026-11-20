@@ -20,7 +20,7 @@ A fast GitHub client for Android phones and tablets and for the desktop (macOS, 
 - Merge box showing review decision, check status and mergeability, with *Ready for review* and auto-merge controls. Whenever the branch is behind its base, also while merging is blocked for another reason, *Update branch* brings the base in with a merge commit or a rebase (the last one you picked).
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
 - **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and a line above its diff that opens what to check in it, grouped by the rule it comes from. The *Review guide* lists every rule that applies to the pull request once, with the files it covers. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
-- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their requirements, pictures, open questions and the code they cover. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. See [Spec](#spec).
+- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their requirements, pictures and open questions. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. See [Spec](#spec).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
@@ -142,7 +142,6 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   ],
   "figures": [{ "src": "assets/backoff.png", "caption": "Pauses double between attempts." }],
   "questions": ["Should a `429` count as retryable?"],
-  "code": ["src/client.rs", "src/retry/**"],
   "related": ["#ERR-1"]
 }
 ```
@@ -177,9 +176,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   the live ones and aren't counted among them.
 - Text is plain: a blank line starts a paragraph, lines starting with `- ` form
   a list, and `` `backticks` `` mark code.
-- `figures` name pictures by their path from `.spec`. `code` lists paths from
-  the repository's root, or patterns with `*` and `**`. `related` lists ids of
-  other items (`uploads/errors`) or requirements (`#ERR-1`, or `uploads/errors#ERR-1`).
+- `figures` name pictures by their path from `.spec`. `related` lists ids of
+  other items (`uploads/errors`) or requirements (`#ERR-1`, or
+  `uploads/errors#ERR-1`).
+- **A spec is not tied to a code base.** The format has nothing that points at
+  files, folders or functions: those change while the product does the same.
+  Items that still carry the old `code` list are read without it and listed as
+  a problem that says to remove it.
 - Unknown keys are errors, so a typo doesn't silently drop a field. A file the
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.

@@ -199,7 +199,6 @@ const ROCKET_SPEC: Record<string, unknown> = {
     summary: "Sending a file, whatever the network does.",
     order: 1,
     status: "implemented",
-    code: ["src/client.rs", "src"],
   },
   "uploads/retries.json": {
     title: "Retries",
@@ -215,7 +214,6 @@ const ROCKET_SPEC: Record<string, unknown> = {
     ],
     figures: [{ src: "assets/backoff.png", alt: "Pauses of 250 ms, 500 ms, 1 s and 2 s between five attempts", caption: "Pauses double between attempts." }],
     questions: ["Should a `429` count as retryable, honoring `Retry-After`?"],
-    code: ["src/client.rs", "src/retry/**"],
     related: ["uploads/errors#E1", "cli"],
   },
   "uploads/errors.json": {
@@ -282,7 +280,6 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
       { id: "R5", text: "A `Retry-After` header sets the pause before the next retry." },
     ],
     figures: [{ src: "assets/backoff.png", alt: "Pauses of 250 ms and 500 ms between three attempts", caption: "Pauses double between attempts." }],
-    code: ["src/client.rs", "src/retry/**"],
     related: ["uploads/errors#E1", "uploads/resume"],
   },
   "uploads/resume.json": {

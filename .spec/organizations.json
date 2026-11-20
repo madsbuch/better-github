@@ -34,12 +34,5 @@
   ],
   "questions": [
     "Organizations that restrict third-party apps don't show up until they approve this one. Should the page say so, with a link to request access?"
-  ],
-  "code": [
-    "src/screens/OrgsScreen.tsx",
-    "src/routes/orgs.tsx",
-    "src/screens/Shell.tsx",
-    "src/queries/viewer.ts",
-    "e2e/orgs.spec.ts"
   ]
 }

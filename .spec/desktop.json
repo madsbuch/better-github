@@ -114,18 +114,6 @@
     "Should the desktop app update itself?",
     "Should diff lines and the Viewed toggle react to the pointer too (`K4`)?"
   ],
-  "code": [
-    "src/lib/desktop.ts",
-    "src/components/Sheet.tsx",
-    "src/components/Screen.tsx",
-    "src/components/DiffView.tsx",
-    "src/lib/diff.ts",
-    "src/styles/app.css",
-    "src-tauri/tauri.conf.json",
-    "src-tauri/src/lib.rs",
-    ".github/workflows/desktop.yml",
-    "e2e/desktop.spec.ts"
-  ],
   "related": [
     "foundations#F5"
   ]

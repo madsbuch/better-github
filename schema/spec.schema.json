@@ -218,15 +218,6 @@
         "description": "Plain text. A blank line starts a new paragraph, lines starting with \"- \" form a list, and `backticks` mark code."
       }
     },
-    "code": {
-      "description": "Where this is implemented: paths from the repository's root, or patterns with * and ** (\"src/upload/**\").",
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^[^/]"
-      }
-    },
     "related": {
       "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\". \"#LIM-2@1\" names one version.",
       "type": "array",

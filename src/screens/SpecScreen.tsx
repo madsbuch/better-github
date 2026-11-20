@@ -5,7 +5,6 @@ import {
   CodeIcon,
   CopyIcon,
   FileDirectoryFillIcon,
-  FileIcon,
   GitCompareIcon,
   LockIcon,
   NoteIcon,
@@ -19,7 +18,6 @@ import { useEffect, useMemo, useState } from "react";
 import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
-  isSpecPattern,
   requirementStatus,
   requirementVersion,
   resolveSpecRef,
@@ -364,13 +362,12 @@ function SpecText({ text }: { text: string }) {
   );
 }
 
-/** One item: what it says, its requirements, pictures, open questions and where it lives in the code. */
+/** One item: what it says, its requirements, pictures, open questions and what it relates to. */
 function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; place: Place; current: string | undefined }) {
   const item = node.item;
   const requirements = item?.requirements ?? [];
   const figures = item?.figures ?? [];
   const questions = item?.questions ?? [];
-  const code = item?.code ?? [];
   const related = item?.related ?? [];
 
   const reworking = useReworking() !== null;
@@ -457,27 +454,6 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
           </ul>
         </section>
       )}
-      {code.length > 0 && (
-        <section aria-label="Code">
-          <h3>Code</h3>
-          <div className="spec-links">
-            {code.map((path) =>
-              isSpecPattern(path) ? (
-                <span key={path} className="spec-link mono">
-                  <SearchIcon size={14} className="c-muted" />
-                  <span className="grow">{path}</span>
-                </span>
-              ) : (
-                <Link key={path} {...codeTarget(place, path)} className="spec-link mono">
-                  {isFolder(path) ? <FileDirectoryFillIcon size={14} className="c-accent" /> : <FileIcon size={14} className="c-muted" />}
-                  <span className="grow">{path}</span>
-                  <ChevronRightIcon size={14} className="c-muted" />
-                </Link>
-              ),
-            )}
-          </div>
-        </section>
-      )}
       {related.length > 0 && (
         <section aria-label="Related">
           <h3>Related</h3>
@@ -514,13 +490,6 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
       )}
     </article>
   );
-}
-
-/** A path with no file extension is taken to be a folder. */
-const isFolder = (path: string) => path.endsWith("/") || !(path.split("/").pop() ?? "").includes(".");
-
-function codeTarget(place: Place, path: string) {
-  return isFolder(path) ? to.tree(place.owner, place.repo, place.gitRef, path.replace(/\/+$/, "")) : to.blob(place.owner, place.repo, place.gitRef, path);
 }
 
 /** Why something was deprecated, when, and what took its place. */

@@ -619,7 +619,7 @@ function Figure({ change, sides }: { change: FigureChange; sides: Sides }) {
   );
 }
 
-const LIST_LABEL: Record<ListChange["field"], string> = { questions: "Open questions", code: "Code", related: "Related" };
+const LIST_LABEL: Record<ListChange["field"], string> = { questions: "Open questions", related: "Related" };
 
 function List({ change, action }: { change: ListChange; action: ReactNode }) {
   const mono = change.field !== "questions";

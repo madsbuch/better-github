@@ -19,7 +19,6 @@ const BASE: SpecFile[] = [
     ],
     figures: [{ src: "assets/a.png" }, { src: "assets/b.png", caption: "Old" }, { src: "assets/gone.png" }],
     questions: ["Retry on 429?"],
-    code: ["src/client.rs"],
   }),
   file("cli.json", { title: "Command line", requirements: [{ id: "C1", text: "Exits with 1." }] }),
   picture("assets/a.png", "1"),
@@ -41,7 +40,7 @@ const HEAD: SpecFile[] = [
       { id: "R5", text: "Gives up after a minute." },
     ],
     figures: [{ src: "assets/a.png" }, { src: "assets/b.png", caption: "New" }, { src: "assets/new.png" }],
-    code: ["src/client.rs", "src/retry/**"],
+    related: ["cli"],
   }),
   file("uploads/resume.json", { title: "Resuming", order: 1, requirements: [{ id: "U1", text: "Asks the server how much it has." }] }),
   picture("assets/a.png", "1-changed"),
@@ -87,10 +86,10 @@ describe("diffSpecs", () => {
     ]);
   });
 
-  it("lists what was added to and removed from questions, code and related", () => {
+  it("lists what was added to and removed from questions and related", () => {
     expect(retries?.lists).toEqual([
       { field: "questions", added: [], removed: ["Retry on 429?"] },
-      { field: "code", added: ["src/retry/**"], removed: [] },
+      { field: "related", added: ["cli"], removed: [] },
     ]);
   });
 

@@ -40,14 +40,5 @@
       "id": "F6",
       "text": "Without an account, the app still shows public profiles, repositories, releases and code."
     }
-  ],
-  "code": [
-    "src-tauri/src/github.rs",
-    "src-tauri/src/auth.rs",
-    "src/lib/api.ts",
-    "src/lib/schema.ts",
-    "src/queries/warm.ts",
-    "src/lib/nav.tsx",
-    "src/lib/guest.ts"
   ]
 }

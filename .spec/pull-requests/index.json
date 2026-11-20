@@ -3,10 +3,5 @@
   "title": "Pull requests",
   "summary": "Reading, reviewing and merging a change.",
   "order": 2,
-  "description": "A pull request has four tabs: the conversation, the files, the commits and the checks. Reviewing happens in the files tab.",
-  "code": [
-    "src/screens/PullScreen.tsx",
-    "src/screens/pull",
-    "src/queries/pulls.ts"
-  ]
+  "description": "A pull request has four tabs: the conversation, the files, the commits and the checks. Reviewing happens in the files tab."
 }

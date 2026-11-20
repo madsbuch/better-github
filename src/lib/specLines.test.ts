@@ -13,7 +13,7 @@ const TEXT = `{
       "level": "should"
     }
   ],
-  "code": ["a", "b"]
+  "related": ["a", "b"]
 }
 `;
 
@@ -27,7 +27,7 @@ describe("jsonLines", () => {
     expect(spans.get("requirements/0")).toEqual({ start: 5, end: 5 });
     expect(spans.get("requirements/1")).toEqual({ start: 6, end: 10 });
     expect(spans.get("requirements/1/level")).toEqual({ start: 9, end: 9 });
-    expect(spans.get("code/1")).toEqual({ start: 12, end: 12 });
+    expect(spans.get("related/1")).toEqual({ start: 12, end: 12 });
     expect(spans.get("")).toEqual({ start: 1, end: 13 });
   });
 

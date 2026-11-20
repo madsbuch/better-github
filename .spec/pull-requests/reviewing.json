@@ -37,12 +37,6 @@
       "status": "accepted"
     }
   ],
-  "code": [
-    "src/screens/pull/FilesTab.tsx",
-    "src/components/DiffView.tsx",
-    "src/components/Composer.tsx",
-    "src/lib/drafts.ts"
-  ],
   "related": [
     "pull-requests/review-rules#RR5",
     "pull-requests/spec-review"

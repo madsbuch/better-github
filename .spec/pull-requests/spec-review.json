@@ -59,14 +59,6 @@
     "Should unchanged requirements take comments too, when the diff reaches their lines?",
     "Should a suggestion be offered for a requirement's text, as it is for a line of code?"
   ],
-  "code": [
-    "src/screens/pull/FilesTab.tsx",
-    "src/screens/pull/SpecTab.tsx",
-    "src/components/SpecChanges.tsx",
-    "src/lib/specLines.ts",
-    "src/queries/spec.ts",
-    "e2e/spec-review.spec.ts"
-  ],
   "related": [
     "pull-requests/reviewing",
     "pull-requests/review-rules",

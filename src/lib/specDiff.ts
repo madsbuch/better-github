@@ -51,7 +51,7 @@ export interface FigureChange {
 
 /** Entries of a list of strings that are only on one side. */
 export interface ListChange {
-  field: "questions" | "code" | "related";
+  field: "questions" | "related";
   added: string[];
   removed: string[];
 }
@@ -269,7 +269,6 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
   }
   const lists = [
     diffList("questions", a?.questions ?? [], b?.questions ?? []),
-    diffList("code", a?.code ?? [], b?.code ?? []),
     diffList("related", a?.related ?? [], b?.related ?? []),
   ].filter((list) => list !== null);
 

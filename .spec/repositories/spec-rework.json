@@ -60,12 +60,6 @@
     "Should figures, code paths and related items be editable here too?",
     "Should the app be able to open the pull request itself, without an agent, for spec-only changes?"
   ],
-  "code": [
-    "src/lib/specRework.ts",
-    "src/screens/spec/Rework.tsx",
-    "src/screens/SpecScreen.tsx",
-    "e2e/spec-rework.spec.ts"
-  ],
   "related": [
     "repositories/spec",
     "repositories/spec-diff",

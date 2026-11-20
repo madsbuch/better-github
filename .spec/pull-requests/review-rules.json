@@ -36,13 +36,6 @@
       "level": "should"
     }
   ],
-  "code": [
-    "src/lib/reviewRules.ts",
-    "src/queries/reviewRules.ts",
-    "src/components/ReviewRules.tsx",
-    "src/lib/rulesPrompt.ts",
-    "e2e/review-rules.spec.ts"
-  ],
   "related": [
     "foundations#F3",
     "repositories/spec"

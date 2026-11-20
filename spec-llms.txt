@@ -75,10 +75,6 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
       "questions": [
         "Should a `429` count as retryable?"
       ],
-      "code": [
-        "src/client.rs",
-        "src/retry/**"
-      ],
       "related": [
         "#ERR-1",
         "cli"
@@ -90,7 +86,7 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
 - A requirement's `level` is `must` (the default), `should` or `may`. Its `id` is unique in the whole spec, not just in its item, and never changes or gets reused: code, tests and other items refer to a requirement by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (`RET-1`, `RET-2` in Retries; `ERR-1` in Errors) so ids don't collide.
 - Text (`description`, a requirement's `text`, `questions`) is plain, not Markdown: a blank line starts a paragraph, lines starting with `- ` form a list, and `backticks` mark code. There are no headings, links or bold.
 - `order` places an item among its siblings, lowest first; items without one follow, by title.
-- `figures` name pictures by their path from `.spec`; the file has to be there. `code` lists paths from the repository's root, or patterns with `*` and `**`. `related` lists ids of other items (`cli`) or requirements (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
+- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`) or requirements (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
 - `$schema` is optional and lets editors check the file.
 
 ## The schema
@@ -315,15 +311,6 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
             "description": "Plain text. A blank line starts a new paragraph, lines starting with \"- \" form a list, and `backticks` mark code."
           }
         },
-        "code": {
-          "description": "Where this is implemented: paths from the repository's root, or patterns with * and ** (\"src/upload/**\").",
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[^/]"
-          }
-        },
         "related": {
           "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\". \"#LIM-2@1\" names one version.",
           "type": "array",
@@ -393,7 +380,8 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 ## A good spec
 
 - It says what the software does and why, not how the code is written. Someone who has never seen the code can read an item and know what to expect from that part; someone changing the code can tell whether they broke a promise.
-- The outline follows the product (its features, its surfaces, the rules that hold everywhere), not the source tree. `code` is what ties an item to files.
+- The outline follows the product (its features, its surfaces, the rules that hold everywhere), not the source tree.
+- A spec is not tied to a code base. It never names a file, a folder, a function, a class, a table or a line of code: those can all change while the product does exactly the same. It says what the product does; where and how that is built is not its business, and nothing in the format points there.
 - A requirement is one statement that can be checked: by a test, or by reading the code. "A failed upload is retried up to five times", not "uploads are robust". If it needs an "and", it is two requirements.
 - Requirements state behavior and limits a user or caller can observe: what happens, when, with which numbers, and what never happens. Leave out anything that is true of all software.
 - `summary` is one line that makes sense in a list. `description` gives the reason the part exists and the context its requirements need.
@@ -402,14 +390,13 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 
 ## Working in a repository that has a spec
 
-- Before changing code, find the items that cover it: their `code` lists the paths. Read their requirements; they are what the change must keep true.
+- Before changing behavior, find the parts of the spec that describe it, by reading the outline and searching the requirements. They are what the change must keep true.
 - A change in behavior and the change to the spec go in the same pull request. New behavior gets new requirements; changed behavior gets a new version of its requirement, with the reason; behavior that goes away gets its requirement deprecated, with the reason.
 - Set `status` honestly: `implemented` only once the code does it and a test or the code itself shows it.
 - Refer to requirements by their id in code comments, test names, commit messages and pull request descriptions (`RET-1`). Ids don't change, so the references stay good.
 - Never delete a requirement or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, add it to `questions` and ask, rather than writing a requirement that guesses.
-- Keep `code` up to date when files move.
 
 ## Checking a spec
 
-Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every `code` path or pattern matches real files (for example with `git ls-files`), every requirement above version 1 has the `history` of all its earlier versions with their reasons, every deprecated requirement or item has a `deprecation` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).
+Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every deprecated requirement or item has a `deprecation` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

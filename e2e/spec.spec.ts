@@ -40,12 +40,10 @@ test("a repository with a spec links to it, and the outline leads to its items",
   expect(errors).toEqual([]);
 });
 
-test("an item links to its code and to related items and requirements", async ({ page }) => {
+test("an item links to related items and requirements, and points at no code", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
-  const code = activeScreen(page).getByRole("region", { name: "Code" });
-  await expect(code.locator(".spec-link")).toHaveText(["src/client.rs", "src/retry/**"]);
-  // A pattern isn't one file to open.
-  await expect(code.locator("a.spec-link")).toHaveCount(1);
+  // A spec isn't tied to a code base: there is no list of files.
+  await expect(activeScreen(page).getByRole("region", { name: "Code" })).toHaveCount(0);
 
   const related = activeScreen(page).getByRole("region", { name: "Related" });
   await expect(related.locator(".spec-link")).toHaveCount(2);
@@ -53,10 +51,6 @@ test("an item links to its code and to related items and requirements", async ({
   await expect(screenTitle(page)).toHaveText("Errors");
   await expect(requirements(page).nth(0)).toHaveAttribute("data-current", "true");
   await expect(requirements(page).nth(1)).toHaveAttribute("data-current", "false");
-
-  await page.goBack();
-  await code.locator("a.spec-link").click();
-  await expect(screenTitle(page)).toHaveText("client.rs");
 });
 
 test("deprecated requirements are kept, folded away, with why they went", async ({ page }) => {

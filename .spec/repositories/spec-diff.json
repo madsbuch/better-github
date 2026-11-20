@@ -125,12 +125,6 @@
       "text": "A history that was rewritten, shortened, or that doesn't record the version just left as it was, is flagged with what takes something away. So is a version that went back."
     }
   ],
-  "code": [
-    "src/lib/specDiff.ts",
-    "src/components/SpecChanges.tsx",
-    "src/screens/SpecDiffScreen.tsx",
-    "e2e/spec-diff.spec.ts"
-  ],
   "related": [
     "repositories/spec",
     "pull-requests/spec-review"
