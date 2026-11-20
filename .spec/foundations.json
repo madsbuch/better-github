@@ -6,12 +6,48 @@
   "status": "implemented",
   "description": "These hold everywhere in the app. A change that breaks one of them is a bug, whatever feature it belongs to.",
   "requirements": [
-    { "id": "F1", "text": "The GitHub token never reaches the web view: no command returns it and no log line contains it." },
-    { "id": "F2", "text": "The Rust side only talks to `https://api.github.com`." },
-    { "id": "F3", "text": "Nothing from outside (GitHub responses, command results, stored values) is used before a zod schema has checked it." },
-    { "id": "F4", "text": "Opening a screen from a list shows no spinner when the link was on screen first: its data is loaded ahead.", "level": "should" },
-    { "id": "F5", "text": "The Android back button closes an open sheet before it leaves the screen." },
-    { "id": "F6", "text": "Without an account, the app still shows public profiles, repositories, releases and code." }
+    {
+      "id": "F1",
+      "text": "The GitHub token never reaches the web view: no command returns it and no log line contains it."
+    },
+    {
+      "id": "F2",
+      "text": "Requests that carry the token only go to `https://api.github.com`. Signing in talks to `github.com`, without a token. A job's log is fetched from where the API redirects, and only from GitHub's log hosts.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "The Rust side only talks to `https://api.github.com`.",
+          "reason": "The first wording was taken from the README and was wrong: signing in with the device flow has to call `github.com`, and GitHub serves job logs from other hosts. What matters is where the token goes.",
+          "date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "id": "F3",
+      "text": "Nothing from outside (GitHub responses, command results, stored values) is used before a zod schema has checked it."
+    },
+    {
+      "id": "F4",
+      "text": "Opening a screen from a list shows no spinner when the link was on screen first: its data is loaded ahead.",
+      "level": "should"
+    },
+    {
+      "id": "F5",
+      "text": "The Android back button closes an open sheet before it leaves the screen."
+    },
+    {
+      "id": "F6",
+      "text": "Without an account, the app still shows public profiles, repositories, releases and code."
+    }
   ],
-  "code": ["src-tauri/src/github.rs", "src-tauri/src/auth.rs", "src/lib/api.ts", "src/lib/schema.ts", "src/queries/warm.ts", "src/lib/nav.tsx", "src/lib/guest.ts"]
+  "code": [
+    "src-tauri/src/github.rs",
+    "src-tauri/src/auth.rs",
+    "src/lib/api.ts",
+    "src/lib/schema.ts",
+    "src/queries/warm.ts",
+    "src/lib/nav.tsx",
+    "src/lib/guest.ts"
+  ]
 }

@@ -20,11 +20,29 @@
     },
     {
       "id": "S4",
-      "text": "A figure that isn't in the folder, a related id that leads nowhere and a requirement id used twice anywhere in the spec are listed as problems."
+      "text": "A figure that isn't in the folder, a related id that leads nowhere and a requirement id used twice anywhere in the spec are listed as problems.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "A figure that isn't in the folder, a related id that leads nowhere and a requirement id used twice are listed as problems.",
+          "reason": "Requirement ids became unique in the whole spec, not just in their item.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "S5",
-      "text": "A spec's size doesn't matter. Its files are listed in one request; their contents are read in batches, by git object id, only for what is being looked at. A spec of up to 300 items is read whole."
+      "text": "A spec's size doesn't matter. One request finds the folder and one lists its files; their contents are read in batches, by git object id, only for what is being looked at. A spec of up to 300 items is read whole.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "The whole folder loads in one request, so moving between items never waits.",
+          "reason": "Reading the whole folder in one request put a ceiling on a spec's size and on how deep it could nest.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "S6",
@@ -44,7 +62,17 @@
     },
     {
       "id": "S10",
-      "text": "Items nest as deep as the folders do."
+      "text": "Items nest as deep as the folders do.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Items can be nested three folders deep. A deeper folder is listed as a problem.",
+          "level": "should",
+          "reason": "The limit of three folders came from reading the folder in one request of fixed depth. Listing the files first removed it.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "S11",

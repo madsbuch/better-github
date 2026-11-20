@@ -8,11 +8,29 @@
   "requirements": [
     {
       "id": "D1",
-      "text": "Items are matched by id. An item only one side has is added or removed; one that differs is changed; one that is the same isn't listed. A file with the same git object id on both sides is the same without being read, so only what differs is read."
+      "text": "Items are matched by id. An item only one side has is added or removed; one that differs is changed; one that is the same isn't listed. A file with the same git object id on both sides is the same without being read, so only what differs is read.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Items are matched by id. An item only one side has is added or removed; one that differs is changed; one that is the same isn't listed.",
+          "reason": "Comparing had to work for specs too large to read whole.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "D2",
-      "text": "Requirements are matched by id. A reworded requirement shows its old and new text with the words that differ marked."
+      "text": "Requirements are matched by id. A reworded requirement shows its old and new text with the words that differ marked.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Requirements are matched by their id within the item. A reworded requirement shows its old and new text with the words that differ marked.",
+          "reason": "Requirement ids became unique in the whole spec, so an id means the same requirement wherever it is.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "D3",
@@ -28,11 +46,29 @@
     },
     {
       "id": "D6",
-      "text": "A summary counts the added, changed and removed items and requirements."
+      "text": "A summary counts the added, changed, moved and removed items and requirements.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "A summary counts the added, changed and removed items and requirements.",
+          "reason": "Moved items and requirements are told apart from added and removed ones, and counted as such.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "D7",
-      "text": "A pull request that touches `.spec` shows these changes in its Files tab, and links to them on their own."
+      "text": "A pull request that touches `.spec` shows these changes in its Files tab, and links to them on their own.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "A pull request that touches `.spec` links to the changes between its base branch and its head commit.",
+          "reason": "A link to another screen wasn't a review: the changes had to be where the files are reviewed.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "D8",
@@ -40,7 +76,16 @@
     },
     {
       "id": "D9",
-      "text": "Each changed item opens in the spec browser, on the side that has it."
+      "text": "In the comparison of two branches, each changed item opens in the spec browser, on the side that has it.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Each changed item opens in the spec browser, on the side that has it.",
+          "reason": "Inside a pull request the card is a file under review and carries the file's menu instead.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "D10",
@@ -48,7 +93,16 @@
     },
     {
       "id": "D11",
-      "text": "Changes that take something away from the spec are pointed out, in a list above the changes and on each item and requirement: a deleted requirement or item (it should have been deprecated), a deprecation with its reason, a lowered level, a status that went back."
+      "text": "Changes that take something away from the spec are pointed out, in a list above the changes and on each item and requirement: a deleted requirement or item (it should have been deprecated), a deprecation with its reason, a lowered level, a status that went back.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Changes that make the spec promise less are pointed out, in a list above the changes and on each item and requirement: a removed must or should requirement, a lowered level, a status that went back, a removed item with live requirements.",
+          "reason": "Nothing is deleted from a spec any more: what is no longer wanted is deprecated. So every deletion is pointed out, not only those of must and should requirements.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "D12",
@@ -56,7 +110,7 @@
     },
     {
       "id": "D13",
-      "text": "The changes can be narrowed to added, changed, moved, removed, or those that promise less. They are shown 50 at a time, and each is drawn when it nears the screen."
+      "text": "The changes can be narrowed to added, changed, moved, removed, or those that take something away. They are shown 50 at a time, and each is drawn when it nears the screen."
     },
     {
       "id": "D14",

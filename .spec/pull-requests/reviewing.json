@@ -15,11 +15,26 @@
     },
     {
       "id": "RV3",
-      "text": "What is typed into a comment survives rotating the device and leaving the screen."
+      "text": "A review's summary and its pending comments are kept on the device until the review is submitted: they survive leaving the screen and restarting the app. A comment being typed survives rotating and resizing the window.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "What is typed into a comment survives rotating the device and leaving the screen.",
+          "reason": "The first wording promised more than the app does: text typed for a comment that hasn't been added to the review is lost when the screen is left. That part is now `RV5`, not built yet.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "RV4",
       "text": "A review is submitted as a comment, an approval or a request for changes."
+    },
+    {
+      "id": "RV5",
+      "text": "Text typed for a comment that isn't added or posted yet survives leaving the screen.",
+      "level": "should",
+      "status": "accepted"
     }
   ],
   "code": [

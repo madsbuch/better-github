@@ -8,20 +8,55 @@
   "requirements": [
     {
       "id": "K1",
-      "text": "Every push to `main` publishes the desktop app on the `latest` release next to the APK: a disk image for Apple silicon Macs and one for Intel Macs, a Windows installer, and an AppImage and a `.deb` for Linux."
+      "text": "Every push to `main` publishes the desktop app on the `latest` release next to the APK: a disk image for Apple silicon Macs and one for Intel Macs, a Windows installer, and an AppImage and a `.deb` for Linux.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Every push to `main` publishes a disk image for Apple silicon Macs, `better-github-macos-arm64.dmg`, on the `latest` release next to the APK.",
+          "reason": "Builds for Intel Macs, Windows and Linux were added.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "K2",
-      "text": "Without a Developer ID certificate the app is signed ad hoc, so it runs on Apple silicon after the user confirms it once. With one it is signed, and notarized when the Apple ID secrets are set.",
-      "status": "accepted"
+      "text": "Without a Developer ID certificate the Mac app is signed ad hoc, so it runs on Apple silicon after the user confirms it once. The build fails if the signature of the app in the disk image isn't valid.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Without a Developer ID certificate the app is signed ad hoc, so it runs on Apple silicon after the user confirms it once. With one it is signed, and notarized when the Apple ID secrets are set.",
+          "reason": "Split in two. Ad-hoc signing is built and checked on every build; signing with a Developer ID and notarizing is wired up but has never run, and is now `K16`.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "K3",
-      "text": "The window first opens at 1280 by 860, and after that where and as large as it was closed. From 768 px wide the main sections are in a sidebar, and from 1200 px the sidebar shows their names next to the icons."
+      "text": "The window first opens at 1280 by 860, and after that where and as large as it was closed. From 768 px wide the main sections are in a sidebar, and from 1200 px the sidebar shows their names next to the icons.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "The window opens at 1280 by 860. From 768 px wide the main sections are in a sidebar, and from 1200 px the sidebar shows their names next to the icons.",
+          "reason": "The window now remembers its size and position.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "K4",
-      "text": "Everything that reacts to a press reacts to the pointer resting on it. Icon buttons show their name."
+      "text": "Rows, buttons, icon buttons, tabs, filter chips, menu items and the sidebar's sections react to the pointer resting on them, as they do to a press. Icon buttons show their name.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "Everything that reacts to a press reacts to the pointer resting on it. Icon buttons show their name.",
+          "reason": "\"Everything\" wasn't true and couldn't be checked: hover styles exist for a list of controls. Diff lines and the Viewed toggle, for example, have none.",
+          "date": "2026-11-20"
+        }
+      ]
     },
     {
       "id": "K5",
@@ -67,11 +102,17 @@
     {
       "id": "K15",
       "text": "One platform's build failing doesn't keep the others from publishing."
+    },
+    {
+      "id": "K16",
+      "text": "With a Developer ID certificate in the repository's secrets the Mac app is signed with it, and notarized when the Apple ID secrets are set too, so it opens without a confirmation.",
+      "status": "accepted"
     }
   ],
   "questions": [
     "Should the Windows installer be signed, so SmartScreen doesn't ask?",
-    "Should the desktop app update itself?"
+    "Should the desktop app update itself?",
+    "Should diff lines and the Viewed toggle react to the pointer too (`K4`)?"
   ],
   "code": [
     "src/lib/desktop.ts",
