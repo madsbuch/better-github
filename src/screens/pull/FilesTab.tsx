@@ -1,5 +1,4 @@
 import { CheckIcon, ChecklistIcon, ChevronRightIcon, CopyIcon, FileIcon, LightBulbIcon, LinkExternalIcon, NoteIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { errorMessage } from "../../lib/api";
@@ -21,7 +20,7 @@ import { SpecChangeCard, SpecChangesSummary, type PlacedComment, type SpecFileRe
 import { CenterSpinner, ErrorView, Spinner } from "../../components/ui";
 import { pullQueries, useInlineComment, useToggleViewed, type RestPullFile } from "../../queries/pulls";
 import { useCopyRulesPrompt, useRecheckReviewRules, type PullReview } from "../../queries/reviewRules";
-import { mergeBaseQuery, specFileText, useSpecDiff } from "../../queries/spec";
+import { specFileText, type PullSpec } from "../../queries/spec";
 
 type Drafts = ReturnType<typeof useReviewDraft>;
 
@@ -37,6 +36,8 @@ export function FilesTab({
   jumpOpen,
   onJumpClose,
   review,
+  spec,
+  onOpenSpec,
 }: {
   owner: string;
   repo: string;
@@ -50,6 +51,9 @@ export function FilesTab({
   viewerLogin: string;
   jumpOpen: boolean;
   onJumpClose: () => void;
+  /** What the pull request changes in the spec. */
+  spec: PullSpec;
+  onOpenSpec: () => void;
 }) {
   const prefs = usePrefs();
   const toast = useToast();
@@ -82,29 +86,8 @@ export function FilesTab({
 
   // The spec files of a pull request are reviewed by what they say, not as JSON:
   // which items and requirements it adds, removes, rewords or weakens.
-  const inSpec = (path: string | undefined) => path?.startsWith(`${SPEC_DIR}/`) === true;
-  const touchesSpec = files.some((file) => inSpec(file.filename) || inSpec(file.previous_filename));
-  const mergeBase = useQuery({ ...mergeBaseQuery(owner, repo, pr.baseRefName, pr.headRefOid), enabled: touchesSpec });
-  // Should that fail, the base branch as it is now is the next best thing.
-  const specBase = !touchesSpec ? "" : (mergeBase.data ?? (mergeBase.isError ? pr.baseRefName : ""));
-  const renames = useMemo(() => {
-    const moved = new Map<string, string>();
-    for (const file of files) {
-      if (inSpec(file.filename) && inSpec(file.previous_filename)) {
-        moved.set(file.filename.slice(SPEC_DIR.length + 1), (file.previous_filename ?? "").slice(SPEC_DIR.length + 1));
-      }
-    }
-    return moved;
-  }, [files]);
-  const specDiff = useSpecDiff(owner, repo, specBase, touchesSpec ? pr.headRefOid : "", renames);
-  const specChanges = useMemo(() => {
-    const byFile = new Map<string, ItemChange>();
-    for (const change of specDiff.diff?.items ?? []) {
-      const file = (change.after ?? change.before)?.file;
-      if (file !== null && file !== undefined) byFile.set(file, change);
-    }
-    return byFile;
-  }, [specDiff.diff]);
+  const { touchesSpec, base: specBase, byFile: specChanges } = spec;
+  const specDiff = spec;
   // Files switched back to their JSON diff.
   const [asJson, setAsJson] = useState<Record<string, boolean>>({});
   const specSides = useMemo(() => ({ owner, repo, base: specBase, head: pr.headRefOid }), [owner, repo, specBase, pr.headRefOid]);
@@ -184,9 +167,9 @@ export function FilesTab({
           <div className="row-flex" style={{ padding: "10px 16px 0" }}>
             <NoteIcon size={16} className="c-accent" />
             <span className="bold grow">Spec changes</span>
-            <Link {...to.specDiff(owner, repo, specBase, pr.headRefOid)} className="small">
-              Open on their own <ChevronRightIcon size={12} />
-            </Link>
+            <button className="link-btn small" onClick={onOpenSpec}>
+              Review in the Spec tab <ChevronRightIcon size={12} />
+            </button>
           </div>
           <SpecChangesSummary diff={specDiff.diff} onShow={(id) => scrollToFile(`${SPEC_DIR}/${id}.json`, `${SPEC_DIR}/${id === "" ? "index" : `${id}/index`}.json`)} />
         </div>
@@ -429,7 +412,7 @@ const FileWithComments = memo(function FileWithComments({
  * Comments are still on lines of the file, as GitHub needs them; each shows
  * at the requirement or field its line belongs to.
  */
-const SpecFileCard = memo(function SpecFileCard({
+export const SpecFileCard = memo(function SpecFileCard({
   file,
   change,
   sides,
@@ -448,6 +431,7 @@ const SpecFileCard = memo(function SpecFileCard({
   viewed,
   onToggleViewed,
   onMenu,
+  reading,
 }: {
   file: RestPullFile;
   change: ItemChange;
@@ -458,7 +442,10 @@ const SpecFileCard = memo(function SpecFileCard({
   onToggleCollapsed: () => void;
   viewed: boolean;
   onToggleViewed: () => void;
-  onMenu: () => void;
+  /** Without it, the card links to the item in the spec. */
+  onMenu?: (() => void) | undefined;
+  /** Laid out for reading the spec, not for going through files. */
+  reading?: boolean | undefined;
   threads: ReviewThread[] | undefined;
   drafts: DraftComment[] | undefined;
   threadActions: ThreadActions;
@@ -530,6 +517,7 @@ const SpecFileCard = memo(function SpecFileCard({
       badge={review && <RiskBadge risk={review.risk} />}
       top={review && <ReviewStrip review={review} onOpen={onOpenReview} />}
       review={fileReview}
+      reading={reading}
     />
   );
 }, sameData);
@@ -638,7 +626,7 @@ function ReviewSummary({
   );
 }
 
-function DraftCard({ draft, onEdit, onDelete }: { draft: DraftComment; onEdit: () => void; onDelete: () => void }) {
+export function DraftCard({ draft, onEdit, onDelete }: { draft: DraftComment; onEdit: () => void; onDelete: () => void }) {
   return (
     <div className="draft-comment">
       <div className="comment-header">
@@ -658,7 +646,7 @@ function DraftCard({ draft, onEdit, onDelete }: { draft: DraftComment; onEdit: (
   );
 }
 
-function LineCommentSheet({
+export function LineCommentSheet({
   target,
   onClose,
   onAddDraft,

@@ -30,7 +30,9 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Forward", keys: (apple) => (apple ? ["⌘ ]", "⌥ →"] : ["Alt →"]) },
   { label: "Refresh", keys: (apple) => [`${mod(apple)} R`] },
   { label: "Repositories", keys: (apple) => [`${mod(apple)} 1`] },
-  { label: "Your profile", keys: (apple) => [`${mod(apple)} 2`] },
+  { label: "Organizations", keys: (apple) => [`${mod(apple)} 2`] },
+  { label: "Your profile", keys: (apple) => [`${mod(apple)} 3`] },
+  { label: "Settings", keys: (apple) => [`${mod(apple)} ,`, `${mod(apple)} 4`] },
   { label: "Close a dialog or menu", keys: () => ["Esc"] },
   { label: "Move through a menu", keys: () => ["↑", "↓"] },
 ];
@@ -64,7 +66,9 @@ export function useDesktopInput() {
         if (event.key === "[") return run(nav.back);
         if (event.key === "]") return run(nav.forward);
         if (event.key === "1") return run(() => nav.resetTo(to.repos()));
-        if (event.key === "2") return run(() => nav.resetTo(to.profile()));
+        if (event.key === "2") return run(() => nav.resetTo(to.orgs()));
+        if (event.key === "3") return run(() => nav.resetTo(to.profile()));
+        if (event.key === "4" || event.key === ",") return run(() => nav.resetTo(to.settings()));
         if (event.key === "r") {
           // Reloading the web view would throw away what's on screen; refresh its data instead.
           const taken = !window.dispatchEvent(new CustomEvent(REFRESH_EVENT, { cancelable: true }));

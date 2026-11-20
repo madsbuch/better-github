@@ -225,6 +225,57 @@ export function intralineDiffs(hunk: Hunk): Map<number, Segment[]> {
   return result;
 }
 
+/** A stretch of a text that is in both versions, only in the old one, or only in the new one. */
+export interface InlinePart {
+  text: string;
+  kind: "same" | "del" | "ins";
+}
+
+/**
+ * Two versions of a piece of prose as one text, with what was taken out and
+ * what was put in marked where it happened: how an edit to a sentence reads
+ * best. Null when they have too little in common for that to help.
+ */
+export function inlineDiff(oldText: string, newText: string): InlinePart[] | null {
+  const a = tokenize(oldText);
+  const b = tokenize(newText);
+  if (a.length === 0 || b.length === 0 || a.length > MAX_TOKENS || b.length > MAX_TOKENS) return null;
+  const dp: Uint16Array[] = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
+  const lcs = (i: number, j: number): number => dp[i]?.[j] ?? 0;
+  for (let i = a.length - 1; i >= 0; i--) {
+    const row = dp[i];
+    if (row === undefined) continue;
+    for (let j = b.length - 1; j >= 0; j--) row[j] = a[i] === b[j] ? lcs(i + 1, j + 1) + 1 : Math.max(lcs(i + 1, j), lcs(i, j + 1));
+  }
+  // Mostly different words: two separate texts read better than a patchwork.
+  const words = (tokens: string[]) => tokens.filter((token) => /\w/.test(token)).length;
+  let commonWords = 0;
+  const parts: InlinePart[] = [];
+  const push = (text: string, kind: InlinePart["kind"]) => {
+    const last = parts.at(-1);
+    if (last?.kind === kind) last.text += text;
+    else parts.push({ text, kind });
+  };
+  let [i, j] = [0, 0];
+  while (i < a.length || j < b.length) {
+    const [old, current] = [a[i], b[j]];
+    if (old !== undefined && current !== undefined && old === current) {
+      if (/\w/.test(old)) commonWords++;
+      push(old, "same");
+      i++;
+      j++;
+    } else if (old !== undefined && (current === undefined || lcs(i + 1, j) >= lcs(i, j + 1))) {
+      push(old, "del");
+      i++;
+    } else if (current !== undefined) {
+      push(current, "ins");
+      j++;
+    }
+  }
+  if (commonWords * 2 < Math.max(words(a), words(b))) return null;
+  return parts;
+}
+
 /** Returns the hunk's lines as the old and new side texts for highlighting. */
 export function hunkSides(hunk: Hunk): { oldText: string; newText: string } {
   const oldLines: string[] = [];

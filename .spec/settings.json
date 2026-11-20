@@ -1,0 +1,58 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Settings",
+  "summary": "Everything about the app itself, as a section with a menu of pages.",
+  "status": "implemented",
+  "order": 6,
+  "requirements": [
+    {
+      "id": "SET-1",
+      "text": "The main navigation has a Settings section, for signed-in users and guests alike."
+    },
+    {
+      "id": "SET-2",
+      "text": "Settings is a menu of pages: Account, Appearance, Code and diffs, GitHub sign-in (only in the app, which signs in itself), Keyboard shortcuts (only where there is a keyboard) and About. Each entry says what it is set to."
+    },
+    {
+      "id": "SET-3",
+      "text": "On a phone the menu is a screen and each page another, with back returning to the menu."
+    },
+    {
+      "id": "SET-4",
+      "text": "From 768 px wide the menu stays beside the open page, the first page is open to begin with, and picking another swaps it in place without adding a step to go back through."
+    },
+    {
+      "id": "SET-5",
+      "text": "The sidebar keeps marking Settings while one of its pages is open."
+    },
+    {
+      "id": "SET-6",
+      "text": "Signing out, the account's sign-in method and the API rate limit are under Account, and nowhere else: the profile carries no settings."
+    },
+    {
+      "id": "SET-7",
+      "text": "The theme is System, Light or Dark, each shown with a small picture of it. System follows the device, also when it changes while the app is open."
+    },
+    {
+      "id": "SET-8",
+      "text": "A switch between light and dark cross-fades the whole page in about 280 ms. Where the web view can't cross-fade, colors ease to their new values. With reduced motion asked for, it switches at once. The first paint is never animated."
+    },
+    {
+      "id": "SET-9",
+      "text": "On a desktop, Cmd or Ctrl+comma (and +4) opens Settings."
+    }
+  ],
+  "code": [
+    "src/screens/SettingsScreen.tsx",
+    "src/routes/settings",
+    "src/lib/theme.ts",
+    "src/lib/prefs.ts",
+    "src/screens/Shell.tsx",
+    "e2e/settings.spec.ts"
+  ],
+  "related": [
+    "desktop",
+    "#K11",
+    "#ORG-1"
+  ]
+}

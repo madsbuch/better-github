@@ -1,0 +1,45 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Organizations",
+  "summary": "The organizations you belong to, as a section of their own.",
+  "status": "implemented",
+  "order": 5,
+  "requirements": [
+    {
+      "id": "ORG-1",
+      "text": "The main navigation has an Orgs section after Repos, for signed-in users. Guests don't have it."
+    },
+    {
+      "id": "ORG-2",
+      "text": "It lists the organizations the user belongs to, each with its name (or its login when it has none), description and number of repositories."
+    },
+    {
+      "id": "ORG-3",
+      "text": "An organization opens its page, with its repositories."
+    },
+    {
+      "id": "ORG-4",
+      "text": "The list is loaded at startup, so opening the section doesn't wait.",
+      "level": "should"
+    },
+    {
+      "id": "ORG-5",
+      "text": "With more than eight organizations the list can be filtered by name, login and description.",
+      "level": "should"
+    },
+    {
+      "id": "ORG-6",
+      "text": "On a desktop, Cmd or Ctrl+2 opens the section; the user's profile moves to 3."
+    }
+  ],
+  "questions": [
+    "Organizations that restrict third-party apps don't show up until they approve this one. Should the page say so, with a link to request access?"
+  ],
+  "code": [
+    "src/screens/OrgsScreen.tsx",
+    "src/routes/orgs.tsx",
+    "src/screens/Shell.tsx",
+    "src/queries/viewer.ts",
+    "e2e/orgs.spec.ts"
+  ]
+}

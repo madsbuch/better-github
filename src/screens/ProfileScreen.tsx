@@ -1,14 +1,12 @@
 import {
   BellIcon,
   ChevronRightIcon,
-  GearIcon,
   GitPullRequestIcon,
   LinkExternalIcon,
   LocationIcon,
   OrganizationIcon,
   PeopleIcon,
   RepoIcon,
-  SignOutIcon,
   StarIcon,
 } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -16,7 +14,7 @@ import { Link } from "@tanstack/react-router";
 import { backend } from "../lib/backend";
 import { compactNumber } from "../lib/format";
 import { to } from "../lib/nav";
-import { useIsGuest, useSessionApi, useViewer } from "../lib/session";
+import { useIsGuest, useViewer } from "../lib/session";
 import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
 import { Avatar, ErrorView } from "../components/ui";
@@ -31,7 +29,6 @@ export function ProfileScreen() {
 
 function AccountProfileScreen() {
   const session = useViewer();
-  const sessionApi = useSessionApi();
   const viewer = useQuery(viewerQueries.profile());
   const v = viewer.data?.viewer;
 
@@ -80,11 +77,6 @@ function AccountProfileScreen() {
           <span className="muted">{v ? compactNumber(v.starredRepositories.totalCount) : ""}</span>
           <ChevronRightIcon size={16} className="c-muted" />
         </Link>
-        <Link {...to.settings()} className="kv">
-          <GearIcon size={18} />
-          <span className="grow">Settings</span>
-          <ChevronRightIcon size={16} className="c-muted" />
-        </Link>
         <Link {...to.inbox()} preload="viewport" className="kv">
           <GitPullRequestIcon size={18} />
           <span className="grow">All pull requests</span>
@@ -103,7 +95,9 @@ function AccountProfileScreen() {
 
       {v && v.organizations.nodes.length > 0 && (
         <>
-          <h3 className="section-title">Organizations</h3>
+          <h3 className="section-title">
+            <Link {...to.orgs()}>Organizations</Link>
+          </h3>
           {v.organizations.nodes.map((org) => (
             <Link key={org.login} {...to.user(org.login)} preload="viewport" className="row" style={{ alignItems: "center" }}>
               <Avatar src={org.avatarUrl} size={32} square />
@@ -117,11 +111,6 @@ function AccountProfileScreen() {
         </>
       )}
 
-      <div className="pad">
-        <button className="btn btn-block btn-danger" onClick={() => void sessionApi.signOut()}>
-          <SignOutIcon size={16} /> Sign out
-        </button>
-      </div>
     </Screen>
   );
 }

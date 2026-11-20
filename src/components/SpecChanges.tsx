@@ -7,8 +7,8 @@
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { anchorKey, wordDiff, type Hunk, type Segment, type Side } from "../lib/diff";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { anchorKey, inlineDiff, wordDiff, type Hunk, type Segment, type Side } from "../lib/diff";
 import { to } from "../lib/nav";
 import { SPEC_DIR, specTrail, type SpecFigure, type SpecRequirement, type SpecStatus } from "../lib/spec";
 import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff } from "../lib/specDiff";
@@ -44,6 +44,13 @@ export interface SpecFileReview {
   selectedKey: string | null;
   onComment: (line: CommentLine) => void;
 }
+
+/**
+ * How changed text is shown. Reading (the pull request's Spec tab): one text,
+ * with what went out struck through and what came in marked, the way an
+ * edited sentence reads. Otherwise the old line above the new one.
+ */
+const ReadingContext = createContext(false);
 
 const KIND_LABEL: Record<ItemKind, string> = { added: "Added", removed: "Removed", changed: "Changed", moved: "Moved" };
 const KIND_SIGN: Record<ItemKind, string> = { added: "+", removed: "−", changed: "~", moved: "→" };
@@ -129,6 +136,8 @@ interface CardProps {
   badge?: ReactNode;
   /** Rendered above the changes, e.g. what to check in this file. */
   top?: ReactNode;
+  /** Laid out for reading prose rather than for comparing lines. */
+  reading?: boolean | undefined;
   review?: SpecFileReview | undefined;
 }
 
@@ -147,7 +156,7 @@ export function SpecChangeCard(props: CardProps) {
   const weakened = (change.weakened !== null ? 1 : 0) + change.requirements.filter((r) => r.weakened !== null).length;
 
   return (
-    <div className={`diff-file spec-change${viewed === true ? " viewed" : ""}`} data-path={node.file ?? undefined} data-id={change.id} data-kind={change.kind}>
+    <div className={`diff-file spec-change${viewed === true ? " viewed" : ""}${props.reading === true ? " reading" : ""}`} data-path={node.file ?? undefined} data-id={change.id} data-kind={change.kind}>
       <div className="diff-file-header">
         <button className="path" onClick={toggle} aria-expanded={!collapsed}>
           {collapsed ? <ChevronRightIcon size={14} /> : <ChevronDownIcon size={14} />}{" "}
@@ -191,7 +200,9 @@ export function SpecChangeCard(props: CardProps) {
       {!collapsed && (
         <LazyMount>
           {props.top}
-          <CardBody {...props} />
+          <ReadingContext.Provider value={props.reading === true}>
+            <CardBody {...props} />
+          </ReadingContext.Provider>
         </LazyMount>
       )}
     </div>
@@ -410,6 +421,15 @@ function Line({ kind, text, segments }: { kind: "added" | "removed"; text: strin
 
 /** Text that changed: the old line and the new one, with the words that differ marked. */
 function TextChange({ before, after }: { before: string | undefined; after: string | undefined }) {
+  const reading = useContext(ReadingContext);
+  const inline = reading && before !== undefined && after !== undefined ? inlineDiff(before, after) : null;
+  if (inline !== null) {
+    return (
+      <p className="spec-diff-inline">
+        {inline.map((part, i) => (part.kind === "del" ? <del key={i}>{part.text}</del> : part.kind === "ins" ? <ins key={i}>{part.text}</ins> : <span key={i}>{part.text}</span>))}
+      </p>
+    );
+  }
   const words = before !== undefined && after !== undefined ? wordDiff(before, after) : null;
   return (
     <>

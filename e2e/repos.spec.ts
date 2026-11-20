@@ -8,7 +8,7 @@ test("startup opens repositories and keeps account-wide lists under You", async 
   await expect(page).toHaveURL(/#\/repos$/);
   await expect(activeScreen(page).getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
   const navigation = page.getByRole("navigation", { name: "Main" });
-  await expect(navigation.getByRole("button")).toHaveText(["Repos", "You"]);
+  await expect(navigation.getByRole("button")).toHaveText(["Repos", "Orgs", "You", "Settings"]);
 
   await navigation.getByRole("button", { name: "You", exact: true }).click();
   await activeScreen(page).getByRole("link", { name: "All pull requests" }).click();

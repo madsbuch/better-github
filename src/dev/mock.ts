@@ -1004,6 +1004,20 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       return { viewer: { repositories: { totalCount: REPOS.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: REPOS } } };
     case "ViewerStarred":
       return { viewer: { starredRepositories: { totalCount: 2, pageInfo: { hasNextPage: false, endCursor: null }, nodes: REPOS.slice(0, 2) } } };
+    case "ViewerOrgs":
+      return {
+        viewer: {
+          organizations: {
+            totalCount: 3,
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: [
+              { login: "acme", name: "Acme Inc.", avatarUrl: avatar(9), description: "Blazing fast uploads for everyone.", repositories: { totalCount: 42 } },
+              { login: "octo-labs", name: null, avatarUrl: avatar(4), description: null, repositories: { totalCount: 1 } },
+              { login: "rustaceans", name: "Rustaceans", avatarUrl: avatar(6), description: "People who write Rust.", repositories: { totalCount: 1280 } },
+            ],
+          },
+        },
+      };
     case "Viewer":
       return {
         viewer: {

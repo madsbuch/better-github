@@ -1,7 +1,7 @@
 // Guest mode's two tabs (see lib/guest.ts): the public repositories of the
 // profiles a guest follows, and the list of those profiles.
 
-import { ChevronRightIcon, GearIcon, MarkGithubIcon, PeopleIcon, PlusIcon, RepoIcon, SearchIcon, XIcon } from "@primer/octicons-react";
+import { MarkGithubIcon, PeopleIcon, PlusIcon, RepoIcon, SearchIcon, XIcon } from "@primer/octicons-react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
@@ -152,14 +152,6 @@ export function GuestProfilesScreen() {
         profiles.map((login) => <ProfileRow key={login} login={login} />)
       )}
 
-      <h3 className="section-title">App</h3>
-      <div style={{ borderTop: "1px solid var(--border-muted)" }}>
-        <Link {...to.settings()} className="kv">
-          <GearIcon size={18} />
-          <span className="grow">Settings</span>
-          <ChevronRightIcon size={16} className="c-muted" />
-        </Link>
-      </div>
       <div className="pad">
         <button className="btn btn-block btn-primary" onClick={() => void session.leaveGuest()}>
           <MarkGithubIcon size={16} /> Sign in to GitHub

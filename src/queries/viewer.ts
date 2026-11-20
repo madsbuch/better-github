@@ -3,7 +3,7 @@ import { graphql, restPage } from "../lib/api";
 import { isGuest } from "../lib/guest";
 import { queryClient } from "./client";
 import { guestQueries, RestRepo, toOwnerResult } from "./guest";
-import { OWNER, RATE_LIMIT, VIEWER, VIEWER_REPOS, VIEWER_STARRED } from "../lib/queries";
+import { OWNER, RATE_LIMIT, VIEWER, VIEWER_ORGS, VIEWER_REPOS, VIEWER_STARRED } from "../lib/queries";
 import type { OwnerResult, ViewerReposResult } from "../lib/types";
 import { keys, type ViewerRepoTab } from "./keys";
 
@@ -29,6 +29,16 @@ export const viewerQueries = {
       },
       initialPageParam: null,
       getNextPageParam: (last) => (last.pageInfo.hasNextPage ? last.pageInfo.endCursor : undefined),
+    }),
+  /** The organizations the viewer belongs to. */
+  orgs: () =>
+    infiniteQueryOptions({
+      queryKey: keys.viewer.orgs(),
+      queryFn: async ({ pageParam }: { pageParam: string | null }) => (await graphql(VIEWER_ORGS, { after: pageParam })).viewer.organizations,
+      initialPageParam: null,
+      getNextPageParam: (last) => (last.pageInfo.hasNextPage ? last.pageInfo.endCursor : undefined),
+      // Memberships change rarely.
+      staleTime: 5 * 60_000,
     }),
   /** A user's or organization's profile with their repositories. */
   owner: (login: string) =>

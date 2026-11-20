@@ -37,6 +37,22 @@
     {
       "id": "SR8",
       "text": "Assets, such as pictures, stay ordinary files."
+    },
+    {
+      "id": "SR9",
+      "text": "A pull request that changes the spec has a Spec tab showing only its spec changes: no code files and no JSON diffs. The tab's count is the number of changed parts."
+    },
+    {
+      "id": "SR10",
+      "text": "The Spec tab lists the changed parts in the outline's order, each with whether it is viewed, how many comments it has and whether it takes something away, and each leading to its part."
+    },
+    {
+      "id": "SR11",
+      "text": "In the Spec tab, reworded text reads as one text with what went out struck through and what came in marked, unless the two versions have little in common."
+    },
+    {
+      "id": "SR12",
+      "text": "Comments and viewed marks made in the Spec tab and in the Files tab are the same. The Spec tab can be narrowed to the parts not viewed yet, and to those that take something away."
     }
   ],
   "questions": [
@@ -45,6 +61,7 @@
   ],
   "code": [
     "src/screens/pull/FilesTab.tsx",
+    "src/screens/pull/SpecTab.tsx",
     "src/components/SpecChanges.tsx",
     "src/lib/specLines.ts",
     "src/queries/spec.ts",

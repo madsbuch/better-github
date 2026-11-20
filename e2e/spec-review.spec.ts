@@ -107,3 +107,66 @@ test("the spec changes are measured against where the branch started", async ({ 
   expect(asked).toContain("ba5eba11");
   expect(asked).not.toContain("main");
 });
+
+test("the Spec tab is for reading what a pull request changes in the spec, and nothing else", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/acme/rocket/pull/484");
+  // A pull request that changes the spec has the tab, with how many parts change.
+  const tab = activeScreen(page).getByRole("tab", { name: /Spec/ });
+  await expect(tab).toHaveText("Spec3");
+  await tab.click();
+
+  // No code and no JSON: the summary, the changed parts in the outline's order, and their cards.
+  await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−16 requirements +2~2−2");
+  const contents = activeScreen(page).getByRole("navigation", { name: "Changed parts of the spec" });
+  await expect(contents.locator(".spec-tab-progress")).toContainText("0/3 viewed");
+  await expect(contents.locator(".spec-tab-entry")).toHaveText(["Uploads / RetriesChanged", "Uploads / ResumingNew", "Command lineRemoved"]);
+  await expect(activeScreen(page).locator(".diff-file")).toHaveCount(3);
+  await expect(activeScreen(page).locator(".diff-body")).toHaveCount(0);
+  await expect(activeScreen(page).locator(".review-strip")).toHaveCount(0);
+
+  // A reworded requirement reads as one text, with what went out and what came in marked.
+  const r1 = (await shown(page, "uploads/retries")).locator('.spec-diff-req[data-req="R1"]');
+  await expect(r1.locator(".spec-diff-inline")).toHaveText("An upload that fails with a network error, a 429 or a 5xx response is retried, up to fivethree times.");
+  await expect(r1.locator(".spec-diff-inline del")).toHaveText("five");
+  await expect(r1.locator(".spec-diff-inline ins")).toContainText(["a 429", "three"]);
+  await expect(r1).toContainText("Why it changed Five retries kept phones awake for minutes.");
+
+  // Commenting works as in the Files tab: on the file's line, shown at the requirement.
+  await r1.getByRole("button", { name: "Comment on R1" }).click();
+  await page.locator(".sheet textarea").fill("Three feels low for trains.");
+  await page.locator(".sheet").getByRole("button", { name: "Add to review" }).click();
+  await expect(r1.locator(".draft-comment")).toContainText("Three feels low for trains.");
+  await expect(contents.locator(".spec-tab-entry").nth(0).locator(".counter")).toHaveText("1");
+
+  // Viewed is the file's viewed state: the part folds, the list ticks it, and "To read" leaves it out.
+  await card(page, "uploads/retries").getByRole("button", { name: "Viewed" }).click();
+  await expect(contents.locator(".spec-tab-progress")).toContainText("1/3 viewed");
+  await expect(card(page, "uploads/retries").locator(".spec-change-body")).toHaveCount(0);
+  await activeScreen(page).getByRole("radio", { name: /To read/ }).click();
+  await expect(activeScreen(page).locator(".spec-change .spec-change-title")).toHaveText(["Resuming", "Command line"]);
+  // The list still leads to a part that is filtered out and folded.
+  await contents.locator(".spec-tab-entry").nth(0).click();
+  await expect(card(page, "uploads/retries").locator(".spec-change-body")).toBeVisible();
+
+  // The same comment and viewed mark are in the Files tab.
+  await activeScreen(page).getByRole("tab", { name: /Files/ }).click();
+  await expect(activeScreen(page)).toContainText("2/7 viewed");
+  // Viewed, so folded there too: open it.
+  await card(page, "uploads/retries").scrollIntoViewIfNeeded();
+  await card(page, "uploads/retries").locator(".diff-file-header .path").click();
+  await expect(card(page, "uploads/retries").locator(".draft-comment")).toHaveCount(1);
+  // And from there, a way back.
+  await activeScreen(page).getByRole("button", { name: /Review in the Spec tab/ }).click();
+  await expect(contents).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("a pull request that doesn't change the spec has no Spec tab", async ({ page }) => {
+  await open(page, "/acme/rocket/pull/482");
+  await expect(activeScreen(page).getByRole("tab", { name: /Files/ })).toBeVisible();
+  await expect(activeScreen(page).getByRole("tab", { name: /Spec/ })).toHaveCount(0);
+  // Opened at it anyway, it says so.
+  await open(page, "/acme/rocket/pull/482?tab=spec");
+  await expect(activeScreen(page)).toContainText("No spec changes");
+});

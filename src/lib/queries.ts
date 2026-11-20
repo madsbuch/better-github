@@ -36,6 +36,7 @@ import {
   UnresolveThreadResult,
   UpdatePullBranchResult,
   ViewerReposResult,
+  ViewerOrgsResult,
   ViewerResult,
   ViewerStarredResult,
 } from "./types";
@@ -194,6 +195,22 @@ export const VIEWER_STARRED = gql(
     }
   }
   ${REPO_LIST_ITEM}
+`,
+);
+
+/** The organizations the viewer belongs to, with how much is in each. */
+export const VIEWER_ORGS = gql(
+  ViewerOrgsResult,
+  /* GraphQL */ `
+  query ViewerOrgs($after: String) {
+    viewer {
+      organizations(first: 50, after: $after) {
+        totalCount
+        pageInfo { hasNextPage endCursor }
+        nodes { login name avatarUrl description repositories { totalCount } }
+      }
+    }
+  }
 `,
 );
 
@@ -1098,6 +1115,7 @@ export const ALL_DOCUMENTS: Record<string, GraphQLDocument<z.ZodType>> = {
   SEARCH_USERS,
   VIEWER_REPOS,
   VIEWER_STARRED,
+  VIEWER_ORGS,
   VIEWER,
   RATE_LIMIT,
   OWNER,

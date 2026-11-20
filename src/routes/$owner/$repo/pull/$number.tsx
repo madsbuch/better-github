@@ -5,7 +5,7 @@ import { pullQueries, warmPullDiff } from "../../../../queries/pulls";
 import { query, warm } from "../../../../queries/warm";
 import { PullScreen } from "../../../../screens/PullScreen";
 
-const TABS: PullTab[] = ["conversation", "files", "commits", "checks"];
+const TABS: PullTab[] = ["conversation", "files", "spec", "commits", "checks"];
 
 export const Route = createFileRoute("/$owner/$repo/pull/$number")({
   params: {

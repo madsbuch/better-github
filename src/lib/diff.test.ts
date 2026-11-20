@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorOf, hunkSides, intralineDiffs, parsePatch, splitRows, suggestionBody, wordDiff } from "./diff";
+import { anchorOf, hunkSides, inlineDiff, intralineDiffs, parsePatch, splitRows, suggestionBody, wordDiff } from "./diff";
 
 const PATCH = [
   "@@ -1,4 +1,5 @@ fn main() {",
@@ -119,5 +119,26 @@ describe("splitRows", () => {
       ["f", null],
       ["No newline at end of file", null],
     ]);
+  });
+});
+
+describe("inlineDiff", () => {
+  it("gives one text with what went out and what came in, where it happened", () => {
+    expect(inlineDiff("Retried up to five times.", "Retried, with a pause, up to three times.")).toEqual([
+      { text: "Retried", kind: "same" },
+      { text: ",", kind: "ins" },
+      { text: " ", kind: "same" },
+      { text: "with a pause, ", kind: "ins" },
+      { text: "up to ", kind: "same" },
+      { text: "five", kind: "del" },
+      { text: "three", kind: "ins" },
+      { text: " times.", kind: "same" },
+    ]);
+    expect(inlineDiff("Same.", "Same.")).toEqual([{ text: "Same.", kind: "same" }]);
+  });
+
+  it("gives up when the two have little in common", () => {
+    expect(inlineDiff("Uploads resume where they stopped.", "The caller gets an error message.")).toBeNull();
+    expect(inlineDiff("", "Something.")).toBeNull();
   });
 });

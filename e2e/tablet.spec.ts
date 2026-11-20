@@ -33,7 +33,7 @@ for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800
       await expectWithinViewport(page, navigation);
       await expect(page.locator(".tabbar")).toBeHidden();
       await expect(screenTitle(page)).toHaveText("Repositories");
-      await expect(navigation.getByRole("button")).toHaveText(["Repos", "You"]);
+      await expect(navigation.getByRole("button")).toHaveText(["Repos", "Orgs", "You", "Settings"]);
 
       await activeScreen(page).locator("a.row").first().tap();
       await expect(screenTitle(page)).toHaveText("rocket");

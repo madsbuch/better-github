@@ -1,4 +1,4 @@
-import { PeopleIcon, RepoIcon } from "@primer/octicons-react";
+import { GearIcon, OrganizationIcon, PeopleIcon, RepoIcon } from "@primer/octicons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useLocation, useRouterState, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -8,11 +8,13 @@ import { useSessionApi } from "../lib/session";
 import { warmStartup } from "../queries/warm";
 import { Avatar, ErrorView, SkeletonList } from "../components/ui";
 
-type TabId = "repos" | "profile";
+type TabId = "repos" | "orgs" | "profile" | "settings";
 
 const TABS: { id: TabId; label: string; path: string; target: ReturnType<(typeof to)[TabId]> }[] = [
   { id: "repos", label: "Repos", path: "/repos", target: to.repos() },
+  { id: "orgs", label: "Orgs", path: "/orgs", target: to.orgs() },
   { id: "profile", label: "You", path: "/profile", target: to.profile() },
+  { id: "settings", label: "Settings", path: "/settings", target: to.settings() },
 ];
 
 /** One routed screen, with bottom tabs on phones and persistent navigation on tablets. */
@@ -23,6 +25,8 @@ export function Shell() {
   const screen = useRef<HTMLElement>(null);
   const previous = useRef({ pathname, index });
   const tab = TABS.find((t) => t.path === pathname)?.id;
+  // The sidebar stays through a section's own pages (Settings has several), and marks where they belong.
+  const section = tab ?? TABS.find((t) => pathname.startsWith(`${t.path}/`))?.id;
 
   useEffect(() => warmStartup(queryClient), [queryClient]);
   useDesktopInput();
@@ -45,7 +49,7 @@ export function Shell() {
   return (
     <div className="app app-shell">
       <ProgressBar />
-      <TabBar current={tab} rail />
+      <TabBar current={section} rail />
       <div className="stack">
         <section className="screen" ref={screen}>
           <Outlet />
@@ -76,9 +80,13 @@ function TabBar({ current, rail = false }: { current?: TabId | undefined; rail?:
     <nav className={`main-nav ${rail ? "nav-rail" : "tabbar"}`} aria-label="Main">
       {rail && <img className="nav-logo" src="/icon.svg" alt="Better GitHub" />}
       {TABS.map((tab) => {
+        // Guests belong to no organization.
+        if (tab.id === "orgs" && state.status !== "signed-in") return null;
         const active = tab.id === current;
         let icon: ReactNode;
         if (tab.id === "repos") icon = <RepoIcon size={20} />;
+        else if (tab.id === "orgs") icon = <OrganizationIcon size={20} />;
+        else if (tab.id === "settings") icon = <GearIcon size={20} />;
         else if (state.status === "signed-in") icon = <Avatar src={state.session.avatarUrl} size={22} />;
         else icon = <PeopleIcon size={20} />;
         // Guests have no account; their second tab lists the profiles they follow.

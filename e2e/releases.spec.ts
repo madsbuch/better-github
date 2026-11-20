@@ -175,8 +175,8 @@ test("signing out prevents a pending URL request from starting a download", asyn
     });
   });
   await activeScreen(page).getByRole("button", { name: "Download rocket-v2.0.0.apk", exact: true }).click();
-  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "You", exact: true }).click();
-  await activeScreen(page).getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Settings", exact: true }).click();
+  await activeScreen(page).getByRole("link", { name: /Account/ }).click();
   await activeScreen(page).getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Better GitHub", exact: true })).toBeVisible();
   await page.evaluate(async () => {

@@ -32,11 +32,37 @@ export function resolveTheme(pref: ThemePref, systemIsDark: boolean): "light" | 
 
 let applied: "light" | "dark" | null = null;
 
+/**
+ * Puts the theme on the page. A switch (not the first paint) cross-fades from
+ * the old colors to the new ones, unless the device asks for less motion.
+ */
+function paint(theme: "light" | "dark", animate: boolean) {
+  const set = () => {
+    document.documentElement.dataset.theme = theme;
+  };
+  const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!animate || calm) return set();
+  // The browser takes a picture of the page, changes it, and fades between the two.
+  if (typeof document.startViewTransition === "function") {
+    document.startViewTransition(set);
+    return;
+  }
+  // Older web views: let every color ease to its new value instead.
+  const root = document.documentElement;
+  root.classList.add("theme-switching");
+  set();
+  window.setTimeout(() => root.classList.remove("theme-switching"), THEME_FADE_MS + 50);
+}
+
+/** How long a theme switch takes; app.css uses the same. */
+const THEME_FADE_MS = 280;
+
 function apply() {
   const theme = resolveTheme(getPref("theme"), systemDark());
   if (theme === applied) return;
+  const first = applied === null;
   applied = theme;
-  document.documentElement.dataset.theme = theme;
+  paint(theme, !first);
   // Colours the status and navigation bar areas to match.
   try {
     window.GhCommanderTheme?.apply(theme === "dark");

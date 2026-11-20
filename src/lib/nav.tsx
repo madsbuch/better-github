@@ -14,8 +14,12 @@ import { linkOptions, useRouter, type RegisteredRouter } from "@tanstack/react-r
 import { useEffect, useMemo, useRef } from "react";
 import type { InboxFilter } from "../queries/keys";
 
-export type PullTab = "conversation" | "files" | "commits" | "checks";
+/** "spec": what the pull request changes in the spec, when it changes any. */
+export type PullTab = "conversation" | "files" | "spec" | "commits" | "checks";
 export type RepoTab = "about" | "code" | "pulls" | "issues" | "commits" | "actions" | "releases";
+/** The pages of Settings, in the order its menu lists them. */
+export const SETTINGS_SECTIONS = ["account", "appearance", "code", "sign-in", "shortcuts", "about"] as const;
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 export type SearchType = "repos" | "pulls" | "issues" | "users";
 export type NotificationsFilter = "participating" | "all";
 /** Run filters in the Actions tab: GitHub's `status` values we offer. */
@@ -43,8 +47,11 @@ export const to = {
   inbox: (filter?: InboxFilter) => linkOptions({ to: "/pulls", search: { filter: filter === "review" ? undefined : filter } }),
   notifications: (filter?: NotificationsFilter) => linkOptions({ to: "/notifications", search: { filter } }),
   repos: (tab?: "starred") => linkOptions({ to: "/repos", search: { tab } }),
+  orgs: () => linkOptions({ to: "/orgs" }),
   profile: () => linkOptions({ to: "/profile" }),
-  settings: () => linkOptions({ to: "/settings" }),
+  /** Settings: its menu, or one of its pages. */
+  settings: (section?: SettingsSection) =>
+    section === undefined ? linkOptions({ to: "/settings" }) : linkOptions({ to: "/settings/$section", params: { section } }),
   search: (q?: string, type?: SearchType) => linkOptions({ to: "/search", search: { q: q === "" ? undefined : q, type } }),
   user: (login: string) => linkOptions({ to: "/$owner", params: { owner: login } }),
   repo: (owner: string, repo: string, search: RepoSearch = {}) =>

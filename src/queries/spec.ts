@@ -17,7 +17,7 @@ import { errorMessage, graphql, rest } from "../lib/api";
 import { backend } from "../lib/backend";
 import { SPEC_BLOBS, SPEC_ROOT } from "../lib/queries";
 import { buildSpec, SPEC_DIR, type Spec, type SpecFile, type SpecNode } from "../lib/spec";
-import { diffSpecs, type SpecDiff } from "../lib/specDiff";
+import { diffSpecs, type ItemChange, type SpecDiff } from "../lib/specDiff";
 import { specPrompt } from "../lib/specPrompt";
 import { useToast } from "../lib/toast";
 import { SPEC_BLOB_BATCH } from "../lib/types";
@@ -324,16 +324,66 @@ export function useSpecDiff(owner: string, repo: string, base: string, head: str
     wantAfter(current);
   }, [diff, wantBefore, wantAfter]);
 
+  const [retryBefore, retryAfter] = [before.retry, after.retry];
   return {
     before,
     after,
     diff,
     error: before.error ?? after.error,
     retry: () => {
-      before.retry();
-      after.retry();
+      retryBefore();
+      retryAfter();
     },
   };
+}
+
+/** What a pull request changes in the spec, for its Files and Spec tabs. */
+export interface PullSpec extends LoadedSpecDiff {
+  /** Whether any of its files is in the spec folder. */
+  touchesSpec: boolean;
+  /** What the changes are measured against: the commit the branch started from ("" until that is known). */
+  base: string;
+  /** The change to each item, by its file's path from the repository's root. */
+  byFile: Map<string, ItemChange>;
+}
+
+const inSpecFolder = (path: string | undefined) => path?.startsWith(`${SPEC_DIR}/`) === true;
+
+/**
+ * The spec changes of a pull request (null while it loads) with these changed files.
+ * They are measured against where its branch started, not the base branch as it is
+ * now: what happened there since isn't the pull request's doing.
+ */
+export function usePullSpec(
+  owner: string,
+  repo: string,
+  pr: { baseRefName: string; headRefOid: string } | null,
+  files: { filename: string; previous_filename?: string | undefined }[],
+): PullSpec {
+  const touchesSpec = pr !== null && files.some((file) => inSpecFolder(file.filename) || inSpecFolder(file.previous_filename));
+  const [baseRef, head] = [pr?.baseRefName ?? "", pr?.headRefOid ?? ""];
+  const mergeBase = useQuery({ ...mergeBaseQuery(owner, repo, baseRef, head), enabled: touchesSpec });
+  // Should that fail, the base branch as it is now is the next best thing.
+  const base = !touchesSpec ? "" : (mergeBase.data ?? (mergeBase.isError ? baseRef : ""));
+  const renames = useMemo(() => {
+    const moved = new Map<string, string>();
+    for (const file of files) {
+      if (inSpecFolder(file.filename) && inSpecFolder(file.previous_filename)) {
+        moved.set(file.filename.slice(SPEC_DIR.length + 1), (file.previous_filename ?? "").slice(SPEC_DIR.length + 1));
+      }
+    }
+    return moved;
+  }, [files]);
+  const compared = useSpecDiff(owner, repo, base, touchesSpec ? head : "", renames);
+  const byFile = useMemo(() => {
+    const changes = new Map<string, ItemChange>();
+    for (const change of compared.diff?.items ?? []) {
+      const file = (change.after ?? change.before)?.file;
+      if (file !== null && file !== undefined) changes.set(file, change);
+    }
+    return changes;
+  }, [compared.diff]);
+  return useMemo(() => ({ ...compared, touchesSpec, base, byFile }), [compared, touchesSpec, base, byFile]);
 }
 
 // ------------------------------------------------------------------- prompt

@@ -31,8 +31,10 @@ test("keyboard shortcuts go to search, back and forward, and to the main section
   await expect(screenTitle(page)).toHaveText("Repositories");
   await page.keyboard.press("Alt+ArrowRight");
   await expect(screenTitle(page)).toHaveText("Search");
-  await page.keyboard.press("Control+2");
+  await page.keyboard.press("Control+3");
   await expect(page.locator(".nav-rail button[aria-current=page]")).toHaveText("You");
+  await page.keyboard.press("Control+2");
+  await expect(screenTitle(page)).toHaveText("Organizations");
   await page.keyboard.press("Control+1");
   await expect(screenTitle(page)).toHaveText("Repositories");
   await page.keyboard.press("Control+k");
@@ -112,8 +114,8 @@ test("rows and buttons respond to the pointer", async ({ page }) => {
 });
 
 test("settings list the shortcuts", async ({ page }) => {
-  await open(page, "/settings");
-  await expect(activeScreen(page).getByRole("heading", { name: "Keyboard shortcuts" })).toBeVisible();
+  await open(page, "/settings/shortcuts");
+  await expect(activeScreen(page).getByRole("region", { name: "Keyboard shortcuts" })).toBeVisible();
   await expect(activeScreen(page).locator(".shortcut-keys").first()).toContainText("/");
 });
 
@@ -142,7 +144,7 @@ test("wide windows show diffs side by side, and lines on either side take commen
   await page.keyboard.press("Escape");
 
   // It's a preference, and narrow windows always get one column.
-  await open(page, "/settings");
+  await open(page, "/settings/code");
   await activeScreen(page).getByLabel("Show diffs side by side in wide windows").uncheck();
   await open(page, "/acme/rocket/pull/482?tab=files");
   await expect(file.locator(".dl").first()).toBeVisible();

@@ -42,6 +42,8 @@ export const keys = {
     all: () => ["viewer"] as const,
     profile: () => ["viewer", "profile"] as const,
     repos: (tab: ViewerRepoTab) => ["viewer", "repos", tab] as const,
+    /** The organizations the viewer belongs to. */
+    orgs: () => ["viewer", "orgs"] as const,
     rateLimit: () => ["viewer", "rate-limit"] as const,
     /** Branches the viewer pushed lately, across their most recently pushed repositories. */
     recentBranches: () => ["viewer", "recent-branches"] as const,

@@ -67,7 +67,7 @@ export async function warm(
 /** Fills the cache for the main tabs right after startup, so switching tabs never waits. */
 export function warmStartup(queryClient: QueryClient) {
   if (isGuest()) return;
-  const items = [query(viewerQueries.repos("yours")), query(viewerQueries.repos("starred")), query(viewerQueries.profile())];
+  const items = [query(viewerQueries.repos("yours")), query(viewerQueries.repos("starred")), query(viewerQueries.orgs()), query(viewerQueries.profile())];
   // prefetch* respects staleTime, so fresh restored data isn't refetched.
   for (const item of items) void item.prefetch(queryClient);
 }

@@ -17,7 +17,7 @@ test("guests follow profiles and see their public repositories", async ({ page }
   const errors = trackErrors(page);
   await startAsGuest(page);
   const navigation = page.getByRole("navigation", { name: "Main" });
-  await expect(navigation.getByRole("button")).toHaveText(["Repos", "Profiles"]);
+  await expect(navigation.getByRole("button")).toHaveText(["Repos", "Profiles", "Settings"]);
 
   const screen = activeScreen(page);
   await expect(screen.getByText("Follow profiles to see their repositories")).toBeVisible();

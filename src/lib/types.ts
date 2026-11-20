@@ -178,6 +178,21 @@ export const ViewerResult = z.object({
 });
 export type ViewerResult = z.infer<typeof ViewerResult>;
 
+/** An organization the viewer belongs to, as the organizations page lists it. */
+export const ViewerOrg = z.object({
+  login: z.string(),
+  name: z.string().nullable(),
+  avatarUrl: z.string(),
+  description: z.string().nullable(),
+  repositories: z.object({ totalCount: z.number() }),
+});
+export type ViewerOrg = z.infer<typeof ViewerOrg>;
+
+export const ViewerOrgsResult = z.object({
+  viewer: z.object({ organizations: z.object({ totalCount: z.number(), pageInfo: PageInfo, nodes: nodes(ViewerOrg) }) }),
+});
+export type ViewerOrgsResult = z.infer<typeof ViewerOrgsResult>;
+
 export const OwnerResult = z.object({
   repositoryOwner: z
     .object({

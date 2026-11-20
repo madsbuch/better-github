@@ -5,7 +5,9 @@ A fast GitHub client for Android phones and tablets and for the desktop (macOS, 
 ## Features
 
 **Repository home**
-- The app opens on your repositories, with filtering and a Starred tab. Primary navigation is *Repos · You*.
+- The app opens on your repositories, with filtering and a Starred tab. Primary navigation is *Repos · Orgs · You · Settings*.
+- **Settings** has its own section, as a menu of pages: Account (sign out, rate limit), Appearance, Code and diffs, GitHub sign-in, Keyboard shortcuts and About. On a phone each page is a screen; from tablet width the menu stays beside the open page. Switching between light and dark cross-fades, unless the device asks for reduced motion.
+- **Organizations** has its own section: the organizations you belong to, each with its description and how many repositories it has, opening the organization's page.
 - Each repository's Overview puts *Pull requests*, *Releases* and *Builds* up front: review changes, download a release, or inspect and retry a workflow run.
 - Account-wide pull requests and notifications remain available under *You*.
 
@@ -243,6 +245,15 @@ contents of each changed file, and what to do about the code. Once the agent's
 pull request is merged, the draft's changes are the repository's and drop out
 of the draft by themselves.
 
+The pull request also gets a **Spec tab**, between Files and Commits, for
+reading the spec changes and nothing else: no code and no JSON. It starts with
+the summary and a list of the changed parts in the outline's order, each with a
+tick once viewed and a count of its comments. Below, each part is laid out for
+reading, with reworded text shown as one sentence that has the old words struck
+through and the new ones marked. Comments and viewed marks are the same as in
+the Files tab, since each part is one file. *To read* narrows the tab to what
+isn't viewed yet.
+
 ### Large specs
 
 A spec's size doesn't matter. The app lists the folder's files in one request and
@@ -344,11 +355,12 @@ On a desktop the app is used with a mouse and a keyboard:
 | `/` or `⌘K` | Search |
 | `⌘[` or `⌥←`, `⌘]` or `⌥→` (and the mouse's back and forward buttons) | Back, forward |
 | `⌘R` | Refresh the screen's data |
-| `⌘1`, `⌘2` | Repositories, your profile |
+| `⌘1`, `⌘2`, `⌘3` | Repositories, organizations, your profile |
+| `⌘,` or `⌘4` | Settings |
 | `Esc` | Close the dialog or menu on top |
 
-Elsewhere `Ctrl` takes the place of `⌘` and `Alt` of `⌥`. Settings list the
-shortcuts too.
+Elsewhere `Ctrl` takes the place of `⌘` and `Alt` of `⌥`. *Settings › Keyboard
+shortcuts* lists them too.
 
 ## Development
 

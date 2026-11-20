@@ -18,7 +18,7 @@ import {
 } from "@primer/octicons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { backend } from "../lib/backend";
 import { draftKey, useReviewDraft } from "../lib/drafts";
 import { to, useNav, type PullTab } from "../lib/nav";
@@ -29,6 +29,7 @@ import { useToast } from "../lib/toast";
 import type { StatusState, UpdateBranchMethod } from "../lib/types";
 import { keys } from "../queries/keys";
 import { pullQueries, pullTabQueries, usePullMutations, useThreadActions } from "../queries/pulls";
+import { usePullSpec } from "../queries/spec";
 import { usePullReview } from "../queries/reviewRules";
 import { Screen } from "../components/Screen";
 import { ActionSheet, Sheet } from "../components/Sheet";
@@ -36,6 +37,7 @@ import { CenterSpinner, EmptyState, ErrorView, ScreenTabs } from "../components/
 import { ChecksTab, CommitsTab } from "./pull/ChecksAndCommits";
 import { Conversation, canMerge } from "./pull/Conversation";
 import { FilesTab } from "./pull/FilesTab";
+import { SpecTab } from "./pull/SpecTab";
 import { MergeSheet, ReviewSheet, TextSheet } from "./pull/Sheets";
 
 const route = getRouteApi("/$owner/$repo/pull/$number");
@@ -86,6 +88,12 @@ export function PullScreen() {
   useEffect(() => {
     if (headSha !== undefined && headSha !== "") void queryClient.prefetchQuery(pullQueries.patches(owner, repo, number, headSha));
   }, [queryClient, owner, repo, number, headSha]);
+
+  // What it changes in the spec, for the Files tab and, when it changes any, a tab of its own.
+  const patches = useQuery({ ...pullQueries.patches(owner, repo, number, headSha ?? ""), enabled: headSha !== undefined && headSha !== "" });
+  const noFiles = useMemo(() => [], []);
+  const spec = usePullSpec(owner, repo, pr, patches.data ?? noFiles);
+  const specItems = spec.diff?.items.length;
 
   // Verdicts from the review rules of the branch this merges into.
   const review = usePullReview(owner, repo, number, pr);
@@ -150,6 +158,8 @@ export function PullScreen() {
           tabs={[
             { value: "conversation", label: "Conversation" },
             { value: "files", label: "Files", count: pr?.changedFiles },
+            // Only pull requests that change the spec have it (or one opened at it).
+            ...(spec.touchesSpec || tab === "spec" ? [{ value: "spec" as const, label: "Spec", count: specItems }] : []),
             { value: "commits", label: "Commits", count: pr?.commits.totalCount },
             { value: "checks", label: "Checks", icon: checksTabIcon(pr?.statusCheckRollup?.state) },
           ]}
@@ -210,7 +220,11 @@ export function PullScreen() {
           jumpOpen={jumpOpen}
           onJumpClose={() => setJumpOpen(false)}
           review={review}
+          spec={spec}
+          onOpenSpec={() => setTab("spec")}
         />
+      ) : tab === "spec" ? (
+        <SpecTab owner={owner} repo={repo} number={number} pr={pr} spec={spec} threads={threads.data ?? []} threadActions={threadActions} drafts={drafts} viewerLogin={viewer.login} />
       ) : tab === "commits" ? (
         <CommitsTab owner={owner} repo={repo} number={number} />
       ) : (

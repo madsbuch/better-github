@@ -4,6 +4,8 @@ import type { Locator, Page } from "@playwright/test";
 declare global {
   interface Window {
     __loadingSeen?: string[];
+    /** How many page cross-fades were asked for (settings.spec.ts). */
+    __fades?: number;
     __downloads?: string[][];
     finishDownloadUrl?: () => void;
   }

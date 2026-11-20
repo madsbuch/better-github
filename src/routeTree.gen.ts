@@ -11,12 +11,14 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as NotificationsRouteImport } from "./routes/notifications";
+import { Route as OrgsRouteImport } from "./routes/orgs";
 import { Route as ProfileRouteImport } from "./routes/profile";
 import { Route as PullsRouteImport } from "./routes/pulls";
 import { Route as ReposRouteImport } from "./routes/repos";
 import { Route as SearchRouteImport } from "./routes/search";
-import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as OwnerIndexRouteImport } from "./routes/$owner/index";
+import { Route as SettingsIndexRouteImport } from "./routes/settings/index";
+import { Route as SettingsSectionRouteImport } from "./routes/settings/$section";
 import { Route as OwnerRepoIndexRouteImport } from "./routes/$owner/$repo/index";
 import { Route as OwnerRepoBlobRouteImport } from "./routes/$owner/$repo/blob";
 import { Route as OwnerRepoCompareRouteImport } from "./routes/$owner/$repo/compare";
@@ -44,6 +46,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
   path: "/notifications",
   getParentRoute: () => rootRouteImport,
 } as any);
+const OrgsRoute = OrgsRouteImport.update({
+  id: "/orgs",
+  path: "/orgs",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const ProfileRoute = ProfileRouteImport.update({
   id: "/profile",
   path: "/profile",
@@ -64,14 +71,19 @@ const SearchRoute = SearchRouteImport.update({
   path: "/search",
   getParentRoute: () => rootRouteImport,
 } as any);
-const SettingsRoute = SettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const OwnerIndexRoute = OwnerIndexRouteImport.update({
   id: "/$owner/",
   path: "/$owner/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: "/settings/",
+  path: "/settings/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SettingsSectionRoute = SettingsSectionRouteImport.update({
+  id: "/settings/$section",
+  path: "/settings/$section",
   getParentRoute: () => rootRouteImport,
 } as any);
 const OwnerRepoIndexRoute = OwnerRepoIndexRouteImport.update({
@@ -161,12 +173,14 @@ const OwnerRepoActionsRunsRunIdJobJobIdRoute =
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/notifications": typeof NotificationsRoute;
+  "/orgs": typeof OrgsRoute;
   "/profile": typeof ProfileRoute;
   "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
-  "/settings": typeof SettingsRoute;
+  "/settings/$section": typeof SettingsSectionRoute;
   "/$owner/": typeof OwnerIndexRoute;
+  "/settings/": typeof SettingsIndexRoute;
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
   "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/spec": typeof OwnerRepoSpecRoute;
@@ -187,12 +201,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/notifications": typeof NotificationsRoute;
+  "/orgs": typeof OrgsRoute;
   "/profile": typeof ProfileRoute;
   "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
-  "/settings": typeof SettingsRoute;
+  "/settings/$section": typeof SettingsSectionRoute;
   "/$owner": typeof OwnerIndexRoute;
+  "/settings": typeof SettingsIndexRoute;
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
   "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/spec": typeof OwnerRepoSpecRoute;
@@ -214,12 +230,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/notifications": typeof NotificationsRoute;
+  "/orgs": typeof OrgsRoute;
   "/profile": typeof ProfileRoute;
   "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
-  "/settings": typeof SettingsRoute;
+  "/settings/$section": typeof SettingsSectionRoute;
   "/$owner/": typeof OwnerIndexRoute;
+  "/settings/": typeof SettingsIndexRoute;
   "/$owner/$repo/blob": typeof OwnerRepoBlobRoute;
   "/$owner/$repo/compare": typeof OwnerRepoCompareRoute;
   "/$owner/$repo/spec": typeof OwnerRepoSpecRoute;
@@ -242,12 +260,14 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/notifications"
+    | "/orgs"
     | "/profile"
     | "/pulls"
     | "/repos"
     | "/search"
-    | "/settings"
+    | "/settings/$section"
     | "/$owner/"
+    | "/settings/"
     | "/$owner/$repo/blob"
     | "/$owner/$repo/compare"
     | "/$owner/$repo/spec"
@@ -268,12 +288,14 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/notifications"
+    | "/orgs"
     | "/profile"
     | "/pulls"
     | "/repos"
     | "/search"
-    | "/settings"
+    | "/settings/$section"
     | "/$owner"
+    | "/settings"
     | "/$owner/$repo/blob"
     | "/$owner/$repo/compare"
     | "/$owner/$repo/spec"
@@ -294,12 +316,14 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/notifications"
+    | "/orgs"
     | "/profile"
     | "/pulls"
     | "/repos"
     | "/search"
-    | "/settings"
+    | "/settings/$section"
     | "/$owner/"
+    | "/settings/"
     | "/$owner/$repo/blob"
     | "/$owner/$repo/compare"
     | "/$owner/$repo/spec"
@@ -321,12 +345,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   NotificationsRoute: typeof NotificationsRoute;
+  OrgsRoute: typeof OrgsRoute;
   ProfileRoute: typeof ProfileRoute;
   PullsRoute: typeof PullsRoute;
   ReposRoute: typeof ReposRoute;
   SearchRoute: typeof SearchRoute;
-  SettingsRoute: typeof SettingsRoute;
+  SettingsSectionRoute: typeof SettingsSectionRoute;
   OwnerIndexRoute: typeof OwnerIndexRoute;
+  SettingsIndexRoute: typeof SettingsIndexRoute;
   OwnerRepoBlobRoute: typeof OwnerRepoBlobRoute;
   OwnerRepoCompareRoute: typeof OwnerRepoCompareRoute;
   OwnerRepoSpecRoute: typeof OwnerRepoSpecRoute;
@@ -361,6 +387,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof NotificationsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/orgs": {
+      id: "/orgs";
+      path: "/orgs";
+      fullPath: "/orgs";
+      preLoaderRoute: typeof OrgsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/profile": {
       id: "/profile";
       path: "/profile";
@@ -389,18 +422,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/settings": {
-      id: "/settings";
-      path: "/settings";
-      fullPath: "/settings";
-      preLoaderRoute: typeof SettingsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/$owner/": {
       id: "/$owner/";
       path: "/$owner";
       fullPath: "/$owner/";
       preLoaderRoute: typeof OwnerIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/settings/": {
+      id: "/settings/";
+      path: "/settings";
+      fullPath: "/settings/";
+      preLoaderRoute: typeof SettingsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/settings/$section": {
+      id: "/settings/$section";
+      path: "/settings/$section";
+      fullPath: "/settings/$section";
+      preLoaderRoute: typeof SettingsSectionRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/$owner/$repo/": {
@@ -521,12 +561,14 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NotificationsRoute: NotificationsRoute,
+  OrgsRoute: OrgsRoute,
   ProfileRoute: ProfileRoute,
   PullsRoute: PullsRoute,
   ReposRoute: ReposRoute,
   SearchRoute: SearchRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsSectionRoute: SettingsSectionRoute,
   OwnerIndexRoute: OwnerIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
   OwnerRepoBlobRoute: OwnerRepoBlobRoute,
   OwnerRepoCompareRoute: OwnerRepoCompareRoute,
   OwnerRepoSpecRoute: OwnerRepoSpecRoute,
