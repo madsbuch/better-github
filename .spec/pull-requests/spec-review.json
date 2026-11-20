@@ -86,6 +86,10 @@
     {
       "id": "SR16",
       "text": "A requirement the pull request left unchanged takes comments where the pull request's diff reaches its lines. Every comment button says which line of which file the comment lands on."
+    },
+    {
+      "id": "SR17",
+      "text": "A changed named value shows what it was and what it is, as each looks, with the reason when one was recorded. A value whose meaning changed without a recorded reason says so, and a deleted value counts as taking something away."
     }
   ],
   "related": [

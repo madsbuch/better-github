@@ -10,15 +10,16 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
   await expect(screenTitle(page)).toHaveText("Spec changes");
-  await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−2");
+  await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−24 values +1~2−1");
   // What a reviewer must not miss: where the spec now promises less.
   const weakened = activeScreen(page).locator(".spec-weakened");
-  await expect(weakened).toContainText("5 changes take something away from the spec");
+  await expect(weakened).toContainText("6 changes take something away from the spec");
   await expect(weakened.locator("li")).toHaveText([
     "Retries Back from accepted to draft.",
     "Retries US-2 Deprecated: Nobody asked for it once retries took seconds instead of minutes.",
     // Nothing is deleted from a spec: what is no longer wanted is deprecated, with the reason.
     "Retries R4 A may requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
+    "Retries retry.label A named value is deleted. Deprecate it instead, with the reason, so the record stays.",
     "Command line Deleted, with 1 requirement. Deprecate it instead, with the reason, so the record stays.",
     "Command line C1 A must requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
   ]);
@@ -34,7 +35,16 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   await expect(stories.nth(1)).toContainText("Why it is deprecated Nobody asked for it once retries took seconds instead of minutes.");
   await expect(stories.nth(2)).toContainText("As someone running the server, I want clients to back off when I ask them to, so that a restart isn't met by a stampede.");
   await expect(stories.nth(2)).toContainText("Made true by R5");
-  const requirements = retries.locator(".spec-diff-req:not(.spec-diff-story)");
+  // Named values: what each was and is, as it looks, with why when the change says so.
+  const values = retries.locator(".spec-diff-value");
+  await expect(values.locator(".spec-req-id")).toHaveText(["retry.max", "color.retrying", "retry.states", "retry.label"]);
+  await expect(values.nth(0).locator(".spec-value-move")).toHaveText("5 times3 times");
+  await expect(values.nth(0)).toContainText("Why it changed Five retries kept phones awake for minutes.");
+  await expect(values.nth(1).locator(".spec-swatch")).toHaveCount(4);
+  await expect(values.nth(1)).toContainText("Nothing says why it changed.");
+  await expect(values.nth(2).locator(".spec-value-entry")).toHaveText(["waiting", "retrying", "gave up"]);
+  await expect(values.nth(3).locator(".spec-req-head")).toContainText("Takes away");
+  const requirements = retries.locator(".spec-diff-req:not(.spec-diff-story):not(.spec-diff-value)");
   await expect(requirements.locator(".spec-req-id")).toHaveText(["R1", "R3", "R4", "R5"]);
   await expect(requirements.locator(".spec-req-head .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Changed", "Removed", "Added"]);
   // Deleting a requirement, instead of deprecating it, is flagged.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import committedSchema from "../../schema/spec.schema.json";
-import { buildSpec, searchSpec, SpecItem, storySentence, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, unloadedBelow, type SpecFile } from "./spec";
+import { buildSpec, searchSpec, SpecItem, storySentence, valueText, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, unloadedBelow, type SpecFile } from "./spec";
 
 const file = (path: string, value: unknown): SpecFile => ({ path, text: typeof value === "string" ? value : JSON.stringify(value), truncated: false });
 
@@ -43,8 +43,8 @@ describe("buildSpec", () => {
   });
 
   it("counts items and requirements below a node", () => {
-    expect(specCounts(spec.root)).toEqual({ items: 4, requirements: 3, deprecated: 0, stories: 0, unloaded: 0 });
-    expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, deprecated: 0, stories: 0, unloaded: 0 });
+    expect(specCounts(spec.root)).toEqual({ items: 4, requirements: 3, deprecated: 0, stories: 0, values: 0, unloaded: 0 });
+    expect(specCounts(spec.nodes.get("uploads") ?? spec.root)).toEqual({ items: 2, requirements: 2, deprecated: 0, stories: 0, values: 0, unloaded: 0 });
   });
 
   it("wants requirement ids to be unique in the whole spec, not just in their item", () => {
@@ -80,7 +80,7 @@ describe("buildSpec", () => {
       '.spec/c.json: The item is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
     ]);
     // Deprecated requirements aren't counted among the requirements; a deprecated item's are all deprecated.
-    expect(specCounts(kept.root)).toEqual({ items: 3, requirements: 2, deprecated: 3, stories: 0, unloaded: 0 });
+    expect(specCounts(kept.root)).toEqual({ items: 3, requirements: 2, deprecated: 3, stories: 0, values: 0, unloaded: 0 });
     // They are still there to be found, by what they said and by why they went.
     expect(searchSpec(kept, "nobody used").map((m) => m.requirements.map((r) => r.id))).toEqual([["A-2"]]);
     expect(SpecItem.safeParse({ title: "X", deprecation: { reason: "" } }).success).toBe(false);
@@ -205,7 +205,7 @@ describe("buildSpec", () => {
     const uploads = partial.nodes.get("uploads") ?? partial.root;
     expect([uploads.title, uploads.loaded, uploads.oid]).toEqual(["uploads", false, "a"]);
     expect(uploads.children.map((n) => [n.title, n.loaded])).toEqual([["limits", false], ["Retries", true]]);
-    expect(specCounts(partial.root)).toEqual({ items: 4, requirements: 1, deprecated: 0, stories: 0, unloaded: 3 });
+    expect(specCounts(partial.root)).toEqual({ items: 4, requirements: 1, deprecated: 0, stories: 0, values: 0, unloaded: 3 });
     expect(unloadedBelow(uploads).map((n) => n.id)).toEqual(["uploads", "uploads/limits"]);
     // Folders nest as deep as they like.
     expect(partial.nodes.get("a/b/c/d/e/deep")?.file).toBe(".spec/a/b/c/d/e/deep.json");
@@ -294,4 +294,50 @@ describe("this repository's own .spec", () => {
     expect(spec.problems).toEqual([]);
     expect(spec.root.item).not.toBeNull();
   });
+
+  it("has named values: typed, named once in the whole spec, changed and dropped with a reason", () => {
+    const named = buildSpec([
+      file("index.json", { title: "Rocket" }),
+      file("tokens.json", {
+        title: "Tokens",
+        values: [
+          { id: "color.accent", type: "color", value: "#0969da", dark: "#4493f8", description: "Links and the primary button." },
+          { id: "retry.max", type: "number", value: 3, unit: "times", history: [{ value: 5, reason: "Phones stayed awake." }] },
+          { id: "space.gutter", type: "dimension", value: "16px" },
+          { id: "toast.stay", type: "duration", value: "4s" },
+          { id: "roles", type: "list", value: ["admin", "member"] },
+          { id: "old.name", type: "text", value: "Rocket Pro", status: "deprecated" },
+          // One set of ids, for values too.
+          { id: "RET-1", type: "text", value: "clash" },
+        ],
+        related: ["#retry.max", "#nope.value"],
+      }),
+      file("retries.json", { title: "Retries", requirements: [{ id: "RET-1", text: "Retried `retry.max` times." }] }),
+    ]);
+    expect(named.problems.map((p) => p.message)).toEqual([
+      "Value id RET-1 is already in .spec/retries.json. Ids are unique in the whole spec.",
+      'Value old.name is deprecated without saying why. Add "deprecation": { "reason": "..." }.',
+      'Nothing in the spec is called "#nope.value".',
+    ]);
+    expect(resolveSpecRef(named, "#retry.max")?.value?.value).toBe(3);
+    expect(resolveSpecRef(named, "tokens#color.accent")?.value?.type).toBe("color");
+    // Deprecated ones aren't counted.
+    expect(specCounts(named.root).values).toBe(6);
+    // Found by name, by what it is, and by why it changed.
+    expect(searchSpec(named, "#4493f8").map((m) => m.values.map((v) => v.id))).toEqual([["color.accent"]]);
+    expect(searchSpec(named, "stayed awake").map((m) => m.values.map((v) => v.id))).toEqual([["retry.max"]]);
+    expect(valueText({ value: 3, unit: "times" })).toBe("3 times");
+    // Each type takes only its own form.
+    const bad = [
+      { id: "a", type: "color", value: "blue" },
+      { id: "a", type: "dimension", value: "16" },
+      { id: "a", type: "duration", value: "soon" },
+      { id: "a", type: "number", value: "5" },
+      { id: "a", type: "list", value: "admin" },
+      { id: "a", type: "number", value: 5, dark: "#000000" },
+      { id: "a", type: "money", value: 5 },
+    ];
+    for (const value of bad) expect(SpecItem.safeParse({ title: "X", values: [value] }).success).toBe(false);
+  });
 });
+

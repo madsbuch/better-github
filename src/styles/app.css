@@ -3237,3 +3237,223 @@ section > .spec-prose-fold {
     color: var(--fg);
   }
 }
+
+/* ------------------------------------------------------------ named values */
+
+/* A named value: its id, what it is, and what that looks like. */
+.spec-val {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+}
+
+.spec-val[data-current="true"] {
+  border-color: var(--accent-emphasis);
+  box-shadow: 0 0 0 1px var(--accent-emphasis);
+}
+
+.spec-val[data-deprecated="true"] {
+  background: var(--bg-subtle);
+}
+
+.spec-val[data-deprecated="true"] .spec-val-is {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+}
+
+.spec-val .spec-req-head {
+  padding: 0;
+}
+
+.spec-val-type {
+  color: var(--fg-muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spec-val-is {
+  margin-top: 6px;
+  font-size: 16px;
+}
+
+.spec-val-about {
+  margin: 4px 0 0;
+  color: var(--fg-muted);
+  font-size: 14px;
+}
+
+.spec-value-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.spec-value-preview {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+/* A color, on a checkerboard so transparency shows. */
+.spec-swatch {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: repeating-conic-gradient(#d0d7de 0 25%, #fff 0 50%) 0 0 / 10px 10px;
+  overflow: hidden;
+}
+
+.spec-swatch-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.spec-size-bar {
+  display: inline-block;
+  height: 10px;
+  min-width: 1px;
+  border-radius: 2px;
+  background: var(--accent-emphasis);
+}
+
+/* Longer than there is room to draw: it fades out instead of ending. */
+.spec-size-bar[data-capped="true"] {
+  mask-image: linear-gradient(to right, #000 70%, transparent);
+}
+
+.spec-font-sample {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.spec-value-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spec-value-entry {
+  padding: 1px 8px;
+  border: 1px solid var(--border-muted);
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  font-size: 13px;
+}
+
+/* A value named in a sentence: its id, and what it is. */
+.spec-value-ref {
+  white-space: nowrap;
+}
+
+.spec-value-ref-is {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+  font-size: 85%;
+  vertical-align: baseline;
+}
+
+.spec-value-ref-is .spec-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.spec-value-ref-is .spec-size-bar {
+  max-width: 32px;
+  height: 6px;
+}
+
+/* In a change: what it was, then what it is. */
+.spec-value-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 8px;
+}
+
+.spec-value-move[data-kind="added"] {
+  background: var(--diff-add-bg);
+}
+
+.spec-value-move[data-kind="removed"] {
+  background: var(--diff-del-bg);
+}
+
+.spec-value-was {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--danger) 60%, transparent);
+}
+
+.spec-value-was .spec-value-preview {
+  text-decoration: none;
+}
+
+.spec-value-now {
+  font-weight: 600;
+}
+
+/* The inputs of a value's form. */
+.spec-value-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spec-value-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.spec-value-row > .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.spec-value-row > .select {
+  flex: none;
+  width: auto;
+}
+
+.spec-color-input input[type="color"] {
+  flex: none;
+  width: 48px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.spec-value-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 14px;
+}
+
+.spec-font-try {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  font-size: 18px;
+}

@@ -4,19 +4,21 @@
 // state, and the comments on the file's lines shown at the requirement or
 // field those lines belong to.
 
-import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ColumnsIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon, RowsIcon } from "@primer/octicons-react";
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ArrowRightIcon, ColumnsIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon, RowsIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { anchorKey, type Hunk, type Segment, type Side } from "../lib/diff";
 import { to } from "../lib/nav";
 import { setPref, useMediaQuery, usePrefs } from "../lib/prefs";
-import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStatus, type SpecStory } from "../lib/spec";
-import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange } from "../lib/specDiff";
+import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue } from "../lib/spec";
+import { VALUE_TYPE_LABEL } from "../lib/specValues";
+import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange, ValueChange } from "../lib/specDiff";
 import { commentLine, entrySpan, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
 import { foldUnchanged, proseDiff, proseUnits, sideParts, type ProseBlock } from "../lib/specProse";
 import { repoQueries } from "../queries/repos";
 import { CheckText } from "./ReviewRules";
+import { ValueText } from "./SpecValues";
 
 export interface Sides {
   owner: string;
@@ -81,7 +83,7 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
   };
   const weakened = diff.items.flatMap((item) => [
     ...(item.weakened !== null ? [{ id: item.id, key: item.id, label: titleOf(item), why: item.weakened }] : []),
-    ...[...item.stories, ...item.requirements]
+    ...[...item.stories, ...item.requirements, ...item.values]
       .filter((r) => r.weakened !== null)
       .map((r) => ({ id: item.id, key: `${item.id}#${r.id}`, label: `${titleOf(item)} ${r.id}`, why: r.weakened ?? "" })),
   ]);
@@ -91,6 +93,7 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
         {line(diff.counts.items, ["added", "changed", "moved", "removed"] as const, "item")}
         {line(diff.counts.stories, ["added", "changed", "removed"] as const, "user story")}
         {line(diff.counts.requirements, ["added", "changed", "moved", "removed"] as const, "requirement")}
+        {line(diff.counts.values, ["added", "changed", "removed"] as const, "value")}
       </div>
       {weakened.length > 0 && (
         <div className="banner banner-attention spec-weakened">
@@ -155,8 +158,8 @@ export function SpecChangeCard(props: CardProps) {
   const ref = change.after !== null ? sides.head : sides.base;
   const trail = specTrail(node).slice(0, -1);
   const counts = { added: 0, changed: 0, removed: 0 };
-  for (const entry of [...change.stories, ...change.requirements]) counts[entry.kind]++;
-  const weakened = (change.weakened !== null ? 1 : 0) + [...change.stories, ...change.requirements].filter((r) => r.weakened !== null).length;
+  for (const entry of [...change.stories, ...change.requirements, ...change.values]) counts[entry.kind]++;
+  const weakened = (change.weakened !== null ? 1 : 0) + [...change.stories, ...change.requirements, ...change.values].filter((r) => r.weakened !== null).length;
 
   return (
     <div className={`diff-file spec-change${viewed === true ? " viewed" : ""}${props.reading === true ? " reading" : ""}`} data-path={node.file ?? undefined} data-id={change.id} data-kind={change.kind}>
@@ -250,6 +253,10 @@ function CardBody({ change, sides, review }: CardProps) {
         before: before !== null && old !== null ? entrySpan(before, old, "stories", id) : null,
         after: after !== null && current !== null ? entrySpan(after, current, "stories", id) : null,
       }),
+      value: (id: string): Spans => ({
+        before: before !== null && old !== null ? entrySpan(before, old, "values", id) : null,
+        after: after !== null && current !== null ? entrySpan(after, current, "values", id) : null,
+      }),
       requirement: (id: string): Spans => ({
         before: before !== null && old !== null ? requirementSpan(before, old, id) : null,
         after: after !== null && current !== null ? requirementSpan(after, current, id) : null,
@@ -263,6 +270,7 @@ function CardBody({ change, sides, review }: CardProps) {
       ...change.fields.map((field) => ({ key: `field:${field.field}`, spans: lines.field(field.field) })),
       ...change.stories.map((story) => ({ key: `story:${story.id}`, spans: lines.story(story.id) })),
       ...[...change.requirements.map((r) => r.id), ...change.unchanged.map((r) => r.id)].map((id) => ({ key: `requirement:${id}`, spans: lines.requirement(id) })),
+      ...change.values.map((value) => ({ key: `value:${value.id}`, spans: lines.value(value.id) })),
       { key: "figures", spans: lines.field("figures") },
       ...change.lists.map((list) => ({ key: `list:${list.field}`, spans: lines.field(list.field) })),
     ];
@@ -308,7 +316,7 @@ function CardBody({ change, sides, review }: CardProps) {
       {change.movedFrom !== null && (
         <p className="spec-diff-note">
           Moved from <span className="mono small">{change.movedFrom}</span>
-          {change.fields.length + change.stories.length + change.requirements.length + change.figures.length + change.lists.length === 0 && ", otherwise unchanged"}.
+          {change.fields.length + change.stories.length + change.requirements.length + change.values.length + change.figures.length + change.lists.length === 0 && ", otherwise unchanged"}.
         </p>
       )}
       {change.weakened !== null && (
@@ -350,6 +358,14 @@ function CardBody({ change, sides, review }: CardProps) {
                 })}
               </Capped>
               <Unchanged requirements={change.unchanged} talk={(id) => discuss(`requirement:${id}`, lines.requirement(id), id)} discussed={(id) => placed.byPart.has(`requirement:${id}`)} />
+            </Section>
+          )}
+          {change.values.length > 0 && (
+            <Section title="Values">
+              {change.values.map((value) => {
+                const talk = discuss(`value:${value.id}`, lines.value(value.id), value.id);
+                return <Value key={value.id} change={value} action={talk.button} comments={talk.comments} selected={talk.selected} />;
+              })}
             </Section>
           )}
           {change.figures.length > 0 && (
@@ -692,6 +708,73 @@ function Field({ change, whole, action }: { change: FieldChange; whole: boolean;
 
 const levelOf = (requirement: SpecRequirement) => requirement.level ?? "must";
 const REQUIREMENT_KIND: Record<ChangeKind, string> = { added: "Added", removed: "Removed", changed: "Changed" };
+
+/** A named value that changed: what it was beside what it is, as each looks. */
+function Value({ change, action, comments, selected }: { change: ValueChange; action: ReactNode; comments: ReactNode; selected: boolean }) {
+  const { before, after } = change;
+  const shown = after ?? before;
+  const whole = useContext(WholeContext);
+  if (shown === null) return null;
+  const is = (value: SpecValue) => JSON.stringify([value.value, value.type === "color" ? value.dark : null, value.type === "number" ? value.unit : null]);
+  const differs = before !== null && after !== null && is(before) !== is(after);
+  return (
+    <div className="spec-diff-req spec-diff-value" data-kind={change.kind} data-value={change.id} data-selected={selected}>
+      <div className="spec-req-head">
+        <span className="spec-req-id">{change.id}</span>
+        <span className="spec-val-type">{VALUE_TYPE_LABEL[shown.type]}</span>
+        <span className="grow" />
+        {change.weakened !== null && (
+          <span className="spec-diff-kind" data-kind="weakened" title={change.weakened}>
+            <AlertIcon size={12} /> Takes away
+          </span>
+        )}
+        {!whole && (
+          <span className="spec-diff-kind" data-kind={change.kind}>
+            {REQUIREMENT_KIND[change.kind]}
+          </span>
+        )}
+        {action}
+      </div>
+      {differs ? (
+        <div className="spec-value-move">
+          <span className="spec-value-was">
+            <ValueText value={before} />
+          </span>
+          <ArrowRightIcon size={14} className="c-muted" />
+          <span className="spec-value-now">
+            <ValueText value={after} />
+          </span>
+        </div>
+      ) : (
+        <div className="spec-value-move" data-kind={whole ? undefined : change.kind}>
+          <ValueText value={shown} />
+        </div>
+      )}
+      {change.reason !== null && (
+        <div className="spec-diff-same small">
+          <span className="bold">Why it changed</span> <CheckText text={change.reason} />
+        </div>
+      )}
+      {change.unexplained && <div className="spec-diff-same small spec-same-version">Nothing says why it changed. Add what it was, and the reason, to its history.</div>}
+      {before !== null && after !== null && before.description !== after.description && <TextChange before={before.description} after={after.description} />}
+      {(before === null || after === null) && shown.description !== undefined && (
+        <div className="spec-diff-same small">
+          <CheckText text={shown.description} />
+        </div>
+      )}
+      {before !== null && after !== null && before.status !== after.status && (
+        <Move label="Status" before={before.status === undefined ? "its item's" : statusLabel(before.status)} after={after.status === undefined ? "its item's" : statusLabel(after.status)} />
+      )}
+      {after?.deprecation !== undefined && before?.deprecation?.reason !== after.deprecation.reason && (
+        <div className="spec-diff-same small">
+          <span className="bold">Why it is deprecated</span> <CheckText text={after.deprecation.reason} />
+        </div>
+      )}
+      {change.weakened !== null && after === null && <div className="spec-weakened-note small">{change.weakened}</div>}
+      {comments}
+    </div>
+  );
+}
 
 function Story({ change, action, comments, selected }: { change: StoryChange; action: ReactNode; comments: ReactNode; selected: boolean }) {
   const { before, after } = change;

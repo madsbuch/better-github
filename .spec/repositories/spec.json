@@ -165,6 +165,18 @@
     {
       "id": "S27",
       "text": "A spec may specify internals, such as an architecture or a data model, as requirements in words. The format still has no field for code references."
+    },
+    {
+      "id": "S28",
+      "text": "A part can define named values, each with a type: color (with an optional dark-mode value), size, time, number, wording, font or list of names. A value that doesn't fit its type makes its file unreadable, with the reason."
+    },
+    {
+      "id": "S29",
+      "text": "A named value is shown as what it is: a swatch for a color, a bar for a size, a sample for a font, chips for a list. Where text names a value in backticks, what it is shows next to the name."
+    },
+    {
+      "id": "S30",
+      "text": "Values share the one set of ids with user stories and requirements, are found by the filter and reachable by link, show what they were before with the reason for each change, and are deprecated with a reason like requirements."
     }
   ],
   "figures": [

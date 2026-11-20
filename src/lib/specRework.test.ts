@@ -1,3 +1,5 @@
+import { deprecateValue, reviseValue, withValue } from "./specRework";
+import type { SpecValue } from "./spec";
 import { specPullBranch } from "./specRework";
 import { describe, expect, it } from "vitest";
 import { buildSpec, SpecItem, type SpecFile } from "./spec";
@@ -163,6 +165,37 @@ describe("a pull request for a rework", () => {
     expect(specPullBranch("Spec: Retries & Errors!", "1a2b3c")).toBe("spec/retries-errors-1a2b3c");
     expect(specPullBranch("Spec: ", "1a2b3c")).toBe("spec/rework-1a2b3c");
     expect(specPullBranch(`Spec: ${"long ".repeat(30)}`, "1a2b3c").length).toBeLessThanOrEqual(52);
+  });
+});
+
+describe("reworking a named value", () => {
+  const original: SpecValue = { id: "retry.max", type: "number", value: 5, unit: "times", description: "Tries." };
+
+  it("records what it was, with why, when what it is changes", () => {
+    expect(reviseValue(original, { ...original, value: 3 }, "Phones stayed awake.", "2026-11-20")).toEqual({
+      ...original,
+      value: 3,
+      history: [{ value: 5, reason: "Phones stayed awake.", date: "2026-11-20" }],
+    });
+  });
+
+  it("leaves no record for a new description, and keeps the history it had", () => {
+    const withPast: SpecValue = { ...original, history: [{ value: 8, reason: "Too many." }] };
+    expect(reviseValue(withPast, { ...original, description: "How often it is tried again." }, "")).toEqual({ ...withPast, description: "How often it is tried again." });
+  });
+
+  it("keeps a color's dark value in the record, and deprecates with why", () => {
+    const color: SpecValue = { id: "c", type: "color", value: "#000000", dark: "#ffffff" };
+    expect(reviseValue(color, { id: "c", type: "color", value: "#111111" }, "Softer.", "2026-11-20").history).toEqual([{ value: "#000000", dark: "#ffffff", reason: "Softer.", date: "2026-11-20" }]);
+    expect(deprecateValue(original, "Unlimited now.", "2026-11-20")).toMatchObject({ status: "deprecated", deprecation: { reason: "Unlimited now.", date: "2026-11-20" } });
+  });
+
+  it("puts a value into an item, replaces it, and takes a new one out again", () => {
+    const item = { title: "Retries" };
+    const added = withValue(item, original.id, original);
+    expect(added.values).toEqual([original]);
+    expect(withValue(added, original.id, { ...original, value: 3 }).values?.[0]?.value).toBe(3);
+    expect(withValue(added, original.id, null)).toEqual(item);
   });
 });
 

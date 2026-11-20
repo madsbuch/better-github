@@ -27,6 +27,8 @@ import {
   type SpecRequirement,
   type SpecStatus,
   type SpecStory,
+  type SpecValue,
+  valueText,
 } from "./spec.ts";
 import type { ItemChange, RequirementChange, SpecDiff } from "./specDiff";
 
@@ -109,6 +111,35 @@ export function suggestStoryId(spec: Spec): string {
   }
   while (spec.stories.has(`US-${next}`) || spec.requirements.has(`US-${next}`)) next++;
   return `US-${next}`;
+}
+
+/** `item` with one named value replaced, added (when it has none with that id) or, with null, taken out again. */
+export function withValue(item: SpecItem, id: string, value: SpecValue | null): SpecItem {
+  const values = item.values ?? [];
+  const has = values.some((candidate) => candidate.id === id);
+  const next = has ? values.flatMap((candidate) => (candidate.id === id ? (value === null ? [] : [value]) : [candidate])) : value === null ? values : [...values, value];
+  const { values: _values, ...rest } = item;
+  return next.length === 0 ? rest : { ...rest, values: next };
+}
+
+/** What a value is, apart from its description and its record. */
+const valueCore = (value: SpecValue) => JSON.stringify([value.type, value.value, value.type === "color" ? value.dark : undefined, value.type === "number" ? value.unit : undefined]);
+
+/**
+ * A value as revised. When what it is changes, what it was goes into its
+ * history with the reason; a change to its description alone leaves no record.
+ */
+export function reviseValue(original: SpecValue, next: SpecValue, reason: string, date = today()): SpecValue {
+  const { history: _history, status, deprecation, ...own } = next;
+  const kept = { ...(original.status !== undefined ? { status: original.status } : status !== undefined ? { status } : {}), ...(deprecation !== undefined ? { deprecation } : {}) };
+  if (valueCore(original) === valueCore(next)) return { ...own, ...kept, ...(original.history !== undefined ? { history: original.history } : {}) };
+  const was = { value: original.value, ...(original.type === "color" && original.dark !== undefined ? { dark: original.dark } : {}), reason, date };
+  return { ...own, ...kept, history: [...(original.history ?? []), was] };
+}
+
+/** A named value as deprecated: it stays, with why. */
+export function deprecateValue(original: SpecValue, reason: string, date = today()): SpecValue {
+  return { ...original, status: "deprecated", deprecation: { reason, date } };
 }
 
 export interface ItemFields {
@@ -329,6 +360,17 @@ function storyLine(change: ItemChange["stories"][number]): string {
   return `- ${change.id}: user story was ${quote(storySentence(before))}, now ${quote(storySentence(after))}.`;
 }
 
+const shownValue = (value: SpecValue) => `${valueText(value)}${value.type === "color" && value.dark !== undefined ? ` (dark: ${value.dark})` : ""}`;
+
+function valueLine(change: ItemChange["values"][number]): string {
+  const { before, after } = change;
+  if (after === null) return `- ${change.id}: value deleted.`;
+  if (before === null) return `- ${change.id}: new ${after.type} value, ${shownValue(after)}.${after.description !== undefined ? ` ${after.description}` : ""}`;
+  if (after.status === "deprecated" && before.status !== "deprecated") return `- ${change.id}: value deprecated. Why: ${after.deprecation?.reason ?? "no reason given"}`;
+  if (shownValue(before) === shownValue(after)) return `- ${change.id}: its description changed; what it is stays ${shownValue(after)}.`;
+  return `- ${change.id}: was ${shownValue(before)}, now ${shownValue(after)}.${change.reason !== null ? ` Why: ${change.reason}` : ""}`;
+}
+
 function itemSection(change: ItemChange, path: string): string {
   const node = change.after ?? change.before;
   const title = node ? specTrail(node).map((n) => n.title).join(" / ") : change.id;
@@ -340,6 +382,7 @@ function itemSection(change: ItemChange, path: string): string {
     ),
     ...change.stories.map(storyLine),
     ...change.requirements.map(requirementLine),
+    ...change.values.map(valueLine),
   ].filter((line) => line !== null);
   return `### ${title} (\`${path}\`): ${change.kind === "added" ? "new item" : "changed"}\n\n${lines.length > 0 ? lines.join("\n") : "- See the file below."}`;
 }
@@ -369,6 +412,7 @@ export function specReworkPrompt({ repo, branch, diff, files, note }: ReworkProm
       .filter((r) => r.after !== null && (r.kind === "added" || r.version?.kind === "bumped" || requirementStatus(change.after?.item, r.after) === "deprecated"))
       .map((r) => r.id),
   );
+  const values = diff.items.flatMap((change) => change.values.filter((value) => value.after !== null).map((value) => value.id));
   const sections = [
     `Update the spec of ${repo}, and the code to match it.
 
@@ -388,7 +432,7 @@ ${files.map((file) => `### \`${file.path}\`${file.isNew ? " (new)" : ""}\n\n${fi
 
 1. Start from ${branch}, on a new branch. If a file below has changed there since I read it, keep those changes and apply mine on top; don't drop either.
 2. Write the files above.
-3. Then bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. The spec says what it must do, not where or how that is built: find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove the behavior it described unless its reason says otherwise.
+3. Then bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}${values.length > 0 ? `, and value by value: ${values.join(", ")}. A named value is decided in the spec: wherever the product has it (a constant, a theme file, copy), make it what the spec says` : ""}. The spec says what it must do, not where or how that is built: find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove the behavior it described unless its reason says otherwise.
 4. Keep the spec's rules:
    - The spec doesn't say what is built. It has no status for that and names no files; don't add either.
    - A requirement's \`id\` is unique in the whole spec and never changes or gets reused.
@@ -436,6 +480,7 @@ export function specPullBody({ diff, files, note }: Pick<ReworkPromptInput, "dif
       .filter((r) => r.after !== null && (r.kind === "added" || r.version?.kind === "bumped" || requirementStatus(change.after?.item, r.after) === "deprecated"))
       .map((r) => r.id),
   );
+  const changedValues = diff.items.flatMap((change) => change.values.filter((value) => value.after !== null).map((value) => value.id));
   const sections = [
     `This pull request changes the spec (\`${SPEC_DIR}\`) and nothing else yet. The product has to follow: the implementation belongs in this same pull request.`,
 
@@ -446,7 +491,7 @@ export function specPullBody({ diff, files, note }: Pick<ReworkPromptInput, "dif
     `## For the coding agent
 
 1. Check out this pull request's branch. The spec files in it are final: don't rewrite them unless a step below says so.
-2. Bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}. Find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove what it described unless its reason says otherwise.
+2. Bring the product in line with the spec${affected.length > 0 ? `, requirement by requirement: ${affected.join(", ")}` : ""}${changedValues.length > 0 ? `, and value by value: ${changedValues.join(", ")}. A named value is decided in the spec: wherever the product has it (a constant, a theme file, copy), make it what the spec says` : ""}. Find out what the product does today, compare, and change it and its tests until each new requirement, and each new version of one, holds. For a deprecated one, remove what it described unless its reason says otherwise.
 3. Push your commits to this branch. Don't open a second pull request.
 4. Keep the spec's rules if you have to touch it: ids never change or get reused, nothing is deleted (deprecate, with the reason), a change of meaning is a new version with its reason, and every file fits the schema. The full format is at ${SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt")}.
 5. If something can't be done, contradicts another requirement, or is unclear, don't guess: say so in a comment on this pull request and stop.

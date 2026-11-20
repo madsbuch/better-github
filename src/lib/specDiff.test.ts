@@ -67,7 +67,7 @@ describe("diffSpecs", () => {
       ["uploads/retries", "changed"],
       ["cli", "removed"],
     ]);
-    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, stories: { added: 1, removed: 1, changed: 2 }, requirements: { added: 2, removed: 2, changed: 2, moved: 0 }, weakened: 5 });
+    expect(diff.counts).toEqual({ items: { added: 1, removed: 1, changed: 1, moved: 0 }, stories: { added: 1, removed: 1, changed: 2 }, values: { added: 0, removed: 0, changed: 0 }, requirements: { added: 2, removed: 2, changed: 2, moved: 0 }, weakened: 5 });
   });
 
   it("says which fields of an item changed", () => {
@@ -286,4 +286,38 @@ describe("diffSpecs", () => {
     const back = diffSpecs(item([{ id: "1", text: "b", version: 2, history: [{ version: 1, text: "a", reason: "r" }] }]), item([{ id: "1", text: "a" }]));
     expect(back.items[0]?.requirements[0]?.weakened).toBe("Its version went back from 2 to 1.");
   });
+
+  it("follows named values by id: changed with or without a reason, deprecated, added, and deleted", () => {
+    const tokens = (values: unknown[]) => buildSpec([file("index.json", { title: "Rocket" }), file("tokens.json", { title: "Tokens", values })]);
+    const old = tokens([
+      { id: "retry.max", type: "number", value: 5 },
+      { id: "color.accent", type: "color", value: "#0969da" },
+      { id: "name", type: "text", value: "Rocket", description: "The product." },
+      { id: "old", type: "text", value: "x" },
+      { id: "gone", type: "text", value: "y" },
+      { id: "same", type: "dimension", value: "16px" },
+    ]);
+    const next = tokens([
+      { id: "retry.max", type: "number", value: 3, history: [{ value: 5, reason: "Phones stayed awake." }] },
+      { id: "color.accent", type: "color", value: "#0550ae" },
+      { id: "name", type: "text", value: "Rocket", description: "The product's name." },
+      { id: "old", type: "text", value: "x", status: "deprecated", deprecation: { reason: "Renamed." } },
+      { id: "same", type: "dimension", value: "16px" },
+      { id: "new", type: "list", value: ["a", "b"] },
+    ]);
+    const changes = diffSpecs(old, next);
+    expect(changes.items[0]?.values.map((v) => [v.id, v.kind, v.reason, v.unexplained, v.weakened])).toEqual([
+      ["retry.max", "changed", "Phones stayed awake.", false, null],
+      // What it is changed, and nothing says why.
+      ["color.accent", "changed", null, true, null],
+      // Its description alone: no record needed.
+      ["name", "changed", null, false, null],
+      ["old", "changed", null, false, "Deprecated: Renamed."],
+      ["new", "added", null, false, null],
+      ["gone", "removed", null, false, "A named value is deleted. Deprecate it instead, with the reason, so the record stays."],
+    ]);
+    expect(changes.counts.values).toEqual({ added: 1, removed: 1, changed: 4 });
+    expect(changes.counts.weakened).toBe(2);
+  });
 });
+

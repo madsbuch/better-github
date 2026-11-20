@@ -19,7 +19,7 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Rocket");
   // "- " lines are a list, and `code` shows as code.
   await expect(activeScreen(page).locator(".spec-item li code")).toHaveText(["upload", "rocket"]);
-  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 2 user stories · 7 requirements · 1 deprecated");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 4 named values · 2 user stories · 7 requirements · 1 deprecated");
   await expect(rows(page).locator(".row-title")).toHaveText(["Uploads", "Command line"]);
   await expect(rows(page).nth(0)).toContainText("2 items · 6 requirements");
 
@@ -35,6 +35,13 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await expect(stories.locator(".spec-req-head .spec-req-id")).toHaveText(["US-1", "US-2"]);
   await expect(stories.nth(0).locator(".spec-story-text")).toHaveText("As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again.");
   await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4mayDraft"]);
+  // Named values show as what they are, and a requirement that names one shows what it is.
+  const values = activeScreen(page).locator(".spec-val");
+  await expect(values.locator(".spec-req-id")).toHaveText(["retry.max", "retry.first-pause", "color.retrying", "retry.label"]);
+  await expect(values.nth(0).locator(".spec-val-is")).toHaveText("5 times");
+  await expect(values.nth(2).locator(".spec-swatch")).toHaveCount(2);
+  await expect(values.nth(2).locator(".spec-swatch-fill").first()).toHaveCSS("background-color", "rgb(154, 103, 0)");
+  await expect(requirements(page).nth(2).locator('.spec-value-ref[data-value="retry.first-pause"]')).toHaveText("retry.first-pause250ms");
   await expect(activeScreen(page).locator(".spec-figure img")).toHaveAttribute("alt", /^Pauses of 250 ms/);
   await expect(activeScreen(page).locator(".spec-figure figcaption")).toHaveText("Pauses double between attempts.");
 
@@ -81,7 +88,7 @@ test("deprecated requirements are kept, folded away, with why they went", async 
   await rows(page).click();
   await expect(activeScreen(page).locator('.spec-req[data-req="E3"]')).toHaveAttribute("data-current", "true");
   await open(page, "/acme/rocket/spec");
-  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 2 user stories · 7 requirements · 1 deprecated");
+  await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 4 named values · 2 user stories · 7 requirements · 1 deprecated");
 });
 
 test("a requirement shows its version, and what it said before with why that changed", async ({ page }) => {

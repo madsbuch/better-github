@@ -28,6 +28,8 @@ import {
   specTextBlocks,
   specTrail,
   storySentence,
+  valueText,
+  type SpecValue,
   splitSpecRef,
   unloadedBelow,
   type Spec,
@@ -45,7 +47,9 @@ import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
 import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
-import { AddItem, AddRequirement, AddStory, ItemTools, RequirementTools, StoryTools, ReworkBar, ReworkContext, useReworking, type Reworking } from "./spec/Rework";
+import { SpecValuesProvider, ValuePreview, ValueText } from "../components/SpecValues";
+import { VALUE_TYPE_LABEL } from "../lib/specValues";
+import { AddItem, AddRequirement, AddStory, AddValue, ItemTools, RequirementTools, StoryTools, ValueTools, ReworkBar, ReworkContext, useReworking, type Reworking } from "./spec/Rework";
 
 const route = getRouteApi("/$owner/$repo/spec");
 
@@ -165,6 +169,7 @@ export function SpecScreen() {
             </EmptyState>
           ) : (
             <ReworkContext.Provider value={reworking}>
+              <SpecValuesProvider values={spec.values}>
               {id === "" ? (
                 <Outline spec={spec} loaded={loaded} place={place} initialFilter={search.q ?? ""} />
               ) : (
@@ -174,6 +179,7 @@ export function SpecScreen() {
                   <Children node={node} loaded={loaded} place={place} heading="In this part" />
                 </>
               )}
+              </SpecValuesProvider>
             </ReworkContext.Provider>
           )}
           {loaded.contentsError !== null && (
@@ -240,9 +246,13 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
             <EmptyState title="Nothing matches">No item or requirement contains “{filter.trim()}”.</EmptyState>
           )
         ) : (
-          matches.slice(0, shown).map(({ node, stories, requirements }) => {
-            // A part matches as a whole, or by the user stories and requirements in it that do.
-            const hits = [...stories.map((story) => ({ id: story.id, text: storySentence(story) })), ...requirements.map((r) => ({ id: r.id, text: r.text }))];
+          matches.slice(0, shown).map(({ node, stories, requirements, values }) => {
+            // A part matches as a whole, or by the user stories, requirements and values in it that do.
+            const hits = [
+              ...stories.map((story) => ({ id: story.id, text: storySentence(story) })),
+              ...requirements.map((r) => ({ id: r.id, text: r.text })),
+              ...values.map((v) => ({ id: v.id, text: `${v.type === "text" ? `“${v.value}”` : valueText(v)}${v.description !== undefined ? `: ${v.description}` : ""}` })),
+            ];
             if (hits.length === 0) return <NodeRow key={node.id} node={node} place={place} showPath />;
             return hits.map((hit) => (
               <Link key={`${node.id}#${hit.id}`} {...to.spec(place.owner, place.repo, place.gitRef, `${node.id}#${hit.id}`)} className="row spec-row">
@@ -268,6 +278,7 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
           <p className="spec-counts muted small">
             {plural(counts.items, "item")}
             {/* Requirements are counted once everything is read; a large spec is read as it is looked at. */}
+            {counts.unloaded === 0 && counts.values > 0 && ` · ${plural(counts.values, "named value")}`}
             {counts.unloaded === 0 && counts.stories > 0 && ` · ${plural(counts.stories, "user story").replace("storys", "stories")}`}
             {counts.unloaded === 0 && ` · ${plural(counts.requirements, "requirement")}`}
             {counts.unloaded === 0 && counts.deprecated > 0 && ` · ${counts.deprecated} deprecated`}
@@ -369,6 +380,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
   const figures = item?.figures ?? [];
   const stories = item?.stories ?? [];
   const related = item?.related ?? [];
+  const values = item?.values ?? [];
 
   const reworking = useReworking() !== null;
   const isDeprecated = (requirement: SpecRequirement) => requirementStatus(item, requirement) === "deprecated";
@@ -381,7 +393,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
   // Opened at one requirement (from a search result or another item): bring it into view.
   useEffect(() => {
     if (current === undefined) return;
-    document.querySelector(`.spec-req[data-current="true"]`)?.scrollIntoView({ block: "center" });
+    document.querySelector(`.spec-item [data-current="true"]`)?.scrollIntoView({ block: "center" });
   }, [current, node.id]);
 
   return (
@@ -452,6 +464,16 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
             ))}
         </section>
       )}
+      {(values.length > 0 || (reworking && item !== null)) && (
+        // What the part decides once, for everything that uses it.
+        <section aria-label="Values">
+          <h3>Values</h3>
+          {values.map((value) => (
+            <Value key={value.id} spec={spec} place={place} node={node} value={value} inherited={item?.status} current={value.id === current} />
+          ))}
+          <AddValue node={node} />
+        </section>
+      )}
       {related.length > 0 && (
         <section aria-label="Related">
           <h3>Related</h3>
@@ -470,12 +492,17 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
                   {...to.spec(place.owner, place.repo, place.gitRef, specTarget(target))}
                   className="spec-link"
                 >
-                  {(target.requirement ?? target.story) !== null && <span className="spec-req-id">{(target.requirement ?? target.story)?.id}</span>}
+                  {(target.requirement ?? target.story ?? target.value) !== null && <span className="spec-req-id">{(target.requirement ?? target.story ?? target.value)?.id}</span>}
                   <span className="grow">
                     <span className="bold">{target.node.title}</span>
                     {(target.requirement !== null || target.story !== null) && (
                       <span className="spec-row-summary">
                         <CheckText text={target.requirement?.text ?? (target.story ? storySentence(target.story) : "")} />
+                      </span>
+                    )}
+                    {target.value !== null && (
+                      <span className="spec-row-summary">
+                        <ValueText value={target.value} />
                       </span>
                     )}
                   </span>
@@ -491,8 +518,8 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
 }
 
 /** Where a reference leads: the item, or the requirement or user story in it. */
-function specTarget(target: { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null }): string {
-  const entity = target.requirement?.id ?? target.story?.id;
+function specTarget(target: { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null; value: SpecValue | null }): string {
+  const entity = target.requirement?.id ?? target.story?.id ?? target.value?.id;
   return entity === undefined ? target.node.id : `${target.node.id}#${entity}`;
 }
 
@@ -658,6 +685,56 @@ function Requirement({
                 </div>
               </li>
             ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** A named value: what it is called, what it is, and what it was before. */
+function Value({ spec, place, node, value, inherited, current }: { spec: Spec; place: Place; node: SpecNode; value: SpecValue; inherited: SpecStatus | undefined; current: boolean }) {
+  const deprecated = value.status === "deprecated";
+  const history = value.history ?? [];
+  const [showHistory, setShowHistory] = useState(false);
+  return (
+    <div className="spec-val" data-value={value.id} data-current={current} data-deprecated={deprecated || inherited === "deprecated"}>
+      <div className="spec-req-head">
+        <span className="spec-req-id">{value.id}</span>
+        <span className="spec-val-type">{VALUE_TYPE_LABEL[value.type]}</span>
+        {value.status !== undefined && value.status !== inherited && <StatusPill status={value.status} />}
+        {history.length > 0 && (
+          <button className="spec-version" onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory} aria-label={`${value.id}: show what it was before`}>
+            {plural(history.length, "change")} {showHistory ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
+          </button>
+        )}
+      </div>
+      <div className="spec-val-is">
+        <ValueText value={value} />
+      </div>
+      {value.description !== undefined && (
+        <p className="spec-val-about">
+          <CheckText text={value.description} />
+        </p>
+      )}
+      {deprecated && <Deprecation spec={spec} place={place} deprecation={value.deprecation} />}
+      <ValueTools node={node} value={value} />
+      {showHistory && (
+        // Newest first: why it is what it is now, then how it got there.
+        <ol className="spec-history" aria-label={`What ${value.id} was before`}>
+          {[...history].reverse().map((earlier, index) => (
+            <li key={index}>
+              <div className="spec-history-head">
+                <span className="spec-value-text">
+                  <ValuePreview value={{ type: value.type, value: earlier.value, dark: earlier.dark }} />
+                  <span className="mono">{valueText({ value: earlier.value })}</span>
+                </span>
+                {earlier.date !== undefined && <span className="muted small">until {earlier.date}</span>}
+              </div>
+              <div className="spec-history-why">
+                <span className="bold">Changed because</span> <CheckText text={earlier.reason} />
+              </div>
+            </li>
+          ))}
         </ol>
       )}
     </div>

@@ -127,6 +127,72 @@ export function storySentence(story: SpecStory): string {
   return `As ${story.as}, I want ${story.want}${story.soThat !== undefined ? `, so that ${story.soThat}` : ""}.`;
 }
 
+const valueId = z
+  .string()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+  .describe('Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: "color.accent", "retry.max".');
+
+const HEX_COLOR = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+export const DIMENSION_UNITS = ["px", "rem", "em", "%", "pt", "dp", "vw", "vh"] as const;
+export const DURATION_UNITS = ["ms", "s", "min", "h", "d"] as const;
+const DIMENSION = new RegExp(`^-?\\d+(?:\\.\\d+)?(?:${DIMENSION_UNITS.join("|")})$`);
+const DURATION = new RegExp(`^\\d+(?:\\.\\d+)?(?:${DURATION_UNITS.join("|")})$`);
+
+export const SpecValueChange = z
+  .strictObject({
+    value: z.union([z.string(), z.number(), z.array(z.string())]).describe("What the value was."),
+    dark: z.string().optional().describe("A color's value in dark mode then, if it had one."),
+    reason: Text.min(1).describe("Why it was replaced by the next one."),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .describe("When it was replaced, as YYYY-MM-DD."),
+  })
+  .describe("What a named value used to be, and why that changed.");
+export type SpecValueChange = z.infer<typeof SpecValueChange>;
+
+const valueCommon = {
+  id: valueId,
+  description: z.string().optional().describe("What it is for, in a line."),
+  status: SpecStatus.optional().describe("Defaults to the item's status."),
+  deprecation: SpecDeprecation.optional(),
+  history: z.array(SpecValueChange).optional().describe("Everything it was before, oldest first, each with why it changed."),
+};
+
+export const SpecValue = z
+  .discriminatedUnion("type", [
+    z.strictObject({
+      ...valueCommon,
+      type: z.literal("color"),
+      value: z.string().regex(HEX_COLOR).describe('As hex: "#0969da", or "#0969da80" with transparency.'),
+      dark: z.string().regex(HEX_COLOR).optional().describe("The color in dark mode, when it differs."),
+    }),
+    z.strictObject({ ...valueCommon, type: z.literal("dimension"), value: z.string().regex(DIMENSION).describe('A size with its unit: "16px", "1.5rem", "50%".') }),
+    z.strictObject({ ...valueCommon, type: z.literal("duration"), value: z.string().regex(DURATION).describe('A length of time with its unit: "200ms", "30s", "14d".') }),
+    z.strictObject({
+      ...valueCommon,
+      type: z.literal("number"),
+      value: z.number(),
+      unit: z.string().min(1).optional().describe('What is counted, for reading: "times", "MB", "items".'),
+    }),
+    z.strictObject({ ...valueCommon, type: z.literal("text"), value: z.string().describe("Wording: a name, a label, a message.") }),
+    z.strictObject({ ...valueCommon, type: z.literal("font"), value: z.string().min(1).describe('A font family, or a stack of them: "Inter, system-ui, sans-serif".') }),
+    z.strictObject({ ...valueCommon, type: z.literal("list"), value: z.array(z.string().min(1)).describe("A fixed set of names: roles, states, file types.") }),
+  ])
+  .describe(
+    "A named value: something the product decides once and uses in many places, such as a color, a size, a limit, a timeout or a piece of wording. Requirements refer to it by its id in backticks instead of repeating the value.",
+  );
+export type SpecValue = z.infer<typeof SpecValue>;
+export const SPEC_VALUE_TYPES = ["color", "dimension", "duration", "number", "text", "font", "list"] as const;
+export type SpecValueType = SpecValue["type"];
+
+/** A value as it is read: "#0969da", "5 times", "admin, member, guest". */
+export function valueText(value: Pick<SpecValue, "value"> & { unit?: string | undefined }): string {
+  if (Array.isArray(value.value)) return value.value.join(", ");
+  return `${value.value}${value.unit !== undefined ? ` ${value.unit}` : ""}`;
+}
+
 export const SpecFigure = z
   .strictObject({
     src: RepoPath.describe('An image in the spec folder, as a path from that folder: "assets/retry-timeline.png".'),
@@ -147,6 +213,7 @@ export const SpecItem = z
     description: Text.optional().describe("What this part does and why."),
     stories: z.array(SpecStory).optional().describe("The user stories this part serves."),
     requirements: z.array(SpecRequirement).optional(),
+    values: z.array(SpecValue).optional().describe("The named values this part defines."),
     figures: z.array(SpecFigure).optional(),
     related: z
       .array(z.string().min(1))
@@ -215,6 +282,8 @@ export interface Spec {
   requirements: Map<string, { node: SpecNode; requirement: SpecRequirement }>;
   /** Every user story by its id, with the item it is in. Stories and requirements share one set of ids. */
   stories: Map<string, { node: SpecNode; story: SpecStory }>;
+  /** Every named value by its id, with the item it is in. Values share the one set of ids too. */
+  values: Map<string, { node: SpecNode; value: SpecValue }>;
   /** Everything that isn't an item, by its path from the spec folder, with its git object id when known. */
   assets: Map<string, string | null>;
   problems: SpecProblem[];
@@ -369,14 +438,16 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
   // path, so of two with the same id the later file is the one at fault.
   const requirements: Spec["requirements"] = new Map();
   const stories: Spec["stories"] = new Map();
+  const values: Spec["values"] = new Map();
   for (const node of nodes.values()) {
     const entities = [
       ...(node.item?.stories ?? []).map((story) => ({ id: story.id, what: "User story", add: () => stories.set(story.id, { node, story }) })),
       ...(node.item?.requirements ?? []).map((requirement) => ({ id: requirement.id, what: "Requirement", add: () => requirements.set(requirement.id, { node, requirement }) })),
+      ...(node.item?.values ?? []).map((value) => ({ id: value.id, what: "Value", add: () => values.set(value.id, { node, value }) })),
     ];
     for (const entity of entities) {
       // One set of ids for both: "#ID" always means one thing.
-      const taken = requirements.get(entity.id) ?? stories.get(entity.id);
+      const taken = requirements.get(entity.id) ?? stories.get(entity.id) ?? values.get(entity.id);
       if (taken === undefined) entity.add();
       else if (node.file !== null) {
         const where = taken.node === node ? "more than once in this item" : `already in ${taken.node.file ?? taken.node.id}`;
@@ -418,7 +489,7 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       for (const ref of story.requirements ?? []) {
         const { id, requirement } = splitSpecRef(ref);
         if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-        if ((resolveSpecRef({ nodes, requirements, stories }, ref)?.requirement ?? null) === null) {
+        if ((resolveSpecRef({ nodes, requirements, stories, values }, ref)?.requirement ?? null) === null) {
           problems.push({ file, message: `User story ${story.id} names "${ref}", which isn't a requirement in the spec.` });
         }
       }
@@ -427,6 +498,7 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       { what: "The item", status: item.status, deprecation: item.deprecation },
       ...(item.stories ?? []).map((story) => ({ what: `User story ${story.id}`, status: story.status, deprecation: story.deprecation })),
       ...(item.requirements ?? []).map((r) => ({ what: `Requirement ${r.id}`, status: r.status, deprecation: r.deprecation })),
+      ...(item.values ?? []).map((v) => ({ what: `Value ${v.id}`, status: v.status, deprecation: v.deprecation })),
     ];
     for (const { what, status, deprecation } of records) {
       if (status === "deprecated" && deprecation === undefined) {
@@ -437,7 +509,7 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       for (const ref of deprecation?.replacedBy ?? []) {
         const { id, requirement } = splitSpecRef(ref);
         if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-        if (resolveSpecRef({ nodes, requirements, stories }, ref) === null) problems.push({ file, message: `${what} is replaced by "${ref}", which isn't in the spec.` });
+        if (resolveSpecRef({ nodes, requirements, stories, values }, ref) === null) problems.push({ file, message: `${what} is replaced by "${ref}", which isn't in the spec.` });
       }
     }
     for (const ref of item.related ?? []) {
@@ -445,11 +517,11 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       // nor, while any item is unread, where a requirement named by its id alone is.
       const { id, requirement } = splitSpecRef(ref);
       if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-      if (resolveSpecRef({ nodes, requirements, stories }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
+      if (resolveSpecRef({ nodes, requirements, stories, values }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
     }
   }
 
-  return { root, nodes, requirements, stories, assets, problems };
+  return { root, nodes, requirements, stories, values, assets, problems };
 }
 
 /**
@@ -458,22 +530,26 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
  * moves to another item, or together with its item ("uploads/retries#RET-1").
  */
 export function resolveSpecRef(
-  spec: Pick<Spec, "nodes" | "requirements" | "stories">,
+  spec: Pick<Spec, "nodes" | "requirements" | "stories" | "values">,
   ref: string,
-): { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null } | null {
+): { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null; value: SpecValue | null } | null {
   const { id, requirement: entityId, version } = splitSpecRef(ref);
   const node = spec.nodes.get(id);
-  if (entityId === null) return node ? { node, requirement: null, story: null } : null;
+  if (entityId === null) return node ? { node, requirement: null, story: null, value: null } : null;
   const requirement = id === "" ? spec.requirements.get(entityId) : node && { node, requirement: node.item?.requirements?.find((r) => r.id === entityId) };
   if (requirement && requirement.requirement !== undefined) {
     // A version it hasn't reached doesn't exist.
     if (version !== null && (version < 1 || version > requirementVersion(requirement.requirement))) return null;
-    return { node: requirement.node, requirement: requirement.requirement, story: null };
+    return { node: requirement.node, requirement: requirement.requirement, story: null, value: null };
   }
   // The same kind of id can be a user story; those have no versions.
   const story = id === "" ? spec.stories.get(entityId) : node && { node, story: node.item?.stories?.find((candidate) => candidate.id === entityId) };
-  if (!story || story.story === undefined || version !== null) return null;
-  return { node: story.node, requirement: null, story: story.story };
+  if (version !== null) return null;
+  if (story && story.story !== undefined) return { node: story.node, requirement: null, story: story.story, value: null };
+  // Or a named value.
+  const value = id === "" ? spec.values.get(entityId) : node && { node, value: node.item?.values?.find((candidate) => candidate.id === entityId) };
+  if (!value || value.value === undefined) return null;
+  return { node: value.node, requirement: null, story: null, value: value.value };
 }
 
 /** The root's children down to `node`, without the root itself. */
@@ -500,16 +576,21 @@ export interface SpecCounts {
   deprecated: number;
   /** User stories of the node and everything below it, not counting deprecated ones. */
   stories: number;
+  /** Named values of the node and everything below it, not counting deprecated ones. */
+  values: number;
   /** Items below (and the node itself) whose contents aren't loaded: their requirements aren't counted yet. */
   unloaded: number;
 }
 
 export function specCounts(node: SpecNode): SpecCounts {
-  const counts: SpecCounts = { items: 0, requirements: 0, deprecated: 0, stories: 0, unloaded: 0 };
+  const counts: SpecCounts = { items: 0, requirements: 0, deprecated: 0, stories: 0, values: 0, unloaded: 0 };
   const visit = (at: SpecNode) => {
     if (!at.loaded) counts.unloaded++;
     for (const story of at.item?.stories ?? []) {
       if (requirementStatus(at.item, story) !== "deprecated") counts.stories++;
+    }
+    for (const value of at.item?.values ?? []) {
+      if (requirementStatus(at.item, value) !== "deprecated") counts.values++;
     }
     for (const requirement of at.item?.requirements ?? []) {
       const status = requirementStatus(at.item, requirement);
@@ -531,6 +612,8 @@ export interface SpecMatch {
   stories: SpecStory[];
   /** The requirements that match; empty when the item itself does. */
   requirements: SpecRequirement[];
+  /** The named values that match; empty when the item itself does. */
+  values: SpecValue[];
 }
 
 /** Items whose title, summary, description or requirements contain every word of `query`. */
@@ -549,9 +632,10 @@ export function searchSpec(spec: Spec, query: string): SpecMatch[] {
       has([r.id, r.text, r.deprecation?.reason ?? "", ...(r.history ?? []).flatMap((earlier) => [earlier.text, earlier.reason])].join("\n")),
     );
     const stories = (item?.stories ?? []).filter((story) => has([story.id, storySentence(story), story.deprecation?.reason ?? ""].join("\n")));
+    const values = (item?.values ?? []).filter((v) => has([v.id, valueText(v), v.type === "color" ? (v.dark ?? "") : "", v.description ?? "", v.deprecation?.reason ?? "", ...(v.history ?? []).map((h) => h.reason)].join("\n")));
     const own = has([node.id, node.title, item?.summary ?? "", item?.description ?? ""].join("\n"));
-    if (node.id !== "" && (own || requirements.length > 0 || stories.length > 0)) {
-      matches.push({ node, stories: own ? [] : stories, requirements: own ? [] : requirements });
+    if (node.id !== "" && (own || requirements.length > 0 || stories.length > 0 || values.length > 0)) {
+      matches.push({ node, stories: own ? [] : stories, requirements: own ? [] : requirements, values: own ? [] : values });
     }
     node.children.forEach(visit);
   };

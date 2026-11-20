@@ -19,8 +19,8 @@ test("a pull request's spec files are reviewed by what they change in the spec",
 
   // Before any file: how much of the spec changes, and where it now promises less.
   const summary = activeScreen(page).locator(".spec-review-summary");
-  await expect(summary.locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−2");
-  await expect(summary.locator(".spec-weakened li")).toHaveCount(5);
+  await expect(summary.locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−24 values +1~2−1");
+  await expect(summary.locator(".spec-weakened li")).toHaveCount(6);
 
   // Each item's file is a card saying what changed, with the file's verdict and viewed state.
   const retries = await shown(page, "uploads/retries");
@@ -28,7 +28,7 @@ test("a pull request's spec files are reviewed by what they change in the spec",
   await expect(retries.locator(".spec-change-meta")).toContainText("Medium");
   await expect(retries.locator(".spec-change-meta")).toContainText("Takes away");
   await expect(retries.locator(".review-strip")).toContainText("1 check");
-  await expect(retries.locator(".spec-diff-req:not(.spec-diff-story) .spec-req-id")).toHaveText(["R1", "R3", "R4", "R5"]);
+  await expect(retries.locator(".spec-diff-req:not(.spec-diff-story):not(.spec-diff-value) .spec-req-id")).toHaveText(["R1", "R3", "R4", "R5"]);
   await expect(card(page, "uploads/resume").locator(".spec-change-meta")).toContainText("Added");
   await expect(card(page, "cli").locator(".spec-change-meta")).toContainText("Removed");
   // A picture isn't an item: it stays a file.
@@ -136,7 +136,7 @@ test("the Spec tab is for reading what a pull request changes in the spec, and n
   await tab.click();
 
   // No code and no JSON: the summary, the changed parts in the outline's order, and their cards.
-  await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−2");
+  await expect(activeScreen(page).locator(".spec-diff-summary")).toHaveText("3 items +1~1−13 user stories +1~26 requirements +2~2−24 values +1~2−1");
   const contents = activeScreen(page).getByRole("navigation", { name: "Changed parts of the spec" });
   await expect(contents.locator(".spec-tab-progress")).toContainText("0/3 viewed");
   await expect(contents.locator(".spec-tab-entry")).toHaveText(["Uploads / RetriesChanged", "Uploads / ResumingNew", "Command lineRemoved"]);

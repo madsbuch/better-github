@@ -88,7 +88,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   await expect(bar(page)).toContainText("4 requirements · not in the repository yet");
   await bar(page).getByRole("button", { name: "Review & hand over" }).click();
   await expect(sheet(page).locator(".spec-diff-summary")).toHaveText("1 item ~11 user story +14 requirements +1~3");
-  await expect(sheet(page).locator(".spec-diff-req:not(.spec-diff-story) .spec-req-id")).toHaveText(["R1", "R2", "R3", "R5"]);
+  await expect(sheet(page).locator(".spec-diff-req:not(.spec-diff-story):not(.spec-diff-value) .spec-req-id")).toHaveText(["R1", "R2", "R3", "R5"]);
   await expect(sheet(page).locator('.spec-diff-req[data-req="R1"]')).toContainText("Why it changed Five retries kept phones awake.");
   await sheet(page).getByLabel(/Anything else the agent should know/).fill("Keep MAX_RETRIES configurable.");
   await sheet(page).getByRole("button", { name: "Copy for my agent" }).click();
@@ -221,5 +221,53 @@ test("a rework becomes a pull request that changes the spec and tells an agent w
   expect(pull.body).toContain("## For the coding agent");
   expect(pull.body).toContain("requirement by requirement: C2");
   expect(pull.body).toContain("Push your commits to this branch.");
+});
+
+test("a named value is edited with the input that fits it, and a change to what it is asks why", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
+  await activeScreen(page).getByRole("button", { name: "Rework the spec" }).click();
+  const value = (id: string) => activeScreen(page).locator(`.spec-val[data-value="${id}"]`);
+
+  // A color: the picker and the hex are one value.
+  await value("color.retrying").getByRole("button", { name: "Revise" }).click();
+  await expect(sheet(page).getByLabel("Color: pick")).toHaveValue("#9a6700");
+  await sheet(page).getByLabel("Color: pick").fill("#1f6feb");
+  await expect(sheet(page).getByLabel("Color: hex")).toHaveValue("#1f6feb");
+  // What it is changed: no saving without the reason.
+  await expect(sheet(page).getByRole("button", { name: "Save" })).toBeDisabled();
+  await sheet(page).getByLabel("Why it changes").fill("Amber read as an error.");
+  await sheet(page).getByRole("button", { name: "Save" }).click();
+  await expect(value("color.retrying").locator(".rework-mark")).toHaveText("Revised");
+  await expect(value("color.retrying").locator(".spec-swatch-fill").first()).toHaveCSS("background-color", "rgb(31, 111, 235)");
+  await value("color.retrying").getByRole("button", { name: /show what it was before/ }).click();
+  await expect(value("color.retrying").locator(".spec-history")).toContainText("Changed because Amber read as an error.");
+
+  // A time: a number and a unit to pick.
+  await value("retry.first-pause").getByRole("button", { name: "Revise" }).click();
+  await expect(sheet(page).getByLabel("Time")).toHaveValue("250");
+  await expect(sheet(page).getByLabel("Unit")).toHaveValue("ms");
+  await page.keyboard.press("Escape");
+
+  // A new one: its name has to be free, and its kind picks its input.
+  await activeScreen(page).getByRole("button", { name: "Add a value" }).click();
+  await sheet(page).getByLabel(/^Name/).fill("retry.max");
+  await expect(sheet(page)).toContainText("retry.max is already in Retries.");
+  await sheet(page).getByLabel(/^Name/).fill("upload.max-size");
+  await sheet(page).getByLabel(/^Kind/).selectOption("number");
+  await sheet(page).getByRole("spinbutton", { name: "Number" }).fill("200");
+  await sheet(page).getByLabel(/What it counts/).fill("MB");
+  await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
+  await expect(value("upload.max-size").locator(".spec-val-is")).toHaveText("200 MB");
+
+  // The handover says which values changed, to what, and why.
+  const copied = clipboard(page);
+  await bar(page).getByRole("button", { name: "Review & hand over" }).click();
+  await expect(sheet(page).locator(".spec-diff-summary")).toHaveText("1 item ~12 values +1~1");
+  await sheet(page).getByRole("button", { name: "Copy for my agent" }).click();
+  await expect(page.locator(".toast", { hasText: "Copied." })).toBeVisible();
+  const handover = copied()[0] ?? "";
+  expect(handover).toContain("- color.retrying: was #9a6700 (dark: #d29922), now #1f6feb (dark: #d29922). Why: Amber read as an error.");
+  expect(handover).toContain("- upload.max-size: new number value, 200 MB.");
+  expect(handover).toContain("value by value: color.retrying, upload.max-size");
 });
 

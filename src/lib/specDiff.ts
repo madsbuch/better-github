@@ -5,7 +5,7 @@
 // the item, so rewording a requirement is a change and renumbering it is a
 // removal and an addition.
 
-import { requirementVersion, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory } from "./spec";
+import { requirementVersion, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue } from "./spec";
 
 export type ChangeKind = "added" | "removed" | "changed";
 
@@ -49,6 +49,19 @@ export interface StoryChange {
   weakened: string | null;
 }
 
+export interface ValueChange {
+  id: string;
+  kind: ChangeKind;
+  before: SpecValue | null;
+  after: SpecValue | null;
+  /** Why what it is changed, from its history, when the change recorded one. */
+  reason: string | null;
+  /** What it is changed, and nothing says why. */
+  unexplained: boolean;
+  /** Why this change takes something away from the spec, if it does. */
+  weakened: string | null;
+}
+
 export interface FigureChange {
   src: string;
   kind: ChangeKind;
@@ -85,6 +98,7 @@ export interface ItemChange {
   fields: FieldChange[];
   stories: StoryChange[];
   requirements: RequirementChange[];
+  values: ValueChange[];
   figures: FigureChange[];
   lists: ListChange[];
   /** It can be read on one side only: why it can't on the other. */
@@ -97,6 +111,7 @@ export interface SpecDiff {
   counts: {
     items: Record<ItemKind, number>;
     stories: Record<ChangeKind, number>;
+    values: Record<ChangeKind, number>;
     /** A requirement that moved between items counts once, as moved. */
     requirements: Record<ChangeKind | "moved", number>;
     /** Items and requirements that promise less than before. */
@@ -248,6 +263,41 @@ function diffStories(before: SpecStory[], after: SpecStory[], was: SpecStatus | 
   return changes;
 }
 
+/** What a value is, apart from its record: two values with the same are the same value. */
+const valueCore = (value: SpecValue) => JSON.stringify([value.type, value.value, value.type === "color" ? value.dark : undefined, value.type === "number" ? value.unit : undefined]);
+
+/** Named values are matched by id; the newer order, then the ones taken out. */
+function diffValues(before: SpecValue[], after: SpecValue[], was: SpecStatus | undefined, is: SpecStatus | undefined): ValueChange[] {
+  const changes: ValueChange[] = [];
+  const olds = new Map(before.map((value) => [value.id, value]));
+  for (const value of after) {
+    const old = olds.get(value.id);
+    olds.delete(value.id);
+    if (old === undefined) changes.push({ id: value.id, kind: "added", before: null, after: value, reason: null, unexplained: false, weakened: null });
+    else if (JSON.stringify(old) !== JSON.stringify(value)) {
+      const [oldStatus, status] = [was === "deprecated" ? "deprecated" : (old.status ?? was), is === "deprecated" ? "deprecated" : (value.status ?? is)];
+      const deprecated = status === "deprecated" && oldStatus !== "deprecated";
+      const why = value.deprecation?.reason;
+      const differs = valueCore(old) !== valueCore(value);
+      const recorded = (value.history?.length ?? 0) > (old.history?.length ?? 0);
+      changes.push({
+        id: value.id,
+        kind: "changed",
+        before: old,
+        after: value,
+        reason: differs && recorded ? (value.history?.at(-1)?.reason ?? null) : null,
+        unexplained: differs && !recorded,
+        weakened: deprecated ? (why !== undefined ? `Deprecated: ${why}` : "Deprecated, without saying why.") : null,
+      });
+    }
+  }
+  // Nothing is deleted from a spec: a value that is no longer used is deprecated, with the reason.
+  for (const value of olds.values()) {
+    changes.push({ id: value.id, kind: "removed", before: value, after: null, reason: null, unexplained: false, weakened: "A named value is deleted. Deprecate it instead, with the reason, so the record stays." });
+  }
+  return changes;
+}
+
 function diffFigures(before: SpecFigure[], after: SpecFigure[], oids: { before: Spec["assets"]; after: Spec["assets"] }): FigureChange[] {
   const changes: FigureChange[] = [];
   const old = new Map(before.map((f) => [f.src, f]));
@@ -295,7 +345,7 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
   const both = old !== null && current !== null;
   const base = { id, kind, movedFrom, before: old, after: current };
   if (old?.loaded === false || current?.loaded === false) {
-    return { ...base, pending: true, weakened: null, unchanged: [], fields: [], stories: [], requirements: [], figures: [], lists: [], unreadable: null };
+    return { ...base, pending: true, weakened: null, unchanged: [], fields: [], stories: [], requirements: [], values: [], figures: [], lists: [], unreadable: null };
   }
 
   const fields: FieldChange[] = [];
@@ -333,11 +383,12 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
     fields,
     stories: diffStories(a?.stories ?? [], b?.stories ?? [], a?.status, b?.status),
     requirements,
+    values: diffValues(a?.values ?? [], b?.values ?? [], a?.status, b?.status),
     figures: diffFigures(a?.figures ?? [], b?.figures ?? [], oids),
     lists,
     unreadable,
   };
-  const empty = fields.length === 0 && change.stories.length === 0 && requirements.length === 0 && change.figures.length === 0 && lists.length === 0 && unreadable === null;
+  const empty = fields.length === 0 && change.stories.length === 0 && requirements.length === 0 && change.values.length === 0 && change.figures.length === 0 && lists.length === 0 && unreadable === null;
   return kind === "changed" && empty ? null : change;
 }
 
@@ -433,6 +484,7 @@ export function diffSpecs(before: Spec | null, after: Spec | null, renames?: Map
   const counts: SpecDiff["counts"] = {
     items: { added: 0, removed: 0, changed: 0, moved: 0 },
     stories: { added: 0, removed: 0, changed: 0 },
+    values: { added: 0, removed: 0, changed: 0 },
     requirements: { added: 0, removed: 0, changed: 0, moved: 0 },
     weakened: 0,
   };
@@ -442,6 +494,10 @@ export function diffSpecs(before: Spec | null, after: Spec | null, renames?: Map
     for (const story of item.stories) {
       counts.stories[story.kind]++;
       if (story.weakened !== null) counts.weakened++;
+    }
+    for (const value of item.values) {
+      counts.values[value.kind]++;
+      if (value.weakened !== null) counts.weakened++;
     }
     for (const requirement of item.requirements) {
       // Counted where it is now, not where it left.

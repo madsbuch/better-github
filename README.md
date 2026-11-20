@@ -162,6 +162,11 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   `requirements` that make it true. Stories and requirements share one set of
   ids. A story has no versions; it is deprecated, with the reason, when nobody
   wants it any more.
+- **Named values** are what the product decides once and uses in many places:
+  a color, a size, a time, a limit, a piece of wording, a font, a list of
+  names. Each has an `id` (`retry.max`, `color.accent`), a `type` and a `value`;
+  requirements name it in backticks instead of repeating it, and the app shows
+  what it is next to the name. A change to a value records what it was and why.
 - **There are no open questions** in a spec: what isn't decided belongs where
   the product is planned, and enters the spec once it is.
 - **Requirements** are single statements that can be checked against the code.

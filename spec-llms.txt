@@ -22,8 +22,9 @@ The user stories and the requirements are the spec. Everything else in a part is
 - **Part** (an item): one `.json` file, one part of the product. It holds the stories and requirements of that part, and a title, a one-line summary and a short description to introduce them. Parts nest: folders are the outline.
 - **User story**: who wants what, and why. "As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again." It says what the part is for, and can name the requirements that together make it true.
 - **Requirement**: one statement about what the product does, or how it is built, that can be checked against the product. "An upload that fails with a network error is retried, up to five times." It has a level: `must`, `should` or `may`.
+- **Named value**: something the product decides once and uses in many places: a color, a size, a time, a limit, a piece of wording, a font, a fixed list of names. It has a name (`retry.max`, `color.accent`) that requirements use instead of repeating the value.
 - **Earlier version**: what a requirement said before its meaning changed, kept with the reason it changed.
-- **Deprecation**: the record on a story, requirement or part that is no longer wanted, kept with the reason. Nothing is deleted.
+- **Deprecation**: the record on a story, requirement, value or part that is no longer wanted, kept with the reason. Nothing is deleted.
 - **Figure**: a picture a part shows, such as a screenshot, a mockup or a diagram. It is an image file (PNG, JPEG, GIF, WebP or AVIF) stored inside `.spec`; the part names it by path and can give it alt text and a caption.
 - **Related**: a pointer from a part to another part, story or requirement.
 
@@ -67,7 +68,7 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
       "requirements": [
         {
           "id": "RET-1",
-          "text": "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+          "text": "An upload that fails with a network error or a 5xx response is retried, up to `retry.max` times.",
           "version": 2,
           "history": [
             {
@@ -80,7 +81,7 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
         },
         {
           "id": "RET-2",
-          "text": "The pause before a retry doubles each time, starting at 250 ms.",
+          "text": "The pause before a retry doubles each time, starting at `retry.first-pause`.",
           "level": "should"
         },
         {
@@ -102,6 +103,34 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
           }
         }
       ],
+      "values": [
+        {
+          "id": "retry.max",
+          "type": "number",
+          "value": 5,
+          "unit": "times",
+          "description": "How often a failed upload is tried again.",
+          "history": [
+            {
+              "value": 3,
+              "reason": "Three tries weren't enough on trains.",
+              "date": "2026-01-20"
+            }
+          ]
+        },
+        {
+          "id": "retry.first-pause",
+          "type": "duration",
+          "value": "250ms"
+        },
+        {
+          "id": "color.retrying",
+          "type": "color",
+          "value": "#9a6700",
+          "dark": "#d29922",
+          "description": "The progress bar while a retry waits."
+        }
+      ],
       "figures": [
         {
           "src": "assets/backoff.png",
@@ -119,9 +148,11 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
 - `status` says where something stands as part of the spec: `draft` (still being worked out), `accepted` (agreed on: this is what the product is to do) or `deprecated` (no longer wanted, see below). A requirement's `status` defaults to its item's. There is no status for "built": whether the product meets a requirement is found out by comparing the product with the spec, and is not recorded in it.
 - A requirement's `level` is `must` (the default), `should` or `may`. Its `id` is unique in the whole spec, not just in its item, and never changes or gets reused: everything that refers to a requirement does so by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (`RET-1`, `RET-2` in Retries; `ERR-1` in Errors) so ids don't collide.
 - A user story has an `id` (`US-1`), `as` (who), `want` (what) and optionally `soThat` (why); the app reads them as "As ..., I want ..., so that ...". Its `requirements` name the requirements that make it true (`#RET-1`), in any item; each has to exist. Stories and requirements share one set of ids: no id is used twice, whichever of the two has it. A story has no level and no versions: reword it freely, and deprecate it when nobody wants it any more.
+- A named value has an `id`, a `type` and a `value` in that type's form: `color` (`"#0969da"`, with an optional `dark` for dark mode), `dimension` (`"16px"`, `"1.5rem"`), `duration` (`"250ms"`, `"30s"`, `"14d"`), `number` (a JSON number, with an optional `unit` such as `"times"`), `text` (wording), `font` (a family or stack) and `list` (an array of names). Its id shares the one set of ids with stories and requirements; dotted names group values (`color.accent`, `color.danger`). Text names a value by its id in backticks, and the app shows what it is next to the name.
+- When a value changes, what it was goes into its `history` (oldest first) with the `reason`, as for a requirement's version. A value that is no longer used is deprecated with its reason, not deleted.
 - Text (`description`, a requirement's `text`) is plain, not Markdown: a blank line starts a paragraph, lines starting with `- ` form a list, and `backticks` mark code. There are no headings, links or bold.
 - `order` places an item among its siblings, lowest first; items without one follow, by title.
-- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`), requirements or stories (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
+- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`), requirements, stories or values (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
 - `$schema` is optional and lets editors check the file.
 
 ## The schema
@@ -391,6 +422,809 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
             "description": "A single testable statement."
           }
         },
+        "values": {
+          "description": "The named values this part defines.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "color"
+                  },
+                  "value": {
+                    "type": "string",
+                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+                    "description": "As hex: \"#0969da\", or \"#0969da80\" with transparency."
+                  },
+                  "dark": {
+                    "description": "The color in dark mode, when it differs.",
+                    "type": "string",
+                    "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "dimension"
+                  },
+                  "value": {
+                    "type": "string",
+                    "pattern": "^-?\\d+(?:\\.\\d+)?(?:px|rem|em|%|pt|dp|vw|vh)$",
+                    "description": "A size with its unit: \"16px\", \"1.5rem\", \"50%\"."
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "duration"
+                  },
+                  "value": {
+                    "type": "string",
+                    "pattern": "^\\d+(?:\\.\\d+)?(?:ms|s|min|h|d)$",
+                    "description": "A length of time with its unit: \"200ms\", \"30s\", \"14d\"."
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "number"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "description": "What is counted, for reading: \"times\", \"MB\", \"items\".",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "text"
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Wording: a name, a label, a message."
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "font"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "A font family, or a stack of them: \"Inter, system-ui, sans-serif\"."
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Unique in the whole spec, among values, user stories and requirements alike, and stable once written. Dotted names group them: \"color.accent\", \"retry.max\"."
+                  },
+                  "description": {
+                    "description": "What it is for, in a line.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Defaults to the item's status.",
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "accepted",
+                      "deprecated"
+                    ]
+                  },
+                  "deprecation": {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Why it is no longer wanted."
+                      },
+                      "replacedBy": {
+                        "description": "What takes its place, if anything: requirements (\"#RET-7\") or items (\"uploads/resume\").",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "date": {
+                        "description": "When it was deprecated, as YYYY-MM-DD.",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The record of a deprecation. Goes with \"status\": \"deprecated\": a requirement or item that is no longer wanted stays in the spec, marked deprecated with the reason, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again."
+                  },
+                  "history": {
+                    "description": "Everything it was before, oldest first, each with why it changed.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "What the value was."
+                        },
+                        "dark": {
+                          "description": "A color's value in dark mode then, if it had one.",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Why it was replaced by the next one."
+                        },
+                        "date": {
+                          "description": "When it was replaced, as YYYY-MM-DD.",
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "description": "What a named value used to be, and why that changed."
+                    }
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "list"
+                  },
+                  "value": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "A fixed set of names: roles, states, file types."
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "A named value: something the product decides once and uses in many places, such as a color, a size, a limit, a timeout or a piece of wording. Requirements refer to it by its id in backticks instead of repeating the value."
+          }
+        },
         "figures": {
           "type": "array",
           "items": {
@@ -439,7 +1273,7 @@ A requirement has a version, 1 unless it says otherwise. When what it means chan
 
     {
       "id": "RET-1",
-      "text": "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+      "text": "An upload that fails with a network error or a 5xx response is retried, up to `retry.max` times.",
       "version": 2,
       "history": [
         {
@@ -493,6 +1327,7 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 - Requirements state behavior and limits that can be checked: what happens, when, with which numbers, and what never happens, whether seen by a user or held inside the system. Leave out anything that is true of all software.
 - `summary` is one line that makes sense in a list. `description` gives the reason the part exists, briefly (see "Write little").
 - A user story names a real kind of person and something they want from the product, not a feature ("As a user, I want a retry button" is a requirement in disguise). A part usually has one to three.
+- A number, a color or a piece of wording that more than one requirement depends on is a named value, stated once. Requirements name it (`retry.max`) and don't repeat what it is, so changing it is one change with one reason.
 - What isn't decided stays out. A spec holds what was decided; don't write a requirement that guesses.
 - A few items with sharp requirements beat many thin ones. Add a folder when an item has grown parts of its own.
 
@@ -500,10 +1335,11 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 
 - The spec comes first. A change to what the product does starts as a change to the spec: a new requirement, a new version of one with the reason, or a deprecation with the reason.
 - The spec says what the product does and, where it matters, how it is built. It never says whether that is done. To learn whether a requirement is met, compare the product with it; don't record the answer in the spec.
-- Never delete a requirement, a user story or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
+- The spec is where named values are decided. Constants, theme files and copy in the product follow it: when a value changes in the spec, change it there too, and don't keep a second definition that can drift.
+- Never delete a requirement, a user story, a named value or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (`RET-1`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
 
 ## Checking a spec
 
-Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every id in a story's `requirements` is a requirement, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every deprecated story, requirement or item has a `deprecation` with its reason, and no story or requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).
+Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every id in a story's `requirements` is a requirement, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every value that changed has what it was in its `history` with the reason, every deprecated story, requirement, value or item has a `deprecation` with its reason, and no story, requirement or value id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

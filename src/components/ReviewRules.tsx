@@ -1,5 +1,5 @@
 import { ChecklistIcon, ChevronRightIcon } from "@primer/octicons-react";
-import type { ReactNode } from "react";
+import { createContext, Fragment, useContext, type ReactNode } from "react";
 import { checksByRule, type FileReview, type Risk, type RuleMatch } from "../lib/reviewRules";
 import { Sheet } from "./Sheet";
 
@@ -16,12 +16,16 @@ export function RiskBadge({ risk, count }: { risk: Risk; count?: number }) {
   );
 }
 
+/** How `code` in a text is shown, where it can be more than code: a spec shows a named value with what it is. */
+export const CodeContext = createContext<((code: string) => ReactNode) | null>(null);
+
 /** An instruction, with `code` in backticks shown as code. */
 export function CheckText({ text }: { text: string }) {
+  const code = useContext(CodeContext);
   const parts = text.split("`");
   // An unmatched backtick stays as typed.
   if (parts.length % 2 === 0) return <>{text}</>;
-  return <>{parts.map((part, i) => (i % 2 === 1 ? <code key={i}>{part}</code> : part))}</>;
+  return <>{parts.map((part, i) => (i % 2 === 1 ? code !== null ? <Fragment key={i}>{code(part)}</Fragment> : <code key={i}>{part}</code> : part))}</>;
 }
 
 /** One line between a file's name and its diff; the checks open in a sheet. */

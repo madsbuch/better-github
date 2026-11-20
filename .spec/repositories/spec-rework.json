@@ -80,6 +80,10 @@
     {
       "id": "RW14",
       "text": "A rework can be opened as a pull request: one commit with the changed spec files on a new branch, into the branch that was read. Its description says what changed and why, and tells a coding agent to add the implementation to the same pull request. The draft is then gone from the device, and the app shows the pull request."
+    },
+    {
+      "id": "RW15",
+      "text": "While reworking, a named value can be added, revised and deprecated. Its input fits its type: a color picker with the hex beside it, a number with a unit for sizes and times, one name per line for a list. Changing what a value is asks why, and records what it was."
     }
   ],
   "related": [

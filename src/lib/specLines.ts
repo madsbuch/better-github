@@ -85,8 +85,8 @@ export function jsonLines(text: string): Map<string, LineSpan> {
   return spans;
 }
 
-/** The lines of the entry with this id in one of an item's lists ("requirements", "stories"), in the item's file. */
-export function entrySpan(text: string, spans: Map<string, LineSpan>, list: "requirements" | "stories", id: string): LineSpan | null {
+/** The lines of the entry with this id in one of an item's lists ("requirements", "stories", "values"), in the item's file. */
+export function entrySpan(text: string, spans: Map<string, LineSpan>, list: "requirements" | "stories" | "values", id: string): LineSpan | null {
   let index = -1;
   try {
     const parsed: unknown = JSON.parse(text);

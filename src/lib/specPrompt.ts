@@ -42,7 +42,7 @@ export const SPEC_PROMPT_EXAMPLE = {
   requirements: [
     {
       id: "RET-1",
-      text: "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+      text: "An upload that fails with a network error or a 5xx response is retried, up to `retry.max` times.",
       version: 2,
       history: [
         {
@@ -53,7 +53,7 @@ export const SPEC_PROMPT_EXAMPLE = {
         },
       ],
     },
-    { id: "RET-2", text: "The pause before a retry doubles each time, starting at 250 ms.", level: "should" },
+    { id: "RET-2", text: "The pause before a retry doubles each time, starting at `retry.first-pause`.", level: "should" },
     { id: "RET-3", text: "The caller can cancel while a retry is waiting.", level: "may", status: "draft" },
     {
       id: "RET-4",
@@ -61,6 +61,18 @@ export const SPEC_PROMPT_EXAMPLE = {
       status: "deprecated",
       deprecation: { reason: "Large uploads never finished on bad networks. Uploads resume instead.", replacedBy: ["#RES-1"], date: "2026-03-02" },
     },
+  ],
+  values: [
+    {
+      id: "retry.max",
+      type: "number",
+      value: 5,
+      unit: "times",
+      description: "How often a failed upload is tried again.",
+      history: [{ value: 3, reason: "Three tries weren't enough on trains.", date: "2026-01-20" }],
+    },
+    { id: "retry.first-pause", type: "duration", value: "250ms" },
+    { id: "color.retrying", type: "color", value: "#9a6700", dark: "#d29922", description: "The progress bar while a retry waits." },
   ],
   figures: [{ src: "assets/backoff.png", alt: "Four pauses, each twice as long as the last", caption: "Pauses double between attempts." }],
   related: ["#ERR-1", "cli"],
@@ -105,8 +117,9 @@ The user stories and the requirements are the spec. Everything else in a part is
 - **Part** (an item): one \`.json\` file, one part of the product. It holds the stories and requirements of that part, and a title, a one-line summary and a short description to introduce them. Parts nest: folders are the outline.
 - **User story**: who wants what, and why. "As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again." It says what the part is for, and can name the requirements that together make it true.
 - **Requirement**: one statement about what the product does, or how it is built, that can be checked against the product. "An upload that fails with a network error is retried, up to five times." It has a level: \`must\`, \`should\` or \`may\`.
+- **Named value**: something the product decides once and uses in many places: a color, a size, a time, a limit, a piece of wording, a font, a fixed list of names. It has a name (\`retry.max\`, \`color.accent\`) that requirements use instead of repeating the value.
 - **Earlier version**: what a requirement said before its meaning changed, kept with the reason it changed.
-- **Deprecation**: the record on a story, requirement or part that is no longer wanted, kept with the reason. Nothing is deleted.
+- **Deprecation**: the record on a story, requirement, value or part that is no longer wanted, kept with the reason. Nothing is deleted.
 - **Figure**: a picture a part shows, such as a screenshot, a mockup or a diagram. It is an image file (PNG, JPEG, GIF, WebP or AVIF) stored inside \`${SPEC_DIR}\`; the part names it by path and can give it alt text and a caption.
 - **Related**: a pointer from a part to another part, story or requirement.
 
@@ -134,9 +147,11 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE, null, 2))}
 - \`status\` says where something stands as part of the spec: \`draft\` (still being worked out), \`accepted\` (agreed on: this is what the product is to do) or \`deprecated\` (no longer wanted, see below). A requirement's \`status\` defaults to its item's. There is no status for "built": whether the product meets a requirement is found out by comparing the product with the spec, and is not recorded in it.
 - A requirement's \`level\` is \`must\` (the default), \`should\` or \`may\`. Its \`id\` is unique in the whole spec, not just in its item, and never changes or gets reused: everything that refers to a requirement does so by this id alone, and the app follows a requirement by its id when it compares two versions of the spec, also when it moves to another item. Give each item a short prefix for its requirements (\`RET-1\`, \`RET-2\` in Retries; \`ERR-1\` in Errors) so ids don't collide.
 - A user story has an \`id\` (\`US-1\`), \`as\` (who), \`want\` (what) and optionally \`soThat\` (why); the app reads them as "As ..., I want ..., so that ...". Its \`requirements\` name the requirements that make it true (\`#RET-1\`), in any item; each has to exist. Stories and requirements share one set of ids: no id is used twice, whichever of the two has it. A story has no level and no versions: reword it freely, and deprecate it when nobody wants it any more.
+- A named value has an \`id\`, a \`type\` and a \`value\` in that type's form: \`color\` (\`"#0969da"\`, with an optional \`dark\` for dark mode), \`dimension\` (\`"16px"\`, \`"1.5rem"\`), \`duration\` (\`"250ms"\`, \`"30s"\`, \`"14d"\`), \`number\` (a JSON number, with an optional \`unit\` such as \`"times"\`), \`text\` (wording), \`font\` (a family or stack) and \`list\` (an array of names). Its id shares the one set of ids with stories and requirements; dotted names group values (\`color.accent\`, \`color.danger\`). Text names a value by its id in backticks, and the app shows what it is next to the name.
+- When a value changes, what it was goes into its \`history\` (oldest first) with the \`reason\`, as for a requirement's version. A value that is no longer used is deprecated with its reason, not deleted.
 - Text (\`description\`, a requirement's \`text\`) is plain, not Markdown: a blank line starts a paragraph, lines starting with \`- \` form a list, and \`backticks\` mark code. There are no headings, links or bold.
 - \`order\` places an item among its siblings, lowest first; items without one follow, by title.
-- \`figures\` name pictures by their path from \`${SPEC_DIR}\`; the file has to be there. \`related\` lists ids of other items (\`cli\`), requirements or stories (\`#ERR-1\`, or with its item: \`uploads/errors#ERR-1\`); each has to exist.
+- \`figures\` name pictures by their path from \`${SPEC_DIR}\`; the file has to be there. \`related\` lists ids of other items (\`cli\`), requirements, stories or values (\`#ERR-1\`, or with its item: \`uploads/errors#ERR-1\`); each has to exist.
 - \`$schema\` is optional and lets editors check the file.`,
 
     `## The schema
@@ -180,12 +195,13 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 - Requirements state behavior and limits that can be checked: what happens, when, with which numbers, and what never happens, whether seen by a user or held inside the system. Leave out anything that is true of all software.
 - \`summary\` is one line that makes sense in a list. \`description\` gives the reason the part exists, briefly (see "Write little").
 - A user story names a real kind of person and something they want from the product, not a feature ("As a user, I want a retry button" is a requirement in disguise). A part usually has one to three.
+- A number, a color or a piece of wording that more than one requirement depends on is a named value, stated once. Requirements name it (\`retry.max\`) and don't repeat what it is, so changing it is one change with one reason.
 - What isn't decided stays out. A spec holds what was decided; don't write a requirement that guesses.
 - A few items with sharp requirements beat many thin ones. Add a folder when an item has grown parts of its own.`,
   ];
 }
 
-const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists, every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every deprecated story, requirement or item has a \`deprecation\` with its reason, and no story or requirement id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
+const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists, every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every value that changed has what it was in its \`history\` with the reason, every deprecated story, requirement, value or item has a \`deprecation\` with its reason, and no story, requirement or value id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
 
 /**
  * spec-llms.txt: the spec format for coding agents, to point one at when it
@@ -206,7 +222,8 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
 
 - The spec comes first. A change to what the product does starts as a change to the spec: a new requirement, a new version of one with the reason, or a deprecation with the reason.
 - The spec says what the product does and, where it matters, how it is built. It never says whether that is done. To learn whether a requirement is met, compare the product with it; don't record the answer in the spec.
-- Never delete a requirement, a user story or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
+- The spec is where named values are decided. Constants, theme files and copy in the product follow it: when a value changes in the spec, change it there too, and don't keep a second definition that can drift.
+- Never delete a requirement, a user story, a named value or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (\`RET-1\`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
 

@@ -8,11 +8,15 @@ import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
 import { useOpenSpecPull } from "../../queries/specPull";
 import { to, useNav } from "../../lib/nav";
-import { requirementStatus, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory } from "../../lib/spec";
+import { requirementStatus, SPEC_VALUE_TYPES, type Spec, type SpecItem, type SpecLevel, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue, type SpecValueType } from "../../lib/spec";
+import { draftOf, emptyDraft, VALUE_TYPE_LABEL, valueOf, type ValueDraft } from "../../lib/specValues";
+import { ValueInput } from "../../components/SpecValues";
 import { diffSpecs } from "../../lib/specDiff";
 import {
   deprecateRequirement,
   deprecateStory,
+  deprecateValue,
+  reviseValue,
   newItemId,
   reviseRequirement,
   specPullBody,
@@ -24,6 +28,7 @@ import {
   withNewRequirement,
   withRequirement,
   withStory,
+  withValue,
   type ReworkedSpec,
   type SpecRework,
 } from "../../lib/specRework";
@@ -502,6 +507,165 @@ function StoryForm({
     </div>
   );
 }
+
+// ------------------------------------------------------------ named values
+
+/** What the draft did to a named value, and the buttons to do more. */
+export function ValueTools({ node, value }: { node: SpecNode; value: SpecValue }) {
+  const state = useReworking();
+  const [sheet, setSheet] = useState<"edit" | "deprecate" | null>(null);
+  const item = node.item;
+  if (state === null || item === null) return null;
+  const original = state.original.nodes.get(node.id)?.item?.values?.find((candidate) => candidate.id === value.id);
+  const changed = original === undefined || !same(original, value);
+  const deprecated = requirementStatus(item, value) === "deprecated";
+  const label = original === undefined ? "New" : !changed ? null : deprecated && original.status !== "deprecated" ? "Deprecated here" : "Revised";
+  const commit = (next: SpecValue | null) => state.rework.setItem(node.id, withValue(item, value.id, next));
+  return (
+    <div className="rework-tools">
+      {label !== null && <span className="pill pill-accent rework-mark">{label}</span>}
+      <span className="grow" />
+      {!deprecated && (
+        <button className="btn btn-sm" onClick={() => setSheet("edit")}>
+          <PencilIcon size={14} /> Revise
+        </button>
+      )}
+      {!deprecated && original !== undefined && (
+        <button className="btn btn-sm" onClick={() => setSheet("deprecate")}>
+          <ArchiveIcon size={14} /> Deprecate
+        </button>
+      )}
+      {changed && original !== undefined && (
+        <button className="btn btn-sm" onClick={() => commit(original)} aria-label={`Undo the changes to ${value.id}`}>
+          <UndoIcon size={14} /> Undo
+        </button>
+      )}
+      {original === undefined && (
+        <button className="btn btn-sm btn-danger" onClick={() => commit(null)} aria-label={`Remove ${value.id}`}>
+          <TrashIcon size={14} /> Remove
+        </button>
+      )}
+      <Sheet open={sheet === "edit"} onClose={() => setSheet(null)} title={`Revise ${value.id}`} full>
+        {sheet === "edit" && <ValueForm spec={state.reworked.spec} value={value} original={original ?? null} onSave={(next) => commit(next)} onClose={() => setSheet(null)} />}
+      </Sheet>
+      <Sheet open={sheet === "deprecate"} onClose={() => setSheet(null)} title={`Deprecate ${value.id}`}>
+        {sheet === "deprecate" && (
+          <DeprecateForm
+            onSave={(reason) => {
+              if (original !== undefined) commit(deprecateValue(original, reason));
+            }}
+            onClose={() => setSheet(null)}
+            replaceable={false}
+          />
+        )}
+      </Sheet>
+    </div>
+  );
+}
+
+/** Adds a named value to an item. */
+export function AddValue({ node }: { node: SpecNode }) {
+  const state = useReworking();
+  const [open, setOpen] = useState(false);
+  if (state === null || node.item === null) return null;
+  const item = node.item;
+  return (
+    <>
+      <button className="btn btn-sm rework-add" onClick={() => setOpen(true)}>
+        <PlusIcon size={14} /> Add a value
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="New value" full>
+        {open && <ValueForm spec={state.reworked.spec} value={null} original={null} onSave={(value) => state.rework.setItem(node.id, withValue(item, value.id, value))} onClose={() => setOpen(false)} />}
+      </Sheet>
+    </>
+  );
+}
+
+function ValueForm({
+  spec,
+  value,
+  original,
+  onSave,
+  onClose,
+}: {
+  spec: Spec;
+  /** Null for a new one. */
+  value: SpecValue | null;
+  /** What the repository has, for one that is there: a change to what it is asks why. */
+  original: SpecValue | null;
+  onSave: (value: SpecValue) => void;
+  onClose: () => void;
+}) {
+  const [id, setId] = useState(value?.id ?? "");
+  const [draft, setDraft] = useState<ValueDraft>(value !== null ? draftOf(value) : emptyDraft("color"));
+  const [description, setDescription] = useState(value?.description ?? "");
+  // Asked again when it is revised twice: the reason is for the step from what the repository has.
+  const [reason, setReason] = useState(original !== null && value !== null && (value.history?.length ?? 0) > (original.history?.length ?? 0) ? (value.history?.at(-1)?.reason ?? "") : "");
+  const made = valueOf(draft, { id: id.trim(), description });
+  // A new value's id has to be free; an existing one keeps the id it has.
+  const taken = value === null ? (spec.requirements.get(id.trim()) ?? spec.stories.get(id.trim()) ?? spec.values.get(id.trim())) : undefined;
+  const valid = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id.trim());
+  // What it is changes: that goes on record, with why.
+  const revised = original !== null && made !== null ? reviseValue(original, made, reason.trim()) : null;
+  const differs = revised !== null && original !== null && (revised.history?.length ?? 0) > (original.history?.length ?? 0);
+  const ready = made !== null && valid && taken === undefined && (!differs || reason.trim() !== "");
+  return (
+    <div className="rework-form">
+      {value === null && (
+        <>
+          <Field label="Name" hint={taken ? `${id.trim()} is already in ${taken.node.title}. Ids are unique in the whole spec.` : "How requirements refer to it, in backticks: color.accent, retry.max. Never changed afterwards."}>
+            <input className="input mono" value={id} onChange={(e) => setId(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} autoFocus />
+          </Field>
+          <Field label="Kind">
+            <select className="select" value={draft.type} onChange={(e) => setDraft(emptyDraft(SPEC_VALUE_TYPES.find((type) => type === e.target.value) ?? "text"))}>
+              {SPEC_VALUE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {VALUE_TYPE_LABEL[type]}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </>
+      )}
+      {/* Not a label: a value can take more than one input. */}
+      <div className="rework-field" role="group" aria-label="Value">
+        <span className="field-label">Value</span>
+        <ValueInput draft={draft} onChange={setDraft} />
+        {made === null && draft.text.trim() !== "" && VALUE_HINT[draft.type] !== "" && <span className="muted small">{VALUE_HINT[draft.type]}</span>}
+      </div>
+      <Field label="What it is for (optional)" hint="One line.">
+        <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      {differs && (
+        <Field label="Why it changes" hint="Kept with what it was, so the change can be understood later.">
+          <textarea className="textarea" value={reason} onChange={(e) => setReason(e.target.value)} style={{ minHeight: 72 }} />
+        </Field>
+      )}
+      <button
+        className="btn btn-primary btn-block"
+        disabled={!ready}
+        onClick={() => {
+          if (made === null) return;
+          onSave(revised ?? made);
+          onClose();
+        }}
+      >
+        {value === null ? "Add" : "Save"}
+      </button>
+    </div>
+  );
+}
+
+/** What a value of a kind has to look like, said when it doesn't yet. */
+const VALUE_HINT: Record<SpecValueType, string> = {
+  color: "A hex color: #0969da, or #0969da80 with transparency.",
+  dimension: "A number.",
+  duration: "A number, zero or more.",
+  number: "A number.",
+  text: "",
+  font: "",
+  list: "At least one name.",
+};
 
 // -------------------------------------------------------------------- items
 
