@@ -1,0 +1,8 @@
+{
+  "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "title": "Design",
+  "summary": "What the app looks like: its colors, type and layout, in light and dark.",
+  "status": "accepted",
+  "order": 7,
+  "description": "The values every screen draws with, decided once. The app's stylesheet follows them."
+}

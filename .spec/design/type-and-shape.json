@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "title": "Type and shape",
+  "summary": "Fonts, corners and the height of the bars.",
+  "status": "accepted",
+  "order": 2,
+  "requirements": [
+    {
+      "id": "DS-T1",
+      "text": "Text is set in `font.body`, the device's own interface font. Code, ids, branch names and hashes are set in `font.mono`."
+    },
+    {
+      "id": "DS-T2",
+      "text": "Cards, inputs and buttons have corners of `shape.radius`; sheets and dialogs of `shape.radius-large`."
+    }
+  ],
+  "values": [
+    {
+      "id": "font.body",
+      "type": "font",
+      "value": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans\", Roboto, Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "description": "Everything that isn't code."
+    },
+    {
+      "id": "font.mono",
+      "type": "font",
+      "value": "ui-monospace, SFMono-Regular, \"SF Mono\", \"Roboto Mono\", \"Droid Sans Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "description": "Code, ids, branch names, hashes."
+    },
+    {
+      "id": "shape.radius",
+      "type": "dimension",
+      "value": "8px"
+    },
+    {
+      "id": "shape.radius-large",
+      "type": "dimension",
+      "value": "14px"
+    },
+    {
+      "id": "bar.top-height",
+      "type": "dimension",
+      "value": "52px",
+      "description": "The bar with a screen's title and actions."
+    },
+    {
+      "id": "bar.tabs-height",
+      "type": "dimension",
+      "value": "58px",
+      "description": "The bar with the main sections, on a phone."
+    }
+  ]
+}

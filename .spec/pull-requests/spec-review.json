@@ -56,7 +56,7 @@
     },
     {
       "id": "SR11",
-      "text": "Reworded text shows which words changed. In a wide window the old is beside the new, each with its own words marked; otherwise it is one text with what went out struck through and what came in marked. A setting and a button choose one column in a wide window too.",
+      "text": "Reworded text shows which words changed. From `layout.spec-split-from` wide the old is beside the new, each with its own words marked; otherwise it is one text with what went out struck through and what came in marked. A setting and a button choose one column in a wide window too.",
       "version": 2,
       "history": [
         {
@@ -81,7 +81,7 @@
     },
     {
       "id": "SR15",
-      "text": "A part that is new or gone as a whole reads as plain text, not as added or removed lines. Its long text and all but its first requirements start folded and open on demand."
+      "text": "A part that is new or gone as a whole reads as plain text, not as added or removed lines. Its long text and all but its first `spec-review.whole-shown` requirements start folded and open on demand."
     },
     {
       "id": "SR16",
@@ -90,6 +90,15 @@
     {
       "id": "SR17",
       "text": "A changed named value shows what it was and what it is, as each looks, with the reason when one was recorded. A value whose meaning changed without a recorded reason says so, and a deleted value counts as taking something away."
+    }
+  ],
+  "values": [
+    {
+      "id": "spec-review.whole-shown",
+      "type": "number",
+      "value": 6,
+      "unit": "requirements",
+      "description": "How many requirements of a new or removed part show before asking."
     }
   ],
   "related": [

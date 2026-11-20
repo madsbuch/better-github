@@ -4,6 +4,14 @@
   "summary": "Everything about the app itself, as a section with a menu of pages.",
   "status": "accepted",
   "order": 6,
+  "stories": [
+    {
+      "id": "US-SET-1",
+      "as": "someone who uses the app day and night",
+      "want": "to choose how it looks and behaves in one place",
+      "soThat": "I set it once"
+    }
+  ],
   "requirements": [
     {
       "id": "SET-1",
@@ -19,7 +27,7 @@
     },
     {
       "id": "SET-4",
-      "text": "From 768 px wide the menu stays beside the open page, the first page is open to begin with, and picking another swaps it in place without adding a step to go back through."
+      "text": "From `layout.sidebar-from` wide the menu stays beside the open page, the first page is open to begin with, and picking another swaps it in place without adding a step to go back through."
     },
     {
       "id": "SET-5",
@@ -35,11 +43,19 @@
     },
     {
       "id": "SET-8",
-      "text": "A switch between light and dark cross-fades the whole page in about 280 ms. Where the web view can't cross-fade, colors ease to their new values. With reduced motion asked for, it switches at once. The first paint is never animated."
+      "text": "A switch between light and dark cross-fades the whole page in `theme.fade`. Where the web view can't cross-fade, colors ease to their new values. With reduced motion asked for, it switches at once. The first paint is never animated."
     },
     {
       "id": "SET-9",
       "text": "On a desktop, Cmd or Ctrl+comma (and +4) opens Settings."
+    }
+  ],
+  "values": [
+    {
+      "id": "theme.fade",
+      "type": "duration",
+      "value": "280ms",
+      "description": "How long a switch between light and dark takes."
     }
   ],
   "related": [

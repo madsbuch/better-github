@@ -4,6 +4,14 @@
   "summary": "The organizations you belong to, as a section of their own.",
   "status": "accepted",
   "order": 5,
+  "stories": [
+    {
+      "id": "US-ORG-1",
+      "as": "a member of several organizations",
+      "want": "to get to an organization's repositories without searching",
+      "soThat": "work and personal projects stay apart"
+    }
+  ],
   "requirements": [
     {
       "id": "ORG-1",

@@ -1,0 +1,334 @@
+{
+  "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "title": "Color",
+  "summary": "Every color the app draws with, for light and for dark.",
+  "status": "accepted",
+  "order": 1,
+  "description": "The palette follows GitHub's, so what is green, red or purple on github.com is the same here.",
+  "stories": [
+    {
+      "id": "US-DS-1",
+      "as": "someone reviewing at night",
+      "want": "the whole app in dark colors",
+      "soThat": "the screen doesn't light up the room",
+      "requirements": [
+        "#DS-C1",
+        "#DS-C2"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "DS-C1",
+      "text": "The app has a light and a dark look. Every color it draws with is a named value here, with the color for each."
+    },
+    {
+      "id": "DS-C2",
+      "text": "Which look is used follows the theme setting: the device's, or the one picked."
+    },
+    {
+      "id": "DS-C3",
+      "text": "A color means one thing everywhere: `color.success` open, passed or added; `color.danger` failed, destructive or removed; `color.attention` pending or a warning; `color.done` merged."
+    },
+    {
+      "id": "DS-C4",
+      "text": "A screen has at most one button in `color.btn-primary-bg`."
+    },
+    {
+      "id": "DS-C5",
+      "text": "The window behind the app, seen while it starts, is `color.bg` in both looks.",
+      "level": "should"
+    }
+  ],
+  "values": [
+    {
+      "id": "color.bg",
+      "type": "color",
+      "value": "#ffffff",
+      "dark": "#0d1117",
+      "description": "The page."
+    },
+    {
+      "id": "color.bg-subtle",
+      "type": "color",
+      "value": "#f6f8fa",
+      "dark": "#151b23",
+      "description": "Bars, cards and anything a step back from the page."
+    },
+    {
+      "id": "color.bg-inset",
+      "type": "color",
+      "value": "#eff2f5",
+      "dark": "#010409",
+      "description": "Wells: what sits lower than the page."
+    },
+    {
+      "id": "color.bg-overlay",
+      "type": "color",
+      "value": "#ffffff",
+      "dark": "#151b23",
+      "description": "Sheets and menus."
+    },
+    {
+      "id": "color.bg-hover",
+      "type": "color",
+      "value": "#d0d7de52",
+      "dark": "#656c7626",
+      "description": "Laid over a row or button under the pointer."
+    },
+    {
+      "id": "color.bg-active",
+      "type": "color",
+      "value": "#d0d7de7a",
+      "dark": "#656c764d",
+      "description": "Laid over a row or button while it is pressed."
+    },
+    {
+      "id": "color.border",
+      "type": "color",
+      "value": "#d1d9e0",
+      "dark": "#3d444d",
+      "description": "Lines around inputs and buttons."
+    },
+    {
+      "id": "color.border-muted",
+      "type": "color",
+      "value": "#d8dee4b3",
+      "dark": "#3d444db3",
+      "description": "Lines between rows and around cards."
+    },
+    {
+      "id": "color.fg",
+      "type": "color",
+      "value": "#1f2328",
+      "dark": "#f0f6fc",
+      "description": "Text."
+    },
+    {
+      "id": "color.fg-muted",
+      "type": "color",
+      "value": "#59636e",
+      "dark": "#9198a1",
+      "description": "Secondary text."
+    },
+    {
+      "id": "color.fg-subtle",
+      "type": "color",
+      "value": "#818b98",
+      "dark": "#656c76",
+      "description": "Placeholders and the least important text."
+    },
+    {
+      "id": "color.fg-on-emphasis",
+      "type": "color",
+      "value": "#ffffff",
+      "description": "Text on a filled, colored background."
+    },
+    {
+      "id": "color.accent",
+      "type": "color",
+      "value": "#0969da",
+      "dark": "#4493f8",
+      "description": "Links and what is selected."
+    },
+    {
+      "id": "color.accent-bg",
+      "type": "color",
+      "value": "#ddf4ff",
+      "dark": "#388bfd26",
+      "description": "Behind something selected or informational."
+    },
+    {
+      "id": "color.accent-emphasis",
+      "type": "color",
+      "value": "#0969da",
+      "dark": "#1f6feb",
+      "description": "Filled accent: focus rings, selected tabs."
+    },
+    {
+      "id": "color.success",
+      "type": "color",
+      "value": "#1a7f37",
+      "dark": "#3fb950",
+      "description": "Open, passed, added."
+    },
+    {
+      "id": "color.success-bg",
+      "type": "color",
+      "value": "#dafbe1",
+      "dark": "#2ea04326",
+      "description": "Behind a success message."
+    },
+    {
+      "id": "color.success-emphasis",
+      "type": "color",
+      "value": "#1f883d",
+      "dark": "#238636",
+      "description": "Filled success."
+    },
+    {
+      "id": "color.danger",
+      "type": "color",
+      "value": "#d1242f",
+      "dark": "#f85149",
+      "description": "Failed, destructive, removed."
+    },
+    {
+      "id": "color.danger-bg",
+      "type": "color",
+      "value": "#ffebe9",
+      "dark": "#f851491a",
+      "description": "Behind an error message."
+    },
+    {
+      "id": "color.danger-emphasis",
+      "type": "color",
+      "value": "#cf222e",
+      "dark": "#da3633",
+      "description": "Filled danger."
+    },
+    {
+      "id": "color.attention",
+      "type": "color",
+      "value": "#9a6700",
+      "dark": "#d29922",
+      "description": "Pending, and warnings."
+    },
+    {
+      "id": "color.attention-bg",
+      "type": "color",
+      "value": "#fff8c5",
+      "dark": "#bb800926",
+      "description": "Behind a warning."
+    },
+    {
+      "id": "color.done",
+      "type": "color",
+      "value": "#8250df",
+      "dark": "#ab7df8",
+      "description": "Merged, and closed as completed."
+    },
+    {
+      "id": "color.done-bg",
+      "type": "color",
+      "value": "#fbefff",
+      "dark": "#ab7df826",
+      "description": "Behind something done."
+    },
+    {
+      "id": "color.done-emphasis",
+      "type": "color",
+      "value": "#8250df",
+      "dark": "#8957e5",
+      "description": "Filled done."
+    },
+    {
+      "id": "color.neutral-emphasis",
+      "type": "color",
+      "value": "#59636e",
+      "dark": "#656c76",
+      "description": "Filled neutral: counters, closed."
+    },
+    {
+      "id": "color.btn-bg",
+      "type": "color",
+      "value": "#f6f8fa",
+      "dark": "#212830",
+      "description": "An ordinary button."
+    },
+    {
+      "id": "color.btn-border",
+      "type": "color",
+      "value": "#d1d9e0",
+      "dark": "#3d444d",
+      "description": "Its border."
+    },
+    {
+      "id": "color.btn-primary-bg",
+      "type": "color",
+      "value": "#1f883d",
+      "dark": "#238636",
+      "description": "The one primary button of a screen."
+    },
+    {
+      "id": "color.btn-primary-fg",
+      "type": "color",
+      "value": "#ffffff",
+      "description": "Its text."
+    },
+    {
+      "id": "color.backdrop",
+      "type": "color",
+      "value": "#1f232880",
+      "dark": "#010409b3",
+      "description": "Dims the screen behind a sheet."
+    },
+    {
+      "id": "color.diff-add-bg",
+      "type": "color",
+      "value": "#dafbe1",
+      "dark": "#2ea04326",
+      "description": "An added line."
+    },
+    {
+      "id": "color.diff-add-word",
+      "type": "color",
+      "value": "#aceebb",
+      "dark": "#2ea04366",
+      "description": "The words that came in, within a changed line."
+    },
+    {
+      "id": "color.diff-add-num",
+      "type": "color",
+      "value": "#ccffd8",
+      "dark": "#3fb9504d",
+      "description": "An added line's number."
+    },
+    {
+      "id": "color.diff-del-bg",
+      "type": "color",
+      "value": "#ffebe9",
+      "dark": "#f851491a",
+      "description": "A removed line."
+    },
+    {
+      "id": "color.diff-del-word",
+      "type": "color",
+      "value": "#ffcecb",
+      "dark": "#f8514966",
+      "description": "The words that went out, within a changed line."
+    },
+    {
+      "id": "color.diff-del-num",
+      "type": "color",
+      "value": "#ffd7d5",
+      "dark": "#f851494d",
+      "description": "A removed line's number."
+    },
+    {
+      "id": "color.diff-hunk-bg",
+      "type": "color",
+      "value": "#ddf4ff",
+      "dark": "#388bfd1a",
+      "description": "The line between two stretches of a diff."
+    },
+    {
+      "id": "color.diff-hunk-fg",
+      "type": "color",
+      "value": "#59636e",
+      "dark": "#9198a1",
+      "description": "Its text."
+    },
+    {
+      "id": "color.diff-selected",
+      "type": "color",
+      "value": "#fff8c5",
+      "dark": "#bb800940",
+      "description": "The line a comment is being written on."
+    }
+  ],
+  "related": [
+    "settings#SET-7",
+    "settings#SET-8"
+  ]
+}

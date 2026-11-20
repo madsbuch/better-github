@@ -5,6 +5,14 @@
   "status": "accepted",
   "order": 2,
   "description": "A line diff of the JSON files says which lines changed. This says what changed in the spec: which items and requirements were added, removed or reworded.\n\nIt compares a base (by default the default branch) with another branch or commit.",
+  "stories": [
+    {
+      "id": "US-D-1",
+      "as": "someone deciding whether a branch is ready",
+      "want": "to see what its spec promises that the main branch's doesn't, and what it takes away",
+      "soThat": "I judge the change by what it means"
+    }
+  ],
   "requirements": [
     {
       "id": "D1",
@@ -110,7 +118,7 @@
     },
     {
       "id": "D13",
-      "text": "The changes can be narrowed to added, changed, moved, removed, or those that take something away. They are shown 50 at a time, and each is drawn when it nears the screen."
+      "text": "The changes can be narrowed to added, changed, moved, removed, or those that take something away. They are shown `spec-diff.page` at a time, and each is drawn when it nears the screen."
     },
     {
       "id": "D14",
@@ -123,6 +131,14 @@
     {
       "id": "D16",
       "text": "A history that was rewritten, shortened, or that doesn't record the version just left as it was, is flagged with what takes something away. So is a version that went back."
+    }
+  ],
+  "values": [
+    {
+      "id": "spec-diff.page",
+      "type": "number",
+      "value": 50,
+      "unit": "changes"
     }
   ],
   "related": [

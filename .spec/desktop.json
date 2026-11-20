@@ -5,6 +5,14 @@
   "status": "accepted",
   "order": 4,
   "description": "The app was built for touch. On a desktop nothing may depend on a gesture or on the system's back button, and the window is used for more than one phone-sized column.",
+  "stories": [
+    {
+      "id": "US-K-1",
+      "as": "a reviewer at a desk",
+      "want": "the same app with a keyboard, a mouse and a wide window",
+      "soThat": "I don't switch tools between phone and computer"
+    }
+  ],
   "requirements": [
     {
       "id": "K1",
@@ -34,7 +42,7 @@
     },
     {
       "id": "K3",
-      "text": "The window first opens at 1280 by 860, and after that where and as large as it was closed. From 768 px wide the main sections are in a sidebar, and from 1200 px the sidebar shows their names next to the icons.",
+      "text": "The window first opens at `window.first-width` by `window.first-height`, and after that where and as large as it was closed. From `layout.sidebar-from` wide the main sections are in a sidebar, and from `layout.sidebar-names-from` the sidebar shows their names next to the icons.",
       "version": 2,
       "history": [
         {
@@ -89,7 +97,7 @@
     },
     {
       "id": "K12",
-      "text": "From 1100 px wide a diff shows the old file on the left and the new one on the right: unchanged lines on both sides, and in a run of removed and added lines the first removed next to the first added. Each side wraps, so neither scrolls sideways."
+      "text": "From `layout.diff-split-from` wide a diff shows the old file on the left and the new one on the right: unchanged lines on both sides, and in a run of removed and added lines the first removed next to the first added. Each side wraps, so neither scrolls sideways."
     },
     {
       "id": "K13",

@@ -4,6 +4,14 @@
   "summary": "Commenting on lines, suggesting changes and submitting a review.",
   "status": "accepted",
   "order": 2,
+  "stories": [
+    {
+      "id": "US-RV-1",
+      "as": "a reviewer on a phone",
+      "want": "to comment on a line, suggest a change and submit a review",
+      "soThat": "a review doesn't wait until I'm at a desk"
+    }
+  ],
   "requirements": [
     {
       "id": "RV1",

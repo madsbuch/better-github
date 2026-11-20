@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "title": "Layout",
+  "summary": "The window widths at which the layout changes.",
+  "status": "accepted",
+  "order": 3,
+  "stories": [
+    {
+      "id": "US-DS-2",
+      "as": "someone with a large screen",
+      "want": "the app to use the width",
+      "soThat": "I compare side by side instead of scrolling"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "DS-L1",
+      "text": "The layout changes at these widths and no others: `layout.sidebar-from`, `layout.spec-split-from`, `layout.diff-split-from` and `layout.sidebar-names-from`."
+    },
+    {
+      "id": "DS-L2",
+      "text": "Below `layout.sidebar-from` everything is one column, with the main sections in a bar at the bottom."
+    }
+  ],
+  "values": [
+    {
+      "id": "layout.sidebar-from",
+      "type": "dimension",
+      "value": "768px",
+      "description": "The main sections move to a sidebar, and settings shows its menu beside the page."
+    },
+    {
+      "id": "layout.spec-split-from",
+      "type": "dimension",
+      "value": "900px",
+      "description": "A changed text of a spec shows the old beside the new."
+    },
+    {
+      "id": "layout.diff-split-from",
+      "type": "dimension",
+      "value": "1100px",
+      "description": "A file's diff shows the old beside the new."
+    },
+    {
+      "id": "layout.sidebar-names-from",
+      "type": "dimension",
+      "value": "1200px",
+      "description": "The sidebar shows names next to its icons."
+    },
+    {
+      "id": "window.first-width",
+      "type": "dimension",
+      "value": "1280px",
+      "description": "The desktop window, the first time it opens."
+    },
+    {
+      "id": "window.first-height",
+      "type": "dimension",
+      "value": "860px"
+    }
+  ],
+  "related": [
+    "desktop#K3",
+    "desktop#K12",
+    "settings#SET-4"
+  ]
+}

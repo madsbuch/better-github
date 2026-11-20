@@ -5,6 +5,14 @@
   "status": "accepted",
   "order": 1,
   "description": "Not every file deserves the same attention. A repository's `.review-rules` gives each path a risk (low, medium or high) and instructions for whoever reviews a change to it. The app shows the verdict on every changed file and puts the riskiest files first.",
+  "stories": [
+    {
+      "id": "US-RR-1",
+      "as": "a reviewer with twenty changed files",
+      "want": "to know which ones are risky and what to check in each",
+      "soThat": "my attention goes where a mistake costs most"
+    }
+  ],
   "requirements": [
     {
       "id": "RR1",

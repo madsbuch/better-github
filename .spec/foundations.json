@@ -5,6 +5,14 @@
   "order": 1,
   "status": "accepted",
   "description": "These hold everywhere in the app. A change that breaks one of them is a bug, whatever feature it belongs to.",
+  "stories": [
+    {
+      "id": "US-F-1",
+      "as": "anyone using the app",
+      "want": "every screen to behave the same way",
+      "soThat": "I never have to learn a screen twice"
+    }
+  ],
   "requirements": [
     {
       "id": "F1",
