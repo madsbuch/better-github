@@ -36,7 +36,7 @@ import { releaseQueries } from "../queries/releases";
 import { repoQueries, useStarRepo } from "../queries/repos";
 import { reviewQueries, useCopyRulesPrompt } from "../queries/reviewRules";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
-import { specQueries, useSpec } from "../queries/spec";
+import { specQueries, useCopySpecPrompt, useSpec } from "../queries/spec";
 import { specCounts } from "../lib/spec";
 import { ActionsTab } from "./actions/ActionsTab";
 import { ReleasesTab } from "./releases/ReleasesTab";
@@ -96,6 +96,7 @@ export function RepoScreen() {
     if (gitRef !== "" && !guest) void queryClient.prefetchQuery(specQueries.folder(owner, repo, gitRef));
   }, [queryClient, owner, repo, gitRef, guest]);
   const copyRulesPrompt = useCopyRulesPrompt();
+  const copySpecPrompt = useCopySpecPrompt();
 
   const setTab = (next: RepoTab) => nav.replace(to.repo(owner, repo, { tab: next, ref: search.ref }));
   const setRef = (ref: string) => nav.replace(to.repo(owner, repo, { tab, ref }));
@@ -209,6 +210,12 @@ export function RepoScreen() {
             icon: <NoteIcon size={18} />,
             hidden: gitRef === "" || guest,
             onSelect: () => nav.navigate(to.spec(owner, repo, search.ref)),
+          },
+          {
+            label: "Copy spec prompt",
+            icon: <CopyIcon size={18} />,
+            hidden: gitRef === "" || guest,
+            onSelect: () => void copySpecPrompt(owner, repo, gitRef),
           },
           {
             label: "Copy review rules prompt",

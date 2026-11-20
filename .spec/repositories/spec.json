@@ -46,6 +46,11 @@
       "id": "S10",
       "text": "Items can be nested three folders deep. A deeper folder is listed as a problem.",
       "level": "should"
+    },
+    {
+      "id": "S11",
+      "text": "A repository's menu, a branch without a spec and the list of a spec's problems each offer a prompt for a coding agent to write the spec or improve it. The prompt stands on its own: it includes the schema, the current outline and the problems.",
+      "level": "should"
     }
   ],
   "figures": [
@@ -64,6 +69,7 @@
     "src/lib/spec.ts",
     "src/queries/spec.ts",
     "src/screens/SpecScreen.tsx",
+    "src/lib/specPrompt.ts",
     "schema/spec.schema.json",
     "e2e/spec.spec.ts"
   ],

@@ -165,6 +165,12 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.
 
+To have a coding agent write a spec, for a new project or one that already has
+code, use *Copy spec prompt* in a repository's menu (or *Copy agent prompt* on a
+branch without a spec) and paste it into the agent. The prompt carries the
+format, the schema and what makes a good spec. For a repository that has a
+spec, it also carries the outline and the problems the app found.
+
 ### Comparing two specs
 
 The compare button in the spec browser shows what differs between the specs of
@@ -282,6 +288,7 @@ src/                  React app
   lib/reviewRules.ts  .review-rules: parsing, path patterns and per-file verdicts
   lib/spec.ts         .spec: the item schema, the outline built from the folder, filtering
   lib/specDiff.ts     what changed between two specs, by item and requirement
+  lib/specPrompt.ts   the prompt for a coding agent to write or improve a spec
   screens/            one file per screen; pull/ and actions/ hold their screens' parts
   dev/mock.ts         fixtures for VITE_MOCK=1
 e2e/                  Playwright tests against the fixtures

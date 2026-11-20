@@ -2,6 +2,7 @@ import {
   AlertIcon,
   ChevronRightIcon,
   CodeIcon,
+  CopyIcon,
   FileDirectoryFillIcon,
   FileIcon,
   GitCompareIcon,
@@ -30,7 +31,7 @@ import {
   type SpecStatus,
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
-import { useSpec } from "../queries/spec";
+import { useCopySpecPrompt, useSpec } from "../queries/spec";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
@@ -60,6 +61,7 @@ export function SpecScreen() {
   const spec = loaded.spec;
   const node = spec?.nodes.get(id) ?? null;
   const place: Place = { owner, repo, gitRef };
+  const copyPrompt = useCopySpecPrompt();
 
   return (
     <Screen
@@ -102,10 +104,17 @@ export function SpecScreen() {
         <>
           {id === "" && <BranchBar owner={owner} repo={repo} gitRef={gitRef} onChange={(ref) => nav.replace(to.spec(owner, repo, ref))} />}
           {spec === null ? (
-            <EmptyState icon={<NoteIcon size={32} />} title="No spec here">
-              {gitRef} has no <span className="mono">{SPEC_DIR}</span> folder. A spec is a folder of JSON files, one per part of the product, saying what the
-              code is meant to do.
-            </EmptyState>
+            <>
+              <EmptyState icon={<NoteIcon size={32} />} title="No spec here">
+                {gitRef} has no <span className="mono">{SPEC_DIR}</span> folder. A spec is a folder of JSON files, one per part of the product, saying what
+                the code is meant to do. A coding agent can write one for you.
+              </EmptyState>
+              <div style={{ textAlign: "center" }}>
+                <button className="btn" onClick={() => void copyPrompt(owner, repo, gitRef)}>
+                  <CopyIcon size={14} /> Copy agent prompt
+                </button>
+              </div>
+            </>
           ) : node === null ? (
             <EmptyState title="Not in the spec">
               Nothing on {gitRef} is called <span className="mono">{id}</span>. <Link {...to.spec(owner, repo, gitRef)}>Open the outline</Link>
@@ -202,6 +211,7 @@ const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ?
 
 /** Files that couldn't be read and references that lead nowhere. */
 function Problems({ spec, place }: { spec: Spec; place: Place }) {
+  const copyPrompt = useCopySpecPrompt();
   if (spec.problems.length === 0) return null;
   return (
     <div className="banner banner-attention spec-problems">
@@ -218,6 +228,10 @@ function Problems({ spec, place }: { spec: Spec; place: Place }) {
             </li>
           ))}
         </ul>
+        {/* The prompt lists these problems for the agent to fix. */}
+        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => void copyPrompt(place.owner, place.repo, place.gitRef)}>
+          <CopyIcon size={14} /> Copy agent prompt
+        </button>
       </div>
     </div>
   );

@@ -1,8 +1,11 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { graphql } from "../lib/api";
+import { errorMessage, graphql } from "../lib/api";
+import { backend } from "../lib/backend";
 import { SPEC } from "../lib/queries";
 import { buildSpec, SPEC_DIR, type Spec, type SpecFile } from "../lib/spec";
+import { specPrompt } from "../lib/specPrompt";
+import { useToast } from "../lib/toast";
 import type { SpecTree } from "../lib/types";
 import { keys } from "./keys";
 
@@ -76,4 +79,25 @@ export function useSpec(owner: string, repo: string, ref: string): LoadedSpec {
   const data = folder.data;
   const spec = useMemo(() => (data === null || data === undefined ? null : buildSpec(data.files, data.tooDeep)), [data]);
   return { spec, loaded: folder.isSuccess, isPending: folder.isPending, error: folder.error, retry: () => void folder.refetch() };
+}
+
+/**
+ * Copies a prompt for a coding agent to write the repository's spec, or to
+ * improve the one on `branch`.
+ */
+export function useCopySpecPrompt() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return async (owner: string, repo: string, branch: string) => {
+    try {
+      const folder = await queryClient.fetchQuery(specQueries.folder(owner, repo, branch));
+      const current = folder === null ? null : buildSpec(folder.files, folder.tooDeep);
+      await backend.copyText(specPrompt({ repo: `${owner}/${repo}`, branch, current }));
+      toast.show("Prompt copied. Paste it into your coding agent.", "success");
+      // The agent is about to change it: check again when the app is back in front.
+      void queryClient.invalidateQueries({ queryKey: keys.repo.spec(owner, repo, branch), refetchType: "none" });
+    } catch (error) {
+      toast.show(`Couldn't copy the prompt: ${errorMessage(error)}`, "error");
+    }
+  };
 }

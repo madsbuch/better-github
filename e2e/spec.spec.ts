@@ -94,4 +94,37 @@ test("a repository without a spec says so", async ({ page }) => {
   await activeScreen(page).getByRole("button", { name: "More" }).click();
   await page.getByRole("menuitem", { name: "Browse spec" }).click();
   await expect(activeScreen(page)).toContainText("No spec here");
+
+  // A prompt for a coding agent to write one.
+  const copied = clipboard(page);
+  await activeScreen(page).getByRole("button", { name: "Copy agent prompt" }).click();
+  await expect(page.locator(".toast", { hasText: "Prompt copied" })).toBeVisible();
+  expect(copied()[0]).toMatch(/^Set up a spec for octocat\/hello: write a `\.spec` folder at its root\./);
+  expect(copied()[0]).toContain("## The schema");
+});
+
+/** What the app put on the clipboard (the mock logs it). */
+function clipboard(page: Page): () => string[] {
+  const copied: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (text.startsWith("[mock] copy ")) copied.push(text.slice("[mock] copy ".length));
+  });
+  return () => copied;
+}
+
+test("the prompt for a repository with a spec hands over its outline and problems", async ({ page }) => {
+  const copied = clipboard(page);
+  await open(page, "/acme/rocket");
+  await activeScreen(page).getByRole("button", { name: "More" }).click();
+  await page.getByRole("menuitem", { name: "Copy spec prompt" }).click();
+  await expect.poll(() => copied().length).toBe(1);
+  expect(copied()[0]).toMatch(/^Improve the spec of acme\/rocket/);
+  expect(copied()[0]).toContain("- uploads/retries: Retries (4 requirements)");
+  expect(copied()[0]).not.toContain("The app found these problems");
+
+  await open(page, "/acme/rocket/spec?ref=staging");
+  await activeScreen(page).locator(".spec-problems").getByRole("button", { name: "Copy agent prompt" }).click();
+  await expect.poll(() => copied().length).toBe(2);
+  expect(copied()[1]).toContain('- .spec/cli.json: Unrecognized key: "sumary"');
 });
