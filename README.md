@@ -190,10 +190,11 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
 - `figures` name pictures by their path from `.spec`. `related` lists ids of
   other items (`uploads/errors`) or requirements (`#ERR-1`, or
   `uploads/errors#ERR-1`).
-- **A spec is not tied to a code base.** The format has nothing that points at
-  files, folders or functions: those change while the product does the same.
-  Items that still carry the old `code` list are read without it and listed as
-  a problem that says to remove it.
+- **A spec can specify internals** (an architecture, a data model, a
+  protocol), as requirements in words. Code references are not part of the
+  format: there is no field that points at files. Items that still carry the
+  old `code` list are read without it and listed as a problem that says to
+  remove it.
 - Unknown keys are errors, so a typo doesn't silently drop a field. A file the
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.

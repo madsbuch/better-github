@@ -226,11 +226,11 @@ const inSpec = (path: string) => `${SPEC_DIR}/${path}`;
 type ReadItem = { item: SpecItem; notes: string[] } | { error: string };
 
 /**
- * Items used to list the files that implement them, as `code`. A spec says
- * what the product does and is not tied to any code base, so the format no
- * longer has it. A file that still does is read without it, and says so.
+ * Items used to list the files that implement them, as `code`. References to
+ * code are not part of the format (a spec can specify internals, but does so
+ * in its requirements). A file that still has the list is read without it, and says so.
  */
-const LEGACY_CODE = "`code` is no longer part of the format: a spec doesn't point into a code base. Remove it.";
+const LEGACY_CODE = "`code` is no longer part of the format: a spec has no list of code references. Remove it.";
 
 /**
  * "implemented" used to be a status. Whether something is built is found out

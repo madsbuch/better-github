@@ -123,7 +123,7 @@ describe("buildSpec", () => {
     const old = buildSpec([file("a.json", { title: "A", code: ["src/a.ts", "src/b/**"], requirements: [{ id: "A-1", text: "x" }] })]);
     expect(old.nodes.get("a")?.item).toEqual({ title: "A", requirements: [{ id: "A-1", text: "x" }] });
     expect(old.problems).toEqual([
-      { file: ".spec/a.json", message: "`code` is no longer part of the format: a spec doesn't point into a code base. Remove it." },
+      { file: ".spec/a.json", message: "`code` is no longer part of the format: a spec has no list of code references. Remove it." },
     ]);
     // The schema itself has no such field.
     expect(SpecItem.safeParse({ title: "A", code: ["src/a.ts"] }).success).toBe(false);

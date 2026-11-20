@@ -161,6 +161,10 @@
     {
       "id": "S26",
       "text": "The format has no open questions: what isn't decided is not part of a spec. An item that still has the old `questions` list is read without it, and listed as a problem that says to remove it."
+    },
+    {
+      "id": "S27",
+      "text": "A spec may specify internals, such as an architecture or a data model, as requirements in words. The format still has no field for code references."
     }
   ],
   "figures": [

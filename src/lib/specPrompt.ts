@@ -93,7 +93,7 @@ The user stories and the requirements are the spec. Everything else in a part is
 
 - Say each thing once, in the one place it belongs. Don't restate a requirement in the description, or the description in the summary.
 - \`summary\`: one line.
-- \`description\`: a few sentences on what the part is and why it exists. Not a history of how it came to be, not a walk through its requirements, not an account of how it is built. If it is longer than its requirements, it is too long.
+- \`description\`: a few sentences on what the part is and why it exists. Not a history of how it came to be, not a walk through its requirements. If it is longer than its requirements, it is too long.
 - A user story: one sentence in three short pieces (\`as\`, \`want\`, \`soThat\`). It says who wants what and why, never how.
 - A requirement's \`text\`: one sentence, two at most. State what must hold. No "because", no background, no example unless the statement can't be understood without one.
 - Why something changed belongs in that requirement's \`history\` (\`reason\`); why something was dropped belongs in its \`deprecation\` (\`reason\`). Each is a sentence or two. Neither belongs in a description.
@@ -104,7 +104,7 @@ The user stories and the requirements are the spec. Everything else in a part is
 
 - **Part** (an item): one \`.json\` file, one part of the product. It holds the stories and requirements of that part, and a title, a one-line summary and a short description to introduce them. Parts nest: folders are the outline.
 - **User story**: who wants what, and why. "As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again." It says what the part is for, and can name the requirements that together make it true.
-- **Requirement**: one statement about what the product does that can be checked against the product. "An upload that fails with a network error is retried, up to five times." It has a level: \`must\`, \`should\` or \`may\`.
+- **Requirement**: one statement about what the product does, or how it is built, that can be checked against the product. "An upload that fails with a network error is retried, up to five times." It has a level: \`must\`, \`should\` or \`may\`.
 - **Earlier version**: what a requirement said before its meaning changed, kept with the reason it changed.
 - **Deprecation**: the record on a story, requirement or part that is no longer wanted, kept with the reason. Nothing is deleted.
 - **Figure**: a picture a part shows, such as a screenshot, a mockup or a diagram. It is an image file (PNG, JPEG, GIF, WebP or AVIF) stored inside \`${SPEC_DIR}\`; the part names it by path and can give it alt text and a caption.
@@ -173,11 +173,11 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 
     `## A good spec
 
-- It says what the product does and why, not how it is built. Someone who has never seen the code can read an item and know what to expect from that part.
-- The outline follows the product (its features, its surfaces, the rules that hold everywhere), not the source tree.
-- A spec is not tied to a code base. It never names a file, a folder, a function, a class, a table or a line of code: those can all change while the product does exactly the same. It says what the product does; where and how that is built is not its business, and nothing in the format points there.
+- It says what the product does and why. It can also say how the product is built, where that is decided and has to hold: an architecture, a data model, a protocol, a limit on what a component may do. Someone who has never seen the code can read an item and know what to expect from that part.
+- The outline follows the product (its features, its surfaces, its internals where they are specified, the rules that hold everywhere), not the source tree.
+- Internals are specified like anything else: as requirements, in words. The format has no field that points at code, and a requirement doesn't lean on a file path or a line number to be understood. Name a component, an interface or a table when the requirement is about it.
 - A requirement is one statement that can be checked against the product. "A failed upload is retried up to five times", not "uploads are robust". If it needs an "and", it is two requirements.
-- Requirements state behavior and limits a user or caller can observe: what happens, when, with which numbers, and what never happens. Leave out anything that is true of all software.
+- Requirements state behavior and limits that can be checked: what happens, when, with which numbers, and what never happens, whether seen by a user or held inside the system. Leave out anything that is true of all software.
 - \`summary\` is one line that makes sense in a list. \`description\` gives the reason the part exists, briefly (see "Write little").
 - A user story names a real kind of person and something they want from the product, not a feature ("As a user, I want a retry button" is a requirement in disguise). A part usually has one to three.
 - What isn't decided stays out. A spec holds what was decided; don't write a requirement that guesses.
@@ -205,7 +205,7 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
     `## Keeping a spec
 
 - The spec comes first. A change to what the product does starts as a change to the spec: a new requirement, a new version of one with the reason, or a deprecation with the reason.
-- The spec says what the product does, never whether or where it is built. To learn whether a requirement is met, compare the product with it; don't record the answer in the spec.
+- The spec says what the product does and, where it matters, how it is built. It never says whether that is done. To learn whether a requirement is met, compare the product with it; don't record the answer in the spec.
 - Never delete a requirement, a user story or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, ask. Don't write a requirement that guesses, and don't park the question in the spec.
 - A requirement's id (\`RET-1\`) is the way to refer to it from anywhere else. Ids don't change, so the references stay good.
