@@ -77,11 +77,19 @@ describe("spec-llms.txt", () => {
 
   it("stands on its own: the layout, an example, the schema, deprecation and how to work with a spec", () => {
     const text = specLlmsText();
-    for (const heading of ["# The spec format", "## The format", "## The schema", "## Changing a requirement: versions", "## Nothing is deleted: deprecation", "## A good spec", "## Keeping a spec", "## Checking a spec"]) {
+    for (const heading of ["# The spec format", "## Write little", "## The format", "## The schema", "## Changing a requirement: versions", "## Nothing is deleted: deprecation", "## A good spec", "## Keeping a spec", "## Checking a spec"]) {
       expect(text).toContain(`${heading}\n`);
     }
     expect(text).toContain('"additionalProperties": false');
     // Nothing in it is about one repository.
     expect(text).not.toContain("acme/rocket");
+  });
+
+  it("tells the agent to be brief, before anything else about the format", () => {
+    const text = specLlmsText();
+    expect(text.indexOf("## Write little")).toBeGreaterThan(0);
+    expect(text.indexOf("## Write little")).toBeLessThan(text.indexOf("## The format"));
+    expect(text).toContain("The requirements are the spec.");
+    expect(text).toContain("If it is longer than its requirements, it is too long.");
   });
 });

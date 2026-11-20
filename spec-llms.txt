@@ -4,6 +4,19 @@
 
 The Better GitHub app shows a spec as an outline, compares two versions of it requirement by requirement, and reviews the spec changes of a pull request. The schema is also at https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json.
 
+## Write little
+
+The requirements are the spec. Everything else in an item is there to help a reader find and understand them, and should be as short as that takes.
+
+- Say each thing once, in the one place it belongs. Don't restate a requirement in the description, or the description in the summary.
+- `summary`: one line.
+- `description`: a few sentences on what the part is and why it exists. Not a history of how it came to be, not a walk through its requirements, not an account of how it is built. If it is longer than its requirements, it is too long.
+- A requirement's `text`: one sentence, two at most. State what must hold. No "because", no background, no example unless the statement can't be understood without one.
+- Why something changed belongs in that requirement's `history` (`reason`); why something was dropped belongs in its `deprecation` (`reason`). Each is a sentence or two. Neither belongs in a description.
+- `questions`: one sentence each, asking one thing.
+- Don't explain the format, narrate what you did, hedge, or address the reader. Don't write a sentence to introduce the next one.
+- Before keeping a sentence, ask what a reader could no longer check or decide without it. If nothing, cut it.
+
 ## The format
 
     .spec/
@@ -382,7 +395,7 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 - A spec is not tied to a code base. It never names a file, a folder, a function, a class, a table or a line of code: those can all change while the product does exactly the same. It says what the product does; where and how that is built is not its business, and nothing in the format points there.
 - A requirement is one statement that can be checked against the product. "A failed upload is retried up to five times", not "uploads are robust". If it needs an "and", it is two requirements.
 - Requirements state behavior and limits a user or caller can observe: what happens, when, with which numbers, and what never happens. Leave out anything that is true of all software.
-- `summary` is one line that makes sense in a list. `description` gives the reason the part exists and the context its requirements need.
+- `summary` is one line that makes sense in a list. `description` gives the reason the part exists, briefly (see "Write little").
 - What isn't decided goes in `questions`, not into a vague requirement.
 - A few items with sharp requirements beat many thin ones. Add a folder when an item has grown parts of its own.
 
