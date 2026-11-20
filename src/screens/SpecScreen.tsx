@@ -20,6 +20,7 @@ import { useIsGuest } from "../lib/session";
 import {
   isSpecPattern,
   requirementStatus,
+  requirementVersion,
   resolveSpecRef,
   searchSpec,
   SPEC_DIR,
@@ -539,6 +540,9 @@ function Requirement({
   const level = requirement.level ?? "must";
   // Deprecated with its item, it has no record of its own: the item's says why.
   const deprecated = requirement.status === "deprecated";
+  const version = requirementVersion(requirement);
+  const history = requirement.history ?? [];
+  const [showHistory, setShowHistory] = useState(false);
   return (
     <div className="spec-req" data-req={requirement.id} data-current={current} data-deprecated={deprecated || inherited === "deprecated"}>
       <div className="spec-req-head">
@@ -547,11 +551,42 @@ function Requirement({
           {level}
         </span>
         {requirement.status !== undefined && requirement.status !== inherited && <StatusPill status={requirement.status} />}
+        {history.length > 0 && (
+          <button className="spec-version" onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory} aria-label={`Version ${version}: show earlier versions`}>
+            v{version} {showHistory ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
+          </button>
+        )}
       </div>
       <div className="spec-req-text">
         <SpecText text={requirement.text} />
       </div>
       {deprecated && <Deprecation spec={spec} place={place} deprecation={requirement.deprecation} />}
+      {showHistory && (
+        // Newest first: why it says what it says now, then how it got there.
+        <ol className="spec-history" aria-label={`Earlier versions of ${requirement.id}`}>
+          {[...history]
+            .reverse()
+            .map((earlier) => (
+              <li key={earlier.version}>
+                <div className="spec-history-head">
+                  <span className="spec-version-label">v{earlier.version}</span>
+                  {(earlier.level ?? "must") !== level && (
+                    <span className="spec-level" data-level={earlier.level ?? "must"}>
+                      {earlier.level ?? "must"}
+                    </span>
+                  )}
+                  {earlier.date !== undefined && <span className="muted small">until {earlier.date}</span>}
+                </div>
+                <div className="spec-history-text">
+                  <CheckText text={earlier.text} />
+                </div>
+                <div className="spec-history-why">
+                  <span className="bold">Changed because</span> <CheckText text={earlier.reason} />
+                </div>
+              </li>
+            ))}
+        </ol>
+      )}
     </div>
   );
 }

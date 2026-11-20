@@ -62,6 +62,21 @@ export const SpecDeprecation = z
   );
 export type SpecDeprecation = z.infer<typeof SpecDeprecation>;
 
+export const SpecRequirementVersion = z
+  .strictObject({
+    version: z.number().int().min(1).describe("Which version this was: 1 for the first."),
+    text: Text.min(1).describe("What the requirement said in this version."),
+    level: SpecLevel.optional().describe("How binding it was in this version. Defaults to must."),
+    reason: Text.min(1).describe("Why this version was replaced by the next one."),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .describe("When it was replaced, as YYYY-MM-DD."),
+  })
+  .describe("An earlier version of a requirement: what it said, and why that changed.");
+export type SpecRequirementVersion = z.infer<typeof SpecRequirementVersion>;
+
 export const SpecRequirement = z
   .strictObject({
     id: z
@@ -73,6 +88,16 @@ export const SpecRequirement = z
     text: Text.min(1).describe("One statement that can be checked against the code."),
     level: SpecLevel.optional(),
     status: SpecStatus.optional().describe("Defaults to the item's status."),
+    version: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe("Which version of the requirement this is. Defaults to 1. It goes up by one each time what the requirement means changes; the id stays."),
+    history: z
+      .array(SpecRequirementVersion)
+      .optional()
+      .describe("Every earlier version, oldest first, each with why it was replaced. A requirement at version 3 has the history of versions 1 and 2."),
     deprecation: SpecDeprecation.optional(),
   })
   .describe("A single testable statement.");
@@ -106,7 +131,7 @@ export const SpecItem = z
     related: z
       .array(z.string().min(1))
       .optional()
-      .describe('Ids of other items ("uploads/limits"), or requirements: "#LIM-2" wherever it is, or "uploads/limits#LIM-2".'),
+      .describe('Ids of other items ("uploads/limits"), or requirements: "#LIM-2" wherever it is, or "uploads/limits#LIM-2". "#LIM-2@1" names one version.'),
   })
   .describe("One item of a repository's spec: a .json file in its .spec folder.");
 export type SpecItem = z.infer<typeof SpecItem>;
@@ -209,9 +234,12 @@ function parseItem(file: SpecFile): ReadItem {
 }
 
 /** Splits "uploads/limits#R2" into the item's id and the requirement's. */
-export function splitSpecRef(ref: string): { id: string; requirement: string | null } {
+export function splitSpecRef(ref: string): { id: string; requirement: string | null; version: number | null } {
   const hash = ref.indexOf("#");
-  return hash === -1 ? { id: ref, requirement: null } : { id: ref.slice(0, hash), requirement: ref.slice(hash + 1) };
+  if (hash === -1) return { id: ref, requirement: null, version: null };
+  // "#RET-1@2" names one version of the requirement.
+  const [, requirement = "", version] = /^(.*?)(?:@(\d+))?$/.exec(ref.slice(hash + 1)) ?? [];
+  return { id: ref.slice(0, hash), requirement, version: version === undefined ? null : Number(version) };
 }
 
 /**
@@ -293,6 +321,22 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     for (const figure of item.figures ?? []) {
       if (!assets.has(figure.src)) problems.push({ file, message: `Figure ${figure.src} isn't in ${SPEC_DIR}.` });
     }
+    // A requirement's version and its history go together: version 3 has the record of versions 1 and 2.
+    for (const requirement of item.requirements ?? []) {
+      const history = requirement.history ?? [];
+      const version = requirementVersion(requirement);
+      if (history.some((earlier, index) => earlier.version !== index + 1)) {
+        problems.push({ file, message: `Requirement ${requirement.id}'s history isn't in order: its versions run 1, 2, 3, oldest first.` });
+      } else if (version !== history.length + 1) {
+        const missing = version > history.length + 1;
+        problems.push({
+          file,
+          message: missing
+            ? `Requirement ${requirement.id} is at version ${version}, but its history has ${history.length === 0 ? "no earlier versions" : `only ${history.length}`}. Add what each earlier version said, and why it changed.`
+            : `Requirement ${requirement.id} has a history of ${history.length} earlier version${history.length === 1 ? "" : "s"}, so it is at version ${history.length + 1}, not ${version}.`,
+        });
+      }
+    }
     // Deprecated things stay, with the reason: a status and its record go together.
     const records = [
       { what: "The item", status: item.status, deprecation: item.deprecation },
@@ -328,13 +372,14 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
  * moves to another item, or together with its item ("uploads/retries#RET-1").
  */
 export function resolveSpecRef(spec: Pick<Spec, "nodes" | "requirements">, ref: string): { node: SpecNode; requirement: SpecRequirement | null } | null {
-  const { id, requirement: requirementId } = splitSpecRef(ref);
-  if (requirementId !== null && id === "") return spec.requirements.get(requirementId) ?? null;
+  const { id, requirement: requirementId, version } = splitSpecRef(ref);
   const node = spec.nodes.get(id);
-  if (!node) return null;
-  if (requirementId === null) return { node, requirement: null };
-  const requirement = node.item?.requirements?.find((r) => r.id === requirementId);
-  return requirement ? { node, requirement } : null;
+  if (requirementId === null) return node ? { node, requirement: null } : null;
+  const found = id === "" ? spec.requirements.get(requirementId) : node && { node, requirement: node.item?.requirements?.find((r) => r.id === requirementId) };
+  if (!found || found.requirement === undefined) return null;
+  // A version it hasn't reached doesn't exist.
+  if (version !== null && (version < 1 || version > requirementVersion(found.requirement))) return null;
+  return { node: found.node, requirement: found.requirement };
 }
 
 /** The root's children down to `node`, without the root itself. */
@@ -343,6 +388,9 @@ export function specTrail(node: SpecNode): SpecNode[] {
   for (let at: SpecNode | null = node; at !== null && at.id !== ""; at = at.parent) trail.unshift(at);
   return trail;
 }
+
+/** Which version a requirement is at: 1 unless it says otherwise. */
+export const requirementVersion = (requirement: SpecRequirement) => requirement.version ?? 1;
 
 /** A requirement's status: its own, or its item's. Everything in a deprecated item is deprecated. */
 export function requirementStatus(item: SpecItem | null | undefined, requirement: SpecRequirement): SpecStatus | undefined {
@@ -398,7 +446,10 @@ export function searchSpec(spec: Spec, query: string): SpecMatch[] {
   const matches: SpecMatch[] = [];
   const visit = (node: SpecNode) => {
     const item = node.item;
-    const requirements = (item?.requirements ?? []).filter((r) => has(`${r.id} ${r.text} ${r.deprecation?.reason ?? ""}`));
+    // Also by what a requirement used to say, and why that changed or why it was dropped.
+    const requirements = (item?.requirements ?? []).filter((r) =>
+      has([r.id, r.text, r.deprecation?.reason ?? "", ...(r.history ?? []).flatMap((earlier) => [earlier.text, earlier.reason])].join("\n")),
+    );
     const own = has([node.id, node.title, item?.summary ?? "", item?.description ?? "", ...(item?.questions ?? [])].join("\n"));
     if (node.id !== "" && (own || requirements.length > 0)) matches.push({ node, requirements: own ? [] : requirements });
     node.children.forEach(visit);

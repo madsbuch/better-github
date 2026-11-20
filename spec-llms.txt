@@ -30,7 +30,16 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
       "requirements": [
         {
           "id": "RET-1",
-          "text": "An upload that fails with a network error or a 5xx response is retried, up to five times."
+          "text": "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+          "version": 2,
+          "history": [
+            {
+              "version": 1,
+              "text": "An upload that fails with a network error is retried, up to three times.",
+              "reason": "Three tries weren't enough on trains, and servers that answer 503 while restarting recover within seconds.",
+              "date": "2026-01-20"
+            }
+          ]
         },
         {
           "id": "RET-2",
@@ -183,6 +192,58 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
                   "deprecated"
                 ]
               },
+              "version": {
+                "description": "Which version of the requirement this is. Defaults to 1. It goes up by one each time what the requirement means changes; the id stays.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "history": {
+                "description": "Every earlier version, oldest first, each with why it was replaced. A requirement at version 3 has the history of versions 1 and 2.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991,
+                      "description": "Which version this was: 1 for the first."
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "What the requirement said in this version."
+                    },
+                    "level": {
+                      "description": "How binding it was in this version. Defaults to must.",
+                      "type": "string",
+                      "enum": [
+                        "must",
+                        "should",
+                        "may"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Why this version was replaced by the next one."
+                    },
+                    "date": {
+                      "description": "When it was replaced, as YYYY-MM-DD.",
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "text",
+                    "reason"
+                  ],
+                  "additionalProperties": false,
+                  "description": "An earlier version of a requirement: what it said, and why that changed."
+                }
+              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -264,7 +325,7 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
           }
         },
         "related": {
-          "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\".",
+          "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\". \"#LIM-2@1\" names one version.",
           "type": "array",
           "items": {
             "type": "string",
@@ -278,6 +339,31 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
       "additionalProperties": false,
       "description": "One item of a repository's spec: a .json file in its .spec folder."
     }
+
+## Changing a requirement: versions
+
+A requirement has a version, 1 unless it says otherwise. When what it means changes (a number, a condition, how binding it is), its `id` stays and its `version` goes up by one. What it said before goes into `history`, with why it changed:
+
+    {
+      "id": "RET-1",
+      "text": "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+      "version": 2,
+      "history": [
+        {
+          "version": 1,
+          "text": "An upload that fails with a network error is retried, up to three times.",
+          "reason": "Three tries weren't enough on trains, and servers that answer 503 while restarting recover within seconds.",
+          "date": "2026-01-20"
+        }
+      ]
+    }
+
+- `history` has every earlier version, oldest first: its `version`, its `text` exactly as it was, its `level` if that wasn't `must`, the `reason` it was replaced, and optionally the `date` (`YYYY-MM-DD`). `reason` is required: what was learned or decided, in a sentence or two someone reading it in a year will understand.
+- The numbers have to agree: a requirement at version 3 has a history of versions 1 and 2. Version 1 has no history and needs no `version`.
+- A wording fix that changes nothing about what is promised (a typo, a clearer phrase) is just an edit to `text`: no new version. When in doubt whether the meaning changed, it did.
+- History is never edited or shortened. A mistake in the current version is fixed with the next version.
+- A reference can name a version: `#RET-1@2` in `related`, `RET-1@2` in code and tests. A bare `RET-1` means the current one.
+- The app shows a requirement's earlier versions with their reasons, and when a pull request is reviewed it shows each new version with its why, and marks a requirement whose text changed without one.
 
 ## Nothing is deleted: deprecation
 
@@ -301,7 +387,7 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 - Leave a deprecated requirement's `text` and `level` as they were: they are the record of what was promised.
 - A whole item is deprecated the same way, with `status` and `deprecation` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
 - A deprecated requirement's id is never given to another requirement.
-- To change what a requirement says, edit its `text`. To replace it with something different, deprecate it and add a new requirement with a new id.
+- To change what a requirement means, give it a new version (above). To replace it with a different promise altogether, deprecate it and add a new requirement with a new id.
 - The app flags every deleted requirement and item when a pull request is reviewed.
 
 ## A good spec
@@ -317,13 +403,13 @@ A requirement that is no longer wanted is not deleted. It stays in its item with
 ## Working in a repository that has a spec
 
 - Before changing code, find the items that cover it: their `code` lists the paths. Read their requirements; they are what the change must keep true.
-- A change in behavior and the change to the spec go in the same pull request. New behavior gets new requirements; changed behavior gets its requirement's `text` edited; behavior that goes away gets its requirement deprecated, with the reason.
+- A change in behavior and the change to the spec go in the same pull request. New behavior gets new requirements; changed behavior gets a new version of its requirement, with the reason; behavior that goes away gets its requirement deprecated, with the reason.
 - Set `status` honestly: `implemented` only once the code does it and a test or the code itself shows it.
 - Refer to requirements by their id in code comments, test names, commit messages and pull request descriptions (`RET-1`). Ids don't change, so the references stay good.
-- Never delete a requirement or an item, never renumber one, never reuse an id. Moving a requirement to another item keeps its id.
+- Never delete a requirement or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, add it to `questions` and ask, rather than writing a requirement that guesses.
 - Keep `code` up to date when files move.
 
 ## Checking a spec
 
-Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every `code` path or pattern matches real files (for example with `git ls-files`), every deprecated requirement or item has a `deprecation` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).
+Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every `code` path or pattern matches real files (for example with `git ls-files`), every requirement above version 1 has the `history` of all its earlier versions with their reasons, every deprecated requirement or item has a `deprecation` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

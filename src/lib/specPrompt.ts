@@ -31,7 +31,19 @@ export const SPEC_PROMPT_EXAMPLE = {
   order: 1,
   description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.\n\nRetrying is safe because:\n- uploads resume, they never start over\n- the server ignores bytes it already has",
   requirements: [
-    { id: "RET-1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
+    {
+      id: "RET-1",
+      text: "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+      version: 2,
+      history: [
+        {
+          version: 1,
+          text: "An upload that fails with a network error is retried, up to three times.",
+          reason: "Three tries weren't enough on trains, and servers that answer 503 while restarting recover within seconds.",
+          date: "2026-01-20",
+        },
+      ],
+    },
     { id: "RET-2", text: "The pause before a retry doubles each time, starting at 250 ms.", level: "should" },
     { id: "RET-3", text: "The caller can cancel while a retry is waiting.", level: "may", status: "accepted" },
     {
@@ -98,6 +110,19 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE, null, 2))}
 
 ${indent(JSON.stringify(specJsonSchema(), null, 2))}`,
 
+    `## Changing a requirement: versions
+
+A requirement has a version, 1 unless it says otherwise. When what it means changes (a number, a condition, how binding it is), its \`id\` stays and its \`version\` goes up by one. What it said before goes into \`history\`, with why it changed:
+
+${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[0], null, 2))}
+
+- \`history\` has every earlier version, oldest first: its \`version\`, its \`text\` exactly as it was, its \`level\` if that wasn't \`must\`, the \`reason\` it was replaced, and optionally the \`date\` (\`YYYY-MM-DD\`). \`reason\` is required: what was learned or decided, in a sentence or two someone reading it in a year will understand.
+- The numbers have to agree: a requirement at version 3 has a history of versions 1 and 2. Version 1 has no history and needs no \`version\`.
+- A wording fix that changes nothing about what is promised (a typo, a clearer phrase) is just an edit to \`text\`: no new version. When in doubt whether the meaning changed, it did.
+- History is never edited or shortened. A mistake in the current version is fixed with the next version.
+- A reference can name a version: \`#RET-1@2\` in \`related\`, \`RET-1@2\` in code and tests. A bare \`RET-1\` means the current one.
+- The app shows a requirement's earlier versions with their reasons, and when a pull request is reviewed it shows each new version with its why, and marks a requirement whose text changed without one.`,
+
     `## Nothing is deleted: deprecation
 
 A requirement that is no longer wanted is not deleted. It stays in its item with \`"status": "deprecated"\` and a \`deprecation\` that says why, so the spec keeps the record that it existed, that it was dropped, and for what reason:
@@ -109,7 +134,7 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 - Leave a deprecated requirement's \`text\` and \`level\` as they were: they are the record of what was promised.
 - A whole item is deprecated the same way, with \`status\` and \`deprecation\` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.
 - A deprecated requirement's id is never given to another requirement.
-- To change what a requirement says, edit its \`text\`. To replace it with something different, deprecate it and add a new requirement with a new id.
+- To change what a requirement means, give it a new version (above). To replace it with a different promise altogether, deprecate it and add a new requirement with a new id.
 - The app flags every deleted requirement and item when a pull request is reviewed.`,
 
     `## A good spec
@@ -124,7 +149,7 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
   ];
 }
 
-const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists, every \`code\` path or pattern matches real files (for example with \`git ls-files\`), every deprecated requirement or item has a \`deprecation\` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
+const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists, every \`code\` path or pattern matches real files (for example with \`git ls-files\`), every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every deprecated requirement or item has a \`deprecation\` with its reason, and no requirement id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
 
 /**
  * spec-llms.txt: the spec format for coding agents, to point one at when it
@@ -144,10 +169,10 @@ The Better GitHub app shows a spec as an outline, compares two versions of it re
     `## Working in a repository that has a spec
 
 - Before changing code, find the items that cover it: their \`code\` lists the paths. Read their requirements; they are what the change must keep true.
-- A change in behavior and the change to the spec go in the same pull request. New behavior gets new requirements; changed behavior gets its requirement's \`text\` edited; behavior that goes away gets its requirement deprecated, with the reason.
+- A change in behavior and the change to the spec go in the same pull request. New behavior gets new requirements; changed behavior gets a new version of its requirement, with the reason; behavior that goes away gets its requirement deprecated, with the reason.
 - Set \`status\` honestly: \`implemented\` only once the code does it and a test or the code itself shows it.
 - Refer to requirements by their id in code comments, test names, commit messages and pull request descriptions (\`RET-1\`). Ids don't change, so the references stay good.
-- Never delete a requirement or an item, never renumber one, never reuse an id. Moving a requirement to another item keeps its id.
+- Never delete a requirement or an item, never renumber one, never reuse an id, never edit a requirement's history. Moving a requirement to another item keeps its id.
 - When something isn't decided, add it to \`questions\` and ask, rather than writing a requirement that guesses.
 - Keep \`code\` up to date when files move.
 

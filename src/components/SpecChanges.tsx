@@ -515,6 +515,21 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
       ) : (
         <Line kind={after !== null ? "added" : "removed"} text={shown.text} />
       )}
+      {change.version?.kind === "bumped" && (
+        <div className="spec-diff-version">
+          <Move label="Version" before={change.version.from.toString()} after={change.version.to.toString()} />
+          {change.version.reason !== null && (
+            <div className="spec-diff-same small">
+              <span className="bold">Why it changed</span> <CheckText text={change.version.reason} />
+            </div>
+          )}
+        </div>
+      )}
+      {change.version?.kind === "same" && (
+        <div className="spec-diff-same small spec-same-version">
+          Still version {change.version.at}: right for a wording fix. If what it means changed, it needs a new version that says why.
+        </div>
+      )}
       {before !== null && after !== null && (
         <>
           {levelOf(before) !== levelOf(after) && <Move label="Level" before={levelOf(before)} after={levelOf(after)} />}

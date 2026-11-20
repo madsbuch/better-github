@@ -5,7 +5,7 @@
 // the item, so rewording a requirement is a change and renumbering it is a
 // removal and an addition.
 
-import type { Spec, SpecFigure, SpecItem, SpecNode, SpecRequirement, SpecStatus } from "./spec";
+import { requirementVersion, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus } from "./spec";
 
 export type ChangeKind = "added" | "removed" | "changed";
 
@@ -24,6 +24,13 @@ export interface RequirementChange {
   after: SpecRequirement | null;
   /** Why this change makes the spec promise less, if it does: what a reviewer should not miss. */
   weakened: string | null;
+  /**
+   * What happened to its version, when its meaning may have changed:
+   * "bumped" with the reason the old version gives for being replaced (null
+   * when it gives none), or "same" when its text or level changed while the
+   * version stayed: right for a wording fix, wrong for a change of meaning.
+   */
+  version: { kind: "bumped"; from: number; to: number; reason: string | null } | { kind: "same"; at: number } | null;
   /**
    * The requirement went to, or came from, another item (ids are unique in
    * the whole spec, so the same id elsewhere is the same requirement). Where
@@ -102,6 +109,36 @@ function itemStepBack(a: SpecItem | null, b: SpecItem | null): string | null {
   return b.deprecation !== undefined ? `Deprecated: ${b.deprecation.reason}` : "Deprecated, without saying why.";
 }
 
+function versionChange(before: SpecRequirement, after: SpecRequirement): RequirementChange["version"] {
+  const [from, to] = [requirementVersion(before), requirementVersion(after)];
+  if (to !== from) {
+    // The version just left behind says why it was replaced.
+    const left = (after.history ?? []).find((earlier) => earlier.version === from);
+    return { kind: "bumped", from, to, reason: left?.reason ?? null };
+  }
+  const meaning = before.text !== after.text || (before.level ?? "must") !== (after.level ?? "must");
+  return meaning ? { kind: "same", at: to } : null;
+}
+
+/** Why the record of a requirement's earlier versions is no longer what it was; null when it is intact. */
+function historyBroken(before: SpecRequirement, after: SpecRequirement): string | null {
+  const [old, current] = [before.history ?? [], after.history ?? []];
+  const [from, to] = [requirementVersion(before), requirementVersion(after)];
+  if (to < from) return `Its version went back from ${from} to ${to}.`;
+  // What was recorded stays as it was recorded.
+  if (old.some((earlier, index) => JSON.stringify(earlier) !== JSON.stringify(current[index]))) {
+    return "The record of its earlier versions was changed or deleted.";
+  }
+  if (to === from) return null;
+  // Each version left behind is recorded as it was, with why it went.
+  const left = current.find((earlier) => earlier.version === from);
+  if (left === undefined) return `It is at version ${to} without a record of version ${from} and why it changed.`;
+  if (left.text !== before.text || (left.level ?? "must") !== (before.level ?? "must")) {
+    return `Its history doesn't record version ${from} as it was.`;
+  }
+  return null;
+}
+
 function requirementWeakened(before: SpecRequirement | null, after: SpecRequirement | null, was: SpecStatus | undefined, is: SpecStatus | undefined): string | null {
   if (before === null) return null;
   const level = before.level ?? "must";
@@ -112,6 +149,8 @@ function requirementWeakened(before: SpecRequirement | null, after: SpecRequirem
       ? "A deprecated requirement is deleted. Keep it: it is the record of what was dropped and why."
       : `A ${level} requirement is deleted. Deprecate it instead, with the reason, so the record stays.`;
   }
+  const broken = historyBroken(before, after);
+  if (broken !== null) return broken;
   const next = after.level ?? "must";
   const nextStatus = is === "deprecated" ? "deprecated" : (after.status ?? is);
   if (nextStatus === "deprecated" && status !== "deprecated") {
@@ -136,6 +175,8 @@ function sameRequirement(a: SpecRequirement, b: SpecRequirement): boolean {
     a.text === b.text &&
     (a.level ?? "must") === (b.level ?? "must") &&
     a.status === b.status &&
+    requirementVersion(a) === requirementVersion(b) &&
+    JSON.stringify(a.history ?? []) === JSON.stringify(b.history ?? []) &&
     // The record of a deprecation is part of the requirement: a new reason is a change.
     JSON.stringify(a.deprecation ?? null) === JSON.stringify(b.deprecation ?? null)
   );
@@ -154,14 +195,14 @@ function diffRequirements(before: SpecRequirement[], after: SpecRequirement[], w
   }
   const removed = (after: string | null) =>
     (removedAfter.get(after) ?? []).forEach((r) =>
-      changes.push({ id: r.id, kind: "removed", before: r, after: null, weakened: requirementWeakened(r, null, was, is), moved: null }),
+      changes.push({ id: r.id, kind: "removed", before: r, after: null, weakened: requirementWeakened(r, null, was, is), moved: null, version: null }),
     );
   removed(null);
   for (const requirement of after) {
     const old = olds.get(requirement.id);
-    if (old === undefined) changes.push({ id: requirement.id, kind: "added", before: null, after: requirement, weakened: null, moved: null });
+    if (old === undefined) changes.push({ id: requirement.id, kind: "added", before: null, after: requirement, weakened: null, moved: null, version: null });
     else if (!sameRequirement(old, requirement)) {
-      changes.push({ id: requirement.id, kind: "changed", before: old, after: requirement, weakened: requirementWeakened(old, requirement, was, is), moved: null });
+      changes.push({ id: requirement.id, kind: "changed", before: old, after: requirement, weakened: requirementWeakened(old, requirement, was, is), moved: null, version: versionChange(old, requirement) });
     }
     removed(requirement.id);
   }
@@ -328,7 +369,10 @@ export function diffSpecs(before: Spec | null, after: Spec | null, renames?: Map
       const [old, was] = [from.change.before, from.item.before?.item?.status];
       change.moved = { from: from.item.id };
       change.before = old;
-      if (!sameRequirement(old, change.after)) change.kind = "changed";
+      if (!sameRequirement(old, change.after)) {
+        change.kind = "changed";
+        change.version = versionChange(old, change.after);
+      }
       // It is still promised, unless it got weaker on the way.
       change.weakened = requirementWeakened(old, change.after, was, item.after?.item?.status);
       from.change.moved = { to: item.id };

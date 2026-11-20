@@ -225,7 +225,15 @@ const ROCKET_SPEC: Record<string, unknown> = {
     order: 2,
     requirements: [
       { id: "E1", text: "When the last retry fails, the caller gets the server's message as `UploadError::Server`." },
-      { id: "E2", text: "No error message contains the upload token." },
+      {
+        id: "E2",
+        text: "No error message contains the upload token.",
+        version: 3,
+        history: [
+          { version: 1, text: "Error messages are written to the log.", level: "should", reason: "Logs were being shared in bug reports, tokens and all.", date: "2026-02-03" },
+          { version: 2, text: "Error messages in the log leave out the upload token.", reason: "The token also reached callers through `UploadError`.", date: "2026-06-21" },
+        ],
+      },
       {
         id: "E3",
         text: "A failed upload writes the server's reply to a log file.",
@@ -257,7 +265,18 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
     order: 1,
     description: "Networks drop. An upload that fails for a reason that may pass is tried again instead of failing the caller.",
     requirements: [
-      { id: "R1", text: "An upload that fails with a network error, a 429 or a 5xx response is retried, up to three times." },
+      {
+        id: "R1",
+        text: "An upload that fails with a network error, a 429 or a 5xx response is retried, up to three times.",
+        version: 2,
+        history: [
+          {
+            version: 1,
+            text: "An upload that fails with a network error or a 5xx response is retried, up to five times.",
+            reason: "Five retries kept phones awake for minutes. A `429` is the server asking for a pause, which is what a retry is.",
+          },
+        ],
+      },
       { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
       { id: "R3", text: "The pause before a retry doubles each time, starting at 250 ms and never exceeding 30 s." },
       { id: "R5", text: "A `Retry-After` header sets the pause before the next retry." },

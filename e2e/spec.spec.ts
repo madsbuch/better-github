@@ -86,6 +86,29 @@ test("deprecated requirements are kept, folded away, with why they went", async 
   await expect(activeScreen(page).locator(".spec-counts")).toHaveText("4 items · 7 requirements · 3 implemented · 1 deprecated");
 });
 
+test("a requirement shows its version, and what it said before with why that changed", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/errors");
+  const e2 = activeScreen(page).locator('.spec-req[data-req="E2"]');
+  // One that never changed carries no version.
+  await expect(activeScreen(page).locator('.spec-req[data-req="E1"] .spec-version')).toHaveCount(0);
+  await expect(e2.locator(".spec-history")).toHaveCount(0);
+  await e2.getByRole("button", { name: "Version 3: show earlier versions" }).click();
+
+  // Newest first: each earlier version, what it said, and why it was replaced.
+  const earlier = e2.locator(".spec-history li");
+  await expect(earlier.locator(".spec-history-head")).toHaveText(["v2until 2026-06-21", "v1shoulduntil 2026-02-03"]);
+  await expect(earlier.locator(".spec-history-text")).toHaveText([
+    "Error messages in the log leave out the upload token.",
+    "Error messages are written to the log.",
+  ]);
+  await expect(earlier.nth(0).locator(".spec-history-why")).toHaveText("Changed because The token also reached callers through UploadError.");
+
+  // The filter finds a requirement by what it used to say.
+  await open(page, "/acme/rocket/spec?q=written%20to%20the%20log");
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page)).toContainText("E2");
+});
+
 test("the outline filters items and requirements", async ({ page }) => {
   await open(page, "/acme/rocket/spec");
   await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("no error message");

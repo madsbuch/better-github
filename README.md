@@ -159,6 +159,13 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   A prefix per item (`RET-1`, `RET-2`) keeps ids apart. An id used twice is
   listed as a problem. `level` is `must` (the default), `should` or `may`;
   `status` defaults to the item's.
+- **Requirements have versions.** When what a requirement means changes, its
+  id stays and its `version` goes up by one; what it said before goes into
+  `history` with the `reason` it changed (and optionally the `date`). A
+  requirement at version 3 has the history of versions 1 and 2; numbers that
+  don't agree are listed as a problem. A wording fix that changes nothing needs
+  no new version. `#RET-1@2` refers to one version. The browser shows a
+  requirement's version and, on tap, its earlier versions with their reasons.
 - **Nothing is deleted.** A requirement that is no longer wanted stays, with
   `"status": "deprecated"` and a `deprecation` that says why (`reason`, and
   optionally `replacedBy` and `date`), so the spec keeps the record that it
@@ -200,7 +207,9 @@ marked, and a figure whose file changed shows both pictures.
 Above the changes is a list of what **takes something away** from the spec: a
 deleted requirement or item (it should have been deprecated), a deprecation
 with its reason, a level lowered from must to should, a status that went back.
-Each is marked on its item too, and the changes can be narrowed to those. A
+A rewritten or shortened history is listed there too. Each is marked on its item, and the changes can be narrowed to those.
+A new version of a requirement shows with its why; a requirement whose text or
+level changed at the same version is marked for the reviewer to judge. A
 requirement that moved to another item is followed by its id and shown as moved.
 
 ### Reviewing spec changes in a pull request

@@ -38,6 +38,11 @@ test("two branches' specs are compared by item and requirement", async ({ page }
   // A reworded requirement: both texts, with the words that differ marked.
   await expect(requirements.nth(0).locator('.spec-diff-line[data-kind="removed"] mark')).toHaveText(["five"]);
   await expect(requirements.nth(0).locator('.spec-diff-line[data-kind="added"] mark')).toContainText(["429", "three"]);
+  // Its meaning changed, so it is a new version, and says why.
+  await expect(requirements.nth(0).locator(".spec-diff-version")).toContainText("Version 1 → 2");
+  await expect(requirements.nth(0).locator(".spec-diff-version")).toContainText("Why it changed Five retries kept phones awake for minutes.");
+  // R3 became binding without a new version: left for the reviewer to judge.
+  await expect(requirements.nth(1).locator(".spec-same-version")).toContainText("Still version 1");
   // Only its level moved.
   await expect(requirements.nth(1).locator(".spec-diff-line")).toHaveCount(0);
   await expect(requirements.nth(1).locator(".spec-diff-move")).toHaveText("Level should → must");

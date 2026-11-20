@@ -95,6 +95,58 @@
               "deprecated"
             ]
           },
+          "version": {
+            "description": "Which version of the requirement this is. Defaults to 1. It goes up by one each time what the requirement means changes; the id stays.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "history": {
+            "description": "Every earlier version, oldest first, each with why it was replaced. A requirement at version 3 has the history of versions 1 and 2.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991,
+                  "description": "Which version this was: 1 for the first."
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "What the requirement said in this version."
+                },
+                "level": {
+                  "description": "How binding it was in this version. Defaults to must.",
+                  "type": "string",
+                  "enum": [
+                    "must",
+                    "should",
+                    "may"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Why this version was replaced by the next one."
+                },
+                "date": {
+                  "description": "When it was replaced, as YYYY-MM-DD.",
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                }
+              },
+              "required": [
+                "version",
+                "text",
+                "reason"
+              ],
+              "additionalProperties": false,
+              "description": "An earlier version of a requirement: what it said, and why that changed."
+            }
+          },
           "deprecation": {
             "type": "object",
             "properties": {
@@ -176,7 +228,7 @@
       }
     },
     "related": {
-      "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\".",
+      "description": "Ids of other items (\"uploads/limits\"), or requirements: \"#LIM-2\" wherever it is, or \"uploads/limits#LIM-2\". \"#LIM-2@1\" names one version.",
       "type": "array",
       "items": {
         "type": "string",

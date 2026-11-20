@@ -2733,3 +2733,59 @@ kbd {
 .spec-item .spec-deprecated-toggle {
   margin: 12px 0 8px;
 }
+
+/* --------------------------------------------------------------- versions */
+
+.spec-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 24px;
+  margin-left: auto;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.spec-item .spec-history {
+  margin: 10px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--border);
+  list-style: none;
+  font-size: 14px;
+}
+
+.spec-history li + li {
+  margin-top: 10px;
+}
+
+.spec-history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spec-version-label {
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.spec-history-text {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+}
+
+.spec-diff-version .spec-diff-move {
+  padding: 0 12px;
+}
+
+.spec-same-version {
+  padding-top: 6px;
+  font-style: italic;
+}

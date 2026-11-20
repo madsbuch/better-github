@@ -231,4 +231,44 @@ describe("diffSpecs", () => {
       ["b", "removed", null],
     ]);
   });
+
+  it("tells a new version, with its why, from a rewording at the same version", () => {
+    const item = (requirements: unknown[]) => buildSpec([file("a.json", { title: "A", requirements })]);
+    const v1 = { version: 1, text: "Retried five times.", reason: "Five kept phones awake." };
+    const changes = diffSpecs(
+      item([
+        { id: "1", text: "Retried five times." },
+        { id: "2", text: "Retried five times." },
+        { id: "3", text: "Pauses doubel." },
+        { id: "4", text: "Stays.", level: "should" },
+        { id: "5", text: "Third.", version: 2, history: [{ version: 1, text: "First.", reason: "Too vague." }] },
+      ]),
+      item([
+        { id: "1", text: "Retried three times.", version: 2, history: [v1] },
+        { id: "2", text: "Retried three times.", version: 2 },
+        { id: "3", text: "Pauses double." },
+        { id: "4", text: "Stays.", level: "must" },
+        { id: "5", text: "Third.", version: 2, history: [{ version: 1, text: "First, honest.", reason: "Too vague." }] },
+      ]),
+    );
+    expect(changes.items[0]?.requirements.map((r) => [r.id, r.version, r.weakened])).toEqual([
+      // The right way to change what a requirement means.
+      ["1", { kind: "bumped", from: 1, to: 2, reason: "Five kept phones awake." }, null],
+      // A new version has to say what the old one was and why it went.
+      ["2", { kind: "bumped", from: 1, to: 2, reason: null }, "It is at version 2 without a record of version 1 and why it changed."],
+      // The same version: right for a typo, for a reviewer to judge.
+      ["3", { kind: "same", at: 1 }, null],
+      ["4", { kind: "same", at: 1 }, null],
+      // History isn't rewritten.
+      ["5", null, "The record of its earlier versions was changed or deleted."],
+    ]);
+
+    const misrecorded = diffSpecs(
+      item([{ id: "1", text: "Retried five times.", level: "should" }]),
+      item([{ id: "1", text: "Retried three times.", version: 2, history: [{ ...v1, text: "Retried four times." }] }]),
+    );
+    expect(misrecorded.items[0]?.requirements[0]?.weakened).toBe("Its history doesn't record version 1 as it was.");
+    const back = diffSpecs(item([{ id: "1", text: "b", version: 2, history: [{ version: 1, text: "a", reason: "r" }] }]), item([{ id: "1", text: "a" }]));
+    expect(back.items[0]?.requirements[0]?.weakened).toBe("Its version went back from 2 to 1.");
+  });
 });

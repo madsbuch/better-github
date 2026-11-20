@@ -87,6 +87,38 @@ describe("buildSpec", () => {
     expect(SpecItem.safeParse({ title: "X", status: "deprecated", deprecation: { reason: "Why.", date: "March" } }).success).toBe(false);
   });
 
+  it("keeps a requirement's earlier versions, each with why it changed", () => {
+    const earlier = (version: number, text: string) => ({ version, text, reason: `Why ${version} went.` });
+    const versioned = buildSpec([
+      file("a.json", {
+        title: "A",
+        requirements: [
+          { id: "A-1", text: "Never changed." },
+          { id: "A-2", text: "Third wording.", version: 3, history: [earlier(1, "First wording."), earlier(2, "Second wording.")] },
+          { id: "A-3", text: "Says 2, shows nothing.", version: 2 },
+          { id: "A-4", text: "Says 4, shows one.", version: 4, history: [earlier(1, "One.")] },
+          { id: "A-5", text: "Forgot to count.", history: [earlier(1, "One.")] },
+          { id: "A-6", text: "Out of order.", version: 3, history: [earlier(2, "Two."), earlier(1, "One.")] },
+        ],
+        related: ["#A-2@1", "#A-2@3", "#A-2@4", "a#A-1@1", "a#A-1@2"],
+      }),
+    ]);
+    expect(versioned.problems.map((p) => p.message)).toEqual([
+      "Requirement A-3 is at version 2, but its history has no earlier versions. Add what each earlier version said, and why it changed.",
+      "Requirement A-4 is at version 4, but its history has only 1. Add what each earlier version said, and why it changed.",
+      "Requirement A-5 has a history of 1 earlier version, so it is at version 2, not 1.",
+      "Requirement A-6's history isn't in order: its versions run 1, 2, 3, oldest first.",
+      // A reference can name a version, but only one the requirement has reached.
+      'Nothing in the spec is called "#A-2@4".',
+      'Nothing in the spec is called "a#A-1@2".',
+    ]);
+    // Found by what it used to say, and by why that changed.
+    expect(searchSpec(versioned, "first wording").map((m) => m.requirements.map((r) => r.id))).toEqual([["A-2"]]);
+    expect(searchSpec(versioned, "second wording why 2 went").map((m) => m.requirements.map((r) => r.id))).toEqual([["A-2"]]);
+    expect(SpecItem.safeParse({ title: "X", requirements: [{ id: "1", text: "t", version: 2, history: [{ version: 1, text: "old" }] }] }).success).toBe(false);
+    expect(SpecItem.safeParse({ title: "X", requirements: [{ id: "1", text: "t", version: 0 }] }).success).toBe(false);
+  });
+
   it("resolves references to items and requirements", () => {
     // A requirement by its id alone, wherever it is.
     expect(resolveSpecRef(spec, "#C1")?.node.id).toBe("cli");

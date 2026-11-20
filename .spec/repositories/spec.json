@@ -78,6 +78,19 @@
     {
       "id": "S18",
       "text": "`spec-llms.txt` at the root of this repository describes the format for coding agents. It is generated from the same text as the agent prompt, and a test fails when it is stale."
+    },
+    {
+      "id": "S19",
+      "text": "A requirement has a version, 1 by default. Its earlier versions are kept in its `history`, oldest first, each with what it said and the reason it was replaced. A version that doesn't match the length of the history, or a history out of order, is listed as a problem."
+    },
+    {
+      "id": "S20",
+      "text": "A requirement with earlier versions shows its version, and unfolds to its history, newest first. The filter finds a requirement by what it used to say and by why it changed."
+    },
+    {
+      "id": "S21",
+      "text": "A reference can name a version of a requirement, as `#S19@1`. A version the requirement hasn't reached leads nowhere.",
+      "level": "should"
     }
   ],
   "figures": [
