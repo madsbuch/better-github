@@ -19,7 +19,7 @@ import { backend } from "../lib/backend";
 import { SPEC_BLOBS, SPEC_ROOT } from "../lib/queries";
 import { buildSpec, SPEC_DIR, type Spec, type SpecFile, type SpecNode } from "../lib/spec";
 import { diffSpecs, type ItemChange, type SpecDiff } from "../lib/specDiff";
-import { specPrompt } from "../lib/specPrompt";
+import { specConsistencyPrompt, specPrompt } from "../lib/specPrompt";
 import { useToast } from "../lib/toast";
 import { SPEC_BLOB_BATCH } from "../lib/types";
 import { keys } from "./keys";
@@ -414,6 +414,24 @@ async function wholeSpec(queryClient: QueryClient, owner: string, repo: string, 
  * Copies a prompt for a coding agent to write the repository's spec, or to
  * improve the one on `branch`.
  */
+/** Copies a prompt for a coding agent to check that the spec on `branch` agrees with itself. */
+export function useCopySpecConsistencyPrompt() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return async (owner: string, repo: string, branch: string) => {
+    try {
+      const current = await wholeSpec(queryClient, owner, repo, branch);
+      if (current === null) throw new Error(`${branch} has no spec.`);
+      await backend.copyText(specConsistencyPrompt({ repo: `${owner}/${repo}`, branch, current }));
+      toast.show("Prompt copied. Paste it into your coding agent.", "success");
+      // The agent may change it: check again when the app is back in front.
+      void queryClient.invalidateQueries({ queryKey: keys.repo.spec(owner, repo, branch), refetchType: "none" });
+    } catch (error) {
+      toast.show(`Couldn't copy the prompt: ${errorMessage(error)}`, "error");
+    }
+  };
+}
+
 export function useCopySpecPrompt() {
   const queryClient = useQueryClient();
   const toast = useToast();

@@ -521,8 +521,12 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
       for (const ref of story.requirements ?? []) {
         const { id, requirement } = splitSpecRef(ref);
         if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-        if ((resolveSpecRef({ nodes, requirements, stories, values }, ref)?.requirement ?? null) === null) {
+        const made = resolveSpecRef({ nodes, requirements, stories, values }, ref);
+        if ((made?.requirement ?? null) === null) {
           problems.push({ file, message: `User story ${story.id} names "${ref}", which isn't a requirement in the spec.` });
+        } else if (made !== null && requirementStatus(item, story) === undefined && requirementStatus(made.node.item, made.requirement ?? {}) !== undefined) {
+          // What can be checked without judgment: a story that is still wanted can't rest on something that was dropped.
+          problems.push({ file, message: `User story ${story.id} is made true by ${made.requirement?.id ?? ref}, which is deprecated.` });
         }
       }
     }

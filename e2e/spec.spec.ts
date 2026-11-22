@@ -302,3 +302,18 @@ test("comparing two versions of a huge spec reads only what differs", async ({ p
   // Three changed items on each side, one new, and the folders above them for their names: 9 of 6,083 files.
   expect(read.reduce((sum, count) => sum + count, 0)).toBe(9);
 });
+
+// Spec: S37
+test("the spec offers a prompt for an agent to check that it agrees with itself", async ({ page }) => {
+  const copied: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().startsWith("[mock] copy ")) copied.push(message.text().slice("[mock] copy ".length));
+  });
+  await open(page, "/acme/rocket/spec");
+  await activeScreen(page).getByRole("button", { name: "Check consistency: copy agent prompt" }).click();
+  await expect(page.locator(".toast", { hasText: "Prompt copied." })).toBeVisible();
+  expect(copied[0] ?? "").toMatch(/^Check that the spec of acme\/rocket agrees with itself/);
+  expect(copied[0] ?? "").toContain("The pointers are yours to keep.");
+  expect(copied[0] ?? "").toContain("a careful reading and not a proof");
+});
+

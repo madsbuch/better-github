@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSpec, SpecItem, type SpecFile } from "./spec";
 import llmsFile from "../../spec-llms.txt?raw";
-import { SPEC_PROMPT_EXAMPLE, specLlmsText, specPrompt } from "./specPrompt";
+import { SPEC_PROMPT_EXAMPLE, specConsistencyPrompt, specLlmsText, specPrompt } from "./specPrompt";
 
 const file = (path: string, value: unknown): SpecFile => ({ path, text: JSON.stringify(value), truncated: false });
 const setup = specPrompt({ repo: "acme/rocket", branch: "main", current: null });
@@ -96,3 +96,34 @@ describe("spec-llms.txt", () => {
     expect(text).toContain("If it is longer than its requirements, it is too long.");
   });
 });
+
+// Spec: S37
+describe("the prompt to check that a spec agrees with itself", () => {
+  const spec = buildSpec([
+    { path: "index.json", text: JSON.stringify({ title: "Rocket" }), truncated: false },
+    { path: "retries.json", text: JSON.stringify({ title: "Retries", stories: [{ id: "US-1", as: "a caller", want: "retries", requirements: ["#R1"] }], requirements: [{ id: "R1", text: "Retried.", deprecation: { reason: "No." } }] }), truncated: false },
+  ]);
+  const prompt = specConsistencyPrompt({ repo: "acme/rocket", branch: "main", current: spec });
+
+  it("stands on its own: the task, the format, the spec's outline and what to hand back", () => {
+    expect(prompt).toMatch(/^Check that the spec of acme\/rocket agrees with itself/);
+    expect(prompt).toContain("## Checking that a spec agrees with itself");
+    expect(prompt).toContain("## The schema");
+    expect(prompt).toContain("- retries: Retries (1 requirement)");
+    expect(prompt).toContain("Change only `.spec`: no code.");
+  });
+
+  it("makes the pointers the agent's to keep, leaves contradictions to a person, and asks for a best-effort statement", () => {
+    expect(prompt).toContain("The pointers are yours to keep.");
+    expect(prompt).toContain("Don't settle a contradiction.");
+    expect(prompt).toContain("Say that this is a careful reading and not a proof.");
+    expect(prompt).toContain("nothing in the format records that it was checked");
+  });
+
+  it("hands over what the app can tell by itself", () => {
+    // Spec: S38
+    expect(spec.problems.map((problem) => problem.message)).toEqual(["User story US-1 is made true by R1, which is deprecated."]);
+    expect(prompt).toContain("- .spec/retries.json: User story US-1 is made true by R1, which is deprecated.");
+  });
+});
+

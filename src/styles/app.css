@@ -3508,3 +3508,11 @@ section > .spec-prose-fold {
   color: var(--fg-muted);
   font-size: 13px;
 }
+
+.spec-check {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 16px 16px;
+}

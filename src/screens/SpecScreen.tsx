@@ -48,7 +48,7 @@ import {
   type SpecStory,
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
-import { useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
+import { useCopySpecConsistencyPrompt, useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { applyRework, useSpecRework } from "../lib/specRework";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
@@ -220,6 +220,8 @@ const ENTRY_KIND: Record<SpecEntry["kind"], string> = { part: "Part", story: "Us
  */
 function Outline({ spec, loaded, place, initialFilter, initialFind }: { spec: Spec; loaded: LoadedSpec; place: Place; initialFilter: string; initialFind: SpecFind }) {
   const nav = useNav();
+  const guest = useIsGuest();
+  const copyConsistency = useCopySpecConsistencyPrompt();
   const [filter, setFilter] = useState(initialFilter);
   const [find, setFind] = useState(initialFind);
   const filtering = filter.trim() !== "";
@@ -321,6 +323,15 @@ function Outline({ spec, loaded, place, initialFilter, initialFind }: { spec: Sp
             {counts.unloaded === 0 && ` · ${plural(counts.requirements, "requirement")}`}
             {counts.unloaded === 0 && counts.deprecated > 0 && ` · ${counts.deprecated} deprecated`}
           </p>
+          {!guest && place.gitRef !== "" && (
+            // Parts are changed one at a time; whether they still agree is for an agent to read through.
+            <div className="spec-check">
+              <button className="btn btn-sm" onClick={() => void copyConsistency(place.owner, place.repo, place.gitRef)}>
+                <CopyIcon size={14} /> Check consistency: copy agent prompt
+              </button>
+              <span className="muted small">An agent reads the whole spec, keeps the links between entries, and reports what contradicts. A careful reading, not a proof.</span>
+            </div>
+          )}
           <Children node={spec.root} loaded={loaded} place={place} heading="Parts" />
         </>
       )}

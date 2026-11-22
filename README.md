@@ -206,6 +206,11 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   itself, and both handovers tell the agent to reconcile first: check those,
   find and link what nobody linked, and report contradictions instead of
   settling them.
+- **Checking consistency.** Whether a spec agrees with itself can't be proven,
+  and the links between entries aren't for people to maintain. The spec's first
+  page offers a prompt for a coding agent to read the whole spec, keep the
+  `related` pointers, fix what has one answer, and report contradictions for a
+  person to decide, ending with a plain best-effort statement.
 - **The code cites the spec, not the other way round.** A comment
   `// Spec: RET-1` sits on the code that meets a requirement and above the
   test that proves it. Searching the code base for an id finds what to change

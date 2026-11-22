@@ -190,7 +190,8 @@ ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 A product is often specified from more than one point of view: what motivates its users, what the research says works, what the law requires. Each is a part of the spec, written to be read on its own, and two of them can state the same behavior. That is fine, as long as the spec agrees with itself.
 
 - Write each part in its own terms. Don't bend a requirement so that it serves two parts at once.
-- Where a requirement in one part touches one in another, say so with \`related\`, on either of them. Nothing more is needed: no shared requirement, no "same as".
+- Where a requirement in one part touches one in another, a \`related\` pointer says so, on either of them. Nothing more is needed: no shared requirement, no "same as".
+- The pointers are yours to keep. The people who write a spec don't work out what touches what; you do, each time you reconcile or check it. Add a pointer wherever two entries state, depend on or limit the same behavior or value, and take out one that no longer means anything.
 - A spec is changed one part at a time, without working out what every other part makes of the change. That is settled afterwards, by reconciling.
 
 ## Reconciling
@@ -201,7 +202,23 @@ After a change, and whenever asked to reconcile a spec:
 2. Search for what nobody linked: other entries about the same behavior, in any part. Reconcile them too, and add the \`related\` pointer, so the next change finds them.
 3. Follow your own changes the same way, until nothing is left.
 4. Two entries that contradict each other, with nothing saying which wins, are not yours to settle: report both and ask.
-5. Say which entries were changed by reconciling, apart from the change that caused it.`,
+5. Say which entries were changed by reconciling, apart from the change that caused it.
+
+## Checking that a spec agrees with itself
+
+Whether a spec is consistent can't be proven, and nothing in the format records that it was checked. What you can do is look, carefully, and say what you found. When asked to check a spec:
+
+1. Read all of it, deprecated entries included.
+2. Bring the \`related\` pointers up to date (above): every pair that touches is linked, and nothing else is.
+3. Go through every linked pair, every use of a named value, and every story with the requirements that make it true. Look for:
+   - two entries that can't both hold;
+   - the same number, limit or wording stated in two places instead of as one named value, whether or not the two agree;
+   - something still wanted that rests on something deprecated, or that brings back what a deprecation dropped;
+   - a story nothing makes true, and a requirement that serves no story and no other requirement, where the part has stories;
+   - a requirement whose text no longer fits its own history, or a value used with a meaning its description doesn't have.
+4. Fix what has one right answer: pointers, a value named once, a reference to the entry that replaced a deprecated one. Each fix is a change like any other, with a new version and its reason where the meaning changes.
+5. Don't settle a contradiction. Report it with both ids, what each says, and what deciding either way would change.
+6. End with a plain statement: what you read (how many parts and entries), what you linked, what you fixed, what is left for a person to decide, and whether, apart from that, you found the spec to agree with itself. Say that this is a careful reading and not a proof.`,
 
     `## A good spec
 
@@ -301,3 +318,36 @@ ${current.problems.map((problem) => `- ${problem.file}: ${problem.message}`).joi
 
   return `${sections.join("\n\n")}\n`;
 }
+
+/**
+ * A prompt for a coding agent to check that a spec agrees with itself: keep
+ * the pointers between entries, find what contradicts or duplicates, fix what
+ * has one answer, and say what it found. Best effort, and it says so.
+ */
+export function specConsistencyPrompt({ repo, branch, current }: SpecPromptInput & { current: Spec }): string {
+  const counts = specCounts(current.root);
+  const sections = [
+    `Check that the spec of ${repo} agrees with itself: the \`${SPEC_DIR}\` folder at its root, on ${branch}.
+
+A spec says what the product is meant to do: one JSON file per part, each with user stories, requirements and named values. Parts are written and changed one at a time, often from different points of view, so two of them can come to disagree without anyone noticing. Your job is to notice. Follow "Checking that a spec agrees with itself" below, step by step.`,
+
+    ...formatSections(),
+
+    `## The spec to check (on ${branch})
+
+${counts.items} item${counts.items === 1 ? "" : "s"}${counts.unloaded === 0 ? `, ${counts.requirements} requirement${counts.requirements === 1 ? "" : "s"}, ${counts.stories} user stor${counts.stories === 1 ? "y" : "ies"}, ${counts.values} named value${counts.values === 1 ? "" : "s"} and ${counts.deprecated} deprecated requirement${counts.deprecated === 1 ? "" : "s"}` : ""}. Read the files themselves; this is their outline:
+
+${indent(capped([`- (root): ${current.root.title}${current.root.file === null ? " (no index.json)" : ""}`, ...outline(current.root, 1)]).join("\n"))}`,
+
+    ...(current.problems.length > 0 ? [`The app found these problems by itself. Fix them first:\n\n${current.problems.map((problem) => `- ${problem.file}: ${problem.message}`).join("\n")}`] : []),
+
+    `## What to hand back
+
+1. Do the check on a new branch off ${branch}. Change only \`${SPEC_DIR}\`: no code.
+2. Before committing: ${CHECKS}.
+3. Open one pull request. Its description is your report, as step 6 of the check asks: what you read, the pointers you added and removed, what you fixed and why, each contradiction left for a person to decide, and your statement on whether the spec otherwise agrees with itself.
+4. If you changed nothing, say so, with the same report, instead of opening a pull request.`,
+  ];
+  return `${sections.join("\n\n")}\n`;
+}
+

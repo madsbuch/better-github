@@ -234,6 +234,14 @@
         "#SR18",
         "#RW16"
       ]
+    },
+    {
+      "id": "S37",
+      "text": "The spec's first page offers a prompt for a coding agent to check that the spec agrees with itself: keep the pointers between entries, find what contradicts or is stated twice, fix what has one answer, leave contradictions to a person, and report what it read and found as a careful reading, not a proof. Nothing in the spec records that it was checked."
+    },
+    {
+      "id": "S38",
+      "text": "A user story that is still wanted and names a deprecated requirement as making it true is listed as a problem."
     }
   ],
   "values": [
