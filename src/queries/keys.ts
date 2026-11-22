@@ -79,8 +79,6 @@ export const keys = {
     reviewRulesAll: (owner: string, repo: string) => [...repoBase(owner, repo), "review-rules"] as const,
     /** The .spec folder on a branch (or a commit). */
     spec: (owner: string, repo: string, ref: string) => [...repoBase(owner, repo), "spec", ref] as const,
-    /** Where the code cites a requirement of the spec. */
-    specCited: (owner: string, repo: string, id: string) => [...repoBase(owner, repo), "spec-cited", id] as const,
     /** The files of a spec folder, by the id of its tree: the same tree never changes. */
     specListing: (owner: string, repo: string, tree: string) => [...repoBase(owner, repo), "spec-listing", tree] as const,
     /** The commit two refs both descend from. */

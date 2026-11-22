@@ -948,23 +948,6 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
     return `<p>${text.replace(/[&<>]/g, (c) => escapes[c] ?? c)}</p>`;
   }
   if (method !== "GET") return undefined;
-  // Where the code cites a requirement: GitHub's code search, with the text around each match.
-  if (path === "/search/code") {
-    const q = z.object({ q: z.string() }).safeParse(request.query);
-    const id = q.success ? (/"Spec:" "([^"]+)"/.exec(q.data.q)?.[1] ?? "") : "";
-    const items =
-      id === "R1"
-        ? [
-            { path: "src/retry.rs", text_matches: [{ fragment: "// Spec: R1, R3\nfn retry() {" }] },
-            { path: "tests/retry.rs", text_matches: [{ fragment: "// Spec: R1" }] },
-            // Both words are in the file, but it cites another requirement.
-            { path: "src/resume.rs", text_matches: [{ fragment: "// Spec: R10" }] },
-          ]
-        : id === "E3"
-          ? [{ path: "src/log.rs", text_matches: [{ fragment: "// Spec: E3" }] }]
-          : [];
-    return { total_count: items.length, items };
-  }
   // The tip of a branch, to start a new one from.
   if (/^\/repos\/[^/]+\/[^/]+\/commits\/[^/]+$/.test(path) && !/\/commits\/[0-9a-f]{7,40}$/.test(path)) return { sha: "ba5eba11".padEnd(40, "0"), commit: { tree: { sha: "7ree0".padEnd(40, "0") } } };
   const compare = /\/compare\/(.+)$/.exec(path);

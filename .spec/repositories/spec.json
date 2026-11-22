@@ -209,7 +209,11 @@
     },
     {
       "id": "S32",
-      "text": "A requirement shows, on request, the files that cite it: those with a comment `Spec:` followed by its id as an id of its own. They are found by searching the repository's code on its default branch, not stored in the spec. A deprecated requirement that is still cited says so."
+      "text": "A requirement shows, on request, the files that cite it: those with a comment `Spec:` followed by its id as an id of its own. They are found by searching the repository's code on its default branch, not stored in the spec. A deprecated requirement that is still cited says so.",
+      "deprecation": {
+        "reason": "The spec is read as a thing of its own. Showing where code cites a requirement put the code base into the spec browser.",
+        "date": "2026-11-22"
+      }
     },
     {
       "id": "S33",

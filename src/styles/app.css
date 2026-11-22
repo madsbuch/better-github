@@ -3458,7 +3458,7 @@ section > .spec-prose-fold {
   font-size: 18px;
 }
 
-/* ------------------------------------------------------- spec index, cited */
+/* ------------------------------------------------------------- spec index */
 
 .spec-find {
   padding: 4px 16px 8px;
@@ -3474,41 +3474,4 @@ section > .spec-prose-fold {
 .spec-entry[data-deprecated="true"] .spec-row-summary {
   color: var(--fg-muted);
   text-decoration: line-through;
-}
-
-.spec-cited {
-  margin-top: 6px;
-}
-
-.spec-cited-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--fg-muted);
-  font-family: var(--font);
-  font-size: 13px;
-}
-
-.spec-cited-note {
-  margin: 2px 0 0 17px;
-}
-
-.spec-cited-list {
-  margin: 2px 0 0;
-  padding-left: 34px;
-  overflow-wrap: anywhere;
-}
-
-.spec-cited-list li + li {
-  margin-top: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .spec-cited-toggle:hover {
-    color: var(--fg);
-  }
 }

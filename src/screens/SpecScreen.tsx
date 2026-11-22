@@ -46,8 +46,7 @@ import {
   type SpecStory,
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
-import { errorMessage } from "../lib/api";
-import { specQueries, useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
+import { useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { applyRework, useSpecRework } from "../lib/specRework";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
@@ -692,7 +691,6 @@ function Requirement({
       </div>
       {deprecated && <Deprecation spec={spec} place={place} deprecation={requirement.deprecation} />}
       <RequirementTools node={node} requirement={requirement} />
-      <Cited place={place} id={requirement.id} deprecated={deprecated || inherited === "deprecated"} />
       {showHistory && (
         // Newest first: why it says what it says now, then how it got there.
         <ol className="spec-history" aria-label={`Earlier versions of ${requirement.id}`}>
@@ -769,56 +767,6 @@ function Value({ spec, place, node, value, inherited, current }: { spec: Spec; p
           ))}
         </ol>
       )}
-    </div>
-  );
-}
-
-/**
- * Where the code cites a requirement, as "Spec: <id>": looked up in the code
- * when asked for. The spec itself holds nothing about code.
- */
-function Cited({ place, id, deprecated }: { place: Place; id: string; deprecated: boolean }) {
-  const guest = useIsGuest();
-  const [open, setOpen] = useState(false);
-  const cited = useQuery({ ...specQueries.cited(place.owner, place.repo, id), enabled: open && !guest });
-  // Searching code needs an account.
-  if (guest) return null;
-  return (
-    <div className="spec-cited">
-      <button className="spec-cited-toggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={`Where the code cites ${id}`}>
-        {open ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />} <CodeIcon size={12} /> Cited in code
-        {cited.data !== undefined && ` · ${cited.data.paths.length}`}
-      </button>
-      {open &&
-        (cited.isPending ? (
-          <p className="muted small spec-cited-note">Searching the code…</p>
-        ) : cited.isError ? (
-          <p className="small spec-cited-note">
-            <span className="c-danger">{errorMessage(cited.error)}</span>{" "}
-            <button className="btn btn-sm" onClick={() => void cited.refetch()}>
-              Retry
-            </button>
-          </p>
-        ) : cited.data.paths.length === 0 ? (
-          <p className="muted small spec-cited-note">
-            {deprecated ? "Nothing cites it any more." : `Nothing on the default branch has a comment “Spec: ${id}”.`}
-          </p>
-        ) : (
-          <>
-            {/* What still cites something that was dropped is what is left to remove. */}
-            {deprecated && <p className="small spec-cited-note c-attention">It was dropped from the spec, and the code still cites it:</p>}
-            <ul className="spec-cited-list">
-              {cited.data.paths.map((path) => (
-                <li key={path}>
-                  <Link {...to.blob(place.owner, place.repo, undefined, path)} className="mono small">
-                    {path}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {cited.data.more && <p className="muted small spec-cited-note">There may be more: GitHub returned only the first files it found.</p>}
-          </>
-        ))}
     </div>
   );
 }

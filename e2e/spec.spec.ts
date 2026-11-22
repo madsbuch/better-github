@@ -185,29 +185,6 @@ test("the spec has an index by id, and a search that puts the id you typed first
   await expect(activeScreen(page).getByRole("radio", { name: /Requirements/ })).toBeChecked();
 });
 
-// Spec: S32
-test("a requirement shows where the code cites it, looked up in the code", async ({ page }) => {
-  await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
-  const r1 = activeScreen(page).locator('.spec-req[data-req="R1"]');
-  await r1.getByRole("button", { name: "Where the code cites R1" }).click();
-  // The file that only mentions R10 isn't a citation of R1.
-  await expect(r1.locator(".spec-cited-list li")).toHaveText(["src/retry.rs", "tests/retry.rs"]);
-  await expect(r1.getByRole("button", { name: "Where the code cites R1" })).toContainText("Cited in code · 2");
-  const r2 = activeScreen(page).locator('.spec-req[data-req="R2"]');
-  await r2.getByRole("button", { name: "Where the code cites R2" }).click();
-  await expect(r2).toContainText("Nothing on the default branch has a comment “Spec: R2”.");
-  // A cited file opens in the app.
-  await r1.getByRole("link", { name: "src/retry.rs" }).click();
-  await expect(page).toHaveURL(/#\/acme\/rocket\/blob\?.*path=src%2Fretry\.rs/);
-
-  // What was dropped and is still cited is what is left to remove.
-  await open(page, "/acme/rocket/spec?ref=main&id=uploads/errors&r=E3");
-  const e3 = activeScreen(page).locator('.spec-req[data-req="E3"]');
-  await e3.getByRole("button", { name: "Where the code cites E3" }).click();
-  await expect(e3).toContainText("It was dropped from the spec, and the code still cites it:");
-  await expect(e3.locator(".spec-cited-list li")).toHaveText(["src/log.rs"]);
-});
-
 // Spec: S3
 test("a file that can't be read is a problem, and the rest still shows", async ({ page }) => {
   await open(page, "/acme/rocket/spec?ref=staging");

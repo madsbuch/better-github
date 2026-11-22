@@ -18,7 +18,6 @@ import { errorMessage, graphql, rest } from "../lib/api";
 import { backend } from "../lib/backend";
 import { SPEC_BLOBS, SPEC_ROOT } from "../lib/queries";
 import { buildSpec, SPEC_DIR, type Spec, type SpecFile, type SpecNode } from "../lib/spec";
-import { citedPaths, citedQuery } from "../lib/specCited";
 import { diffSpecs, type ItemChange, type SpecDiff } from "../lib/specDiff";
 import { specPrompt } from "../lib/specPrompt";
 import { useToast } from "../lib/toast";
@@ -41,34 +40,7 @@ export interface SpecListing {
   cutOff: boolean;
 }
 
-const RestCodeSearch = z.object({
-  total_count: z.number(),
-  items: z.array(z.object({ path: z.string(), text_matches: z.array(z.object({ fragment: z.string().optional() })).optional() })),
-});
-
-/** How many files a search for citations asks for: more than cite one requirement, in practice. */
-const CITED_MAX = 100;
-
 export const specQueries = {
-  /**
-   * The files that cite a requirement, as "Spec: <id>". GitHub searches the
-   * default branch only, and allows few searches a minute: asked for one
-   * requirement at a time, when someone wants to know.
-   */
-  cited: (owner: string, repo: string, id: string) =>
-    queryOptions({
-      queryKey: keys.repo.specCited(owner, repo, id),
-      queryFn: async (): Promise<{ paths: string[]; more: boolean }> => {
-        const found = await rest(RestCodeSearch, "/search/code", {
-          query: { q: citedQuery(owner, repo, id), per_page: CITED_MAX },
-          // With the text around each match, to tell a citation from a file that has both words.
-          accept: "application/vnd.github.text-match+json",
-        });
-        const items = found.items.map((item) => ({ path: item.path, fragments: (item.text_matches ?? []).flatMap((match) => (match.fragment !== undefined ? [match.fragment] : [])) }));
-        return { paths: citedPaths(items, id), more: found.total_count > found.items.length };
-      },
-      staleTime: 5 * 60_000,
-    }),
   /** The id of the .spec folder's tree on a branch or commit; null when there is no such folder. */
   root: (owner: string, repo: string, ref: string) =>
     queryOptions({
