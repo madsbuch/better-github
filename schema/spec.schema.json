@@ -85,6 +85,14 @@
               "minLength": 1
             }
           },
+          "related": {
+            "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "deprecation": {
             "type": "object",
             "properties": {
@@ -199,6 +207,14 @@
               "description": "An earlier version of a requirement: what it said, and why that changed."
             }
           },
+          "related": {
+            "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "deprecation": {
             "type": "object",
             "properties": {
@@ -252,6 +268,14 @@
               "description": {
                 "description": "What it is for, in a line.",
                 "type": "string"
+              },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "deprecation": {
                 "type": "object",
@@ -361,6 +385,14 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -464,6 +496,14 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -566,6 +606,14 @@
               "description": {
                 "description": "What it is for, in a line.",
                 "type": "string"
+              },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "deprecation": {
                 "type": "object",
@@ -673,6 +721,14 @@
                 "description": "What it is for, in a line.",
                 "type": "string"
               },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -774,6 +830,14 @@
               "description": {
                 "description": "What it is for, in a line.",
                 "type": "string"
+              },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "deprecation": {
                 "type": "object",
@@ -877,6 +941,14 @@
               "description": {
                 "description": "What it is for, in a line.",
                 "type": "string"
+              },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "deprecation": {
                 "type": "object",

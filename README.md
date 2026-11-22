@@ -197,6 +197,15 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   covers all of it and puts the id you typed first; Enter on an exact id opens
   it. Searching everything also shows what was dropped, so an idea that was
   dropped before is seen before it is added again.
+- **Several points of view, reconciled afterwards.** A product can be
+  specified from more than one angle (what motivates, what the research says),
+  each as parts that read on their own, and two can state the same behavior. A
+  requirement, story or value says what else it touches with `related`; that is
+  written at one end and shown at both. A spec is changed one part at a time.
+  Every comparison then lists what is related to a change and wasn't changed
+  itself, and both handovers tell the agent to reconcile first: check those,
+  find and link what nobody linked, and report contradictions instead of
+  settling them.
 - **The code cites the spec, not the other way round.** A comment
   `// Spec: RET-1` sits on the code that meets a requirement and above the
   test that proves it. Searching the code base for an id finds what to change

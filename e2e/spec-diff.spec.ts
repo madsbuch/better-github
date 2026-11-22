@@ -6,7 +6,7 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 const items = (page: Page) => activeScreen(page).locator(".spec-change");
 const item = (page: Page, id: string) => activeScreen(page).locator(`.spec-change[data-id="${id}"]`);
 
-// Spec: D1, D2, D3, D4, D6, D11, D12, D15, SR13, SR17
+// Spec: D1, D2, D3, D4, D6, D11, D12, D15, SR13, SR17, SR18
 test("two branches' specs are compared by item and requirement", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/spec-diff?head=eng-629-retries");
@@ -22,6 +22,14 @@ test("two branches' specs are compared by item and requirement", async ({ page }
     "Retries retry.label A named value is deleted. Deprecate it instead, with the reason, so the record stays.",
     "Command line Deleted, with 1 requirement. Deprecate it instead, with the reason, so the record stays.",
     "Command line C1 A must requirement is deleted. Deprecate it instead, with the reason, so the record stays.",
+  ]);
+  // What the changes touch and didn't change: the next thing to check.
+  const reconcile = activeScreen(page).getByRole("region", { name: "To reconcile" });
+  await expect(reconcile).toContainText("2 related entries not changed: check they still hold");
+  await expect(reconcile.locator("li")).toHaveText([
+    // The part's own text changed, and the part points at E1.
+    "E1 When the last retry fails, the caller gets the server's message as UploadError::Server. Related to Retries.",
+    "R2 A retry resumes where the upload stopped. It never sends bytes the server already has. Related to R1, US-1.",
   ]);
   await expect(items(page).locator(".spec-change-title")).toHaveText(["Retries", "Resuming", "Command line"]);
   await expect(items(page).locator(".spec-change-meta .spec-diff-kind:not([data-kind=weakened])")).toHaveText(["Changed", "Added", "Removed"]);

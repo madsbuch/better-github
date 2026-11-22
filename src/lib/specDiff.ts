@@ -191,6 +191,8 @@ function sameRequirement(a: SpecRequirement, b: SpecRequirement): boolean {
     a.text === b.text &&
     (a.level ?? "must") === (b.level ?? "must") &&
     requirementVersion(a) === requirementVersion(b) &&
+    // What it touches is part of it too, though not of what it means.
+    JSON.stringify(a.related ?? []) === JSON.stringify(b.related ?? []) &&
     JSON.stringify(a.history ?? []) === JSON.stringify(b.history ?? []) &&
     // The record of a deprecation is part of the requirement: a new reason is a change.
     JSON.stringify(a.deprecation ?? null) === JSON.stringify(b.deprecation ?? null)

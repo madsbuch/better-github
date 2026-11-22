@@ -26,7 +26,7 @@ The user stories and the requirements are the spec. Everything else in a part is
 - **Earlier version**: what a requirement said before its meaning changed, kept with the reason it changed.
 - **Deprecation**: the record on a story, requirement, value or part that is no longer wanted, kept with the reason. Nothing is deleted.
 - **Figure**: a picture a part shows, such as a screenshot, a mockup or a diagram. It is an image file (PNG, JPEG, GIF, WebP or AVIF) stored inside `.spec`; the part names it by path and can give it alt text and a caption.
-- **Related**: a pointer from a part to another part, story or requirement.
+- **Related**: a pointer from a part, story, requirement or value to another. It says only that the two touch: a change to one may matter to the other. It is written at one end and holds from both.
 
 Stories and requirements are what matters; the rest serves them. A spec has no open questions, tasks or notes: what isn't decided is settled wherever the product is planned, and enters the spec once it is.
 
@@ -81,7 +81,10 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
         {
           "id": "RET-2",
           "text": "The pause before a retry doubles each time, starting at `retry.first-pause`.",
-          "level": "should"
+          "level": "should",
+          "related": [
+            "#retry.first-pause"
+          ]
         },
         {
           "id": "RET-3",
@@ -149,7 +152,7 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
 - When a value changes, what it was goes into its `history` (oldest first) with the `reason`, as for a requirement's version. A value that is no longer used is deprecated with its reason, not deleted.
 - Text (`description`, a requirement's `text`) is plain, not Markdown: a blank line starts a paragraph, lines starting with `- ` form a list, and `backticks` mark code. There are no headings, links or bold.
 - `order` places an item among its siblings, lowest first; items without one follow, by title.
-- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`), requirements, stories or values (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist.
+- `figures` name pictures by their path from `.spec`; the file has to be there. `related` lists ids of other items (`cli`), requirements, stories or values (`#ERR-1`, or with its item: `uploads/errors#ERR-1`); each has to exist. A requirement, a story and a value can have a `related` list of their own, in the same form.
 - `$schema` is optional and lets editors check the file.
 
 ## The schema
@@ -235,6 +238,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
               },
               "requirements": {
                 "description": "The requirements that together make this story true, by id: \"#RET-1\". They can be in any item.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -355,6 +366,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                   "description": "An earlier version of a requirement: what it said, and why that changed."
                 }
               },
+              "related": {
+                "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "deprecation": {
                 "type": "object",
                 "properties": {
@@ -408,6 +427,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                   "description": {
                     "description": "What it is for, in a line.",
                     "type": "string"
+                  },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
                   "deprecation": {
                     "type": "object",
@@ -517,6 +544,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                     "description": "What it is for, in a line.",
                     "type": "string"
                   },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
                   "deprecation": {
                     "type": "object",
                     "properties": {
@@ -620,6 +655,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                     "description": "What it is for, in a line.",
                     "type": "string"
                   },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
                   "deprecation": {
                     "type": "object",
                     "properties": {
@@ -722,6 +765,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                   "description": {
                     "description": "What it is for, in a line.",
                     "type": "string"
+                  },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
                   "deprecation": {
                     "type": "object",
@@ -829,6 +880,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                     "description": "What it is for, in a line.",
                     "type": "string"
                   },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
                   "deprecation": {
                     "type": "object",
                     "properties": {
@@ -930,6 +989,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                   "description": {
                     "description": "What it is for, in a line.",
                     "type": "string"
+                  },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
                   "deprecation": {
                     "type": "object",
@@ -1033,6 +1100,14 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                   "description": {
                     "description": "What it is for, in a line.",
                     "type": "string"
+                  },
+                  "related": {
+                    "description": "What else in the spec this touches: requirements, stories or values (\"#LIM-2\"), or items (\"uploads/limits\"). A change here may matter there. Written at one end; it holds from both.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
                   "deprecation": {
                     "type": "object",
@@ -1224,6 +1299,24 @@ A requirement that is no longer wanted is not deleted. It stays in its item and 
 - To change what a requirement means, give it a new version (above). To replace it with a different promise altogether, deprecate it and add a new requirement with a new id.
 - The app flags every deleted requirement and item when a pull request is reviewed.
 
+## One product, several points of view
+
+A product is often specified from more than one point of view: what motivates its users, what the research says works, what the law requires. Each is a part of the spec, written to be read on its own, and two of them can state the same behavior. That is fine, as long as the spec agrees with itself.
+
+- Write each part in its own terms. Don't bend a requirement so that it serves two parts at once.
+- Where a requirement in one part touches one in another, say so with `related`, on either of them. Nothing more is needed: no shared requirement, no "same as".
+- A spec is changed one part at a time, without working out what every other part makes of the change. That is settled afterwards, by reconciling.
+
+## Reconciling
+
+After a change, and whenever asked to reconcile a spec:
+
+1. For everything that changed, read what it is related to: its own `related`, whatever names it in theirs, and the stories whose `requirements` name it. Whatever no longer holds gets a new version with the reason, or is deprecated with the reason.
+2. Search for what nobody linked: other entries about the same behavior, in any part. Reconcile them too, and add the `related` pointer, so the next change finds them.
+3. Follow your own changes the same way, until nothing is left.
+4. Two entries that contradict each other, with nothing saying which wins, are not yours to settle: report both and ask.
+5. Say which entries were changed by reconciling, apart from the change that caused it.
+
 ## A good spec
 
 - It says what the product does and why. It can also say how the product is built, where that is decided and has to hold: an architecture, a data model, a protocol, a limit on what a component may do. Someone who has never seen the code can read an item and know what to expect from that part.
@@ -1258,4 +1351,4 @@ The spec never names code. The code names the spec:
 
 ## Checking a spec
 
-Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists, every id in a story's `requirements` is a requirement, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every value that changed has what it was in its `history` with the reason, every deprecated story, requirement, value or item has a `deprecation` with its reason, and no story, requirement or value id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).
+Before committing: every file is valid JSON and fits the schema above, every `figures` path exists in `.spec`, every `related` and `replacedBy` id exists (on items and on their requirements, stories and values), every id in a story's `requirements` is a requirement, every requirement above version 1 has the `history` of all its earlier versions with their reasons, every value that changed has what it was in its `history` with the reason, every deprecated story, requirement, value or item has a `deprecation` with its reason, and no story, requirement or value id is used twice anywhere in the spec (list them all, for example with `grep -rhoE '"id": *"[^"]+"' .spec | sort | uniq -d`, which must print nothing).

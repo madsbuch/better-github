@@ -2,7 +2,7 @@
 // forms that revise, deprecate and add requirements and items, and the bar
 // that reviews the changes and copies them for a coding agent.
 
-import { ArchiveIcon, CopyIcon, GitPullRequestIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from "@primer/octicons-react";
+import { ArchiveIcon, CopyIcon, GitPullRequestIcon, LinkIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from "@primer/octicons-react";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { errorMessage } from "../../lib/api";
 import { backend } from "../../lib/backend";
@@ -15,6 +15,8 @@ import { diffSpecs } from "../../lib/specDiff";
 import {
   deprecateRequirement,
   deprecateStory,
+  relatedRefs,
+  withRelated,
   deprecateValue,
   reviseValue,
   newItemId,
@@ -35,6 +37,7 @@ import {
 import { useToast } from "../../lib/toast";
 import { Sheet } from "../../components/Sheet";
 import { SpecChangeCard, SpecChangesSummary } from "../../components/SpecChanges";
+import { toReconcile } from "../../lib/specReconcile";
 
 export interface Reworking {
   rework: SpecRework;
@@ -100,6 +103,7 @@ export function RequirementTools({ node, requirement }: { node: SpecNode; requir
     <div className="rework-tools">
       {label !== null && <span className="pill pill-accent rework-mark">{label}</span>}
       <span className="grow" />
+      {!deprecated && <RelatedTool entry={requirement} onSave={commit} />}
       {!deprecated && (
         <button className="btn btn-sm" onClick={() => setSheet("revise")}>
           <PencilIcon size={14} /> Revise
@@ -355,6 +359,53 @@ function NewRequirementForm({
   );
 }
 
+// ------------------------------------------------------------------ related
+
+/** The button and the sheet to say what else an entry touches. */
+function RelatedTool<T extends { id: string; related?: string[] | undefined }>({ entry, onSave }: { entry: T; onSave: (entry: T) => void }) {
+  const state = useReworking();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  if (state === null) return null;
+  const { refs, unknown } = relatedRefs(state.reworked.spec, typed, `#${entry.id}`);
+  return (
+    <>
+      <button
+        className="btn btn-sm"
+        aria-label={`What ${entry.id} is related to`}
+        onClick={() => {
+          setTyped((entry.related ?? []).map((ref) => ref.replace(/^#/, "")).join(", "));
+          setOpen(true);
+        }}
+      >
+        <LinkIcon size={14} /> Related
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title={`${entry.id} is related to`}>
+        {open && (
+          <div className="rework-form">
+            <Field
+              label="Requirements, stories, values or parts"
+              hint={unknown.length > 0 ? `Not in the spec: ${unknown.join(", ")}.` : "Ids, and paths of parts, separated by commas. It only says that a change to one may matter to the other, and holds from both ends."}
+            >
+              <input className="input mono" value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} autoFocus />
+            </Field>
+            <button
+              className="btn btn-primary btn-block"
+              disabled={unknown.length > 0}
+              onClick={() => {
+                onSave(withRelated(entry, refs));
+                setOpen(false);
+              }}
+            >
+              Save
+            </button>
+          </div>
+        )}
+      </Sheet>
+    </>
+  );
+}
+
 // ------------------------------------------------------------ user stories
 
 /** What the draft did to a user story, and the buttons to do more. */
@@ -372,6 +423,7 @@ export function StoryTools({ node, story }: { node: SpecNode; story: SpecStory }
     <div className="rework-tools">
       {label !== null && <span className="pill pill-accent rework-mark">{label}</span>}
       <span className="grow" />
+      {!deprecated && <RelatedTool entry={story} onSave={commit} />}
       {!deprecated && (
         <button className="btn btn-sm" onClick={() => setSheet("edit")}>
           <PencilIcon size={14} /> Revise
@@ -524,6 +576,7 @@ export function ValueTools({ node, value }: { node: SpecNode; value: SpecValue }
     <div className="rework-tools">
       {label !== null && <span className="pill pill-accent rework-mark">{label}</span>}
       <span className="grow" />
+      {!deprecated && <RelatedTool entry={value} onSave={commit} />}
       {!deprecated && (
         <button className="btn btn-sm" onClick={() => setSheet("edit")}>
           <PencilIcon size={14} /> Revise
@@ -645,7 +698,8 @@ function ValueForm({
         disabled={!ready}
         onClick={() => {
           if (made === null) return;
-          onSave(revised ?? made);
+          // What it touches isn't the form's to change.
+          onSave(withRelated(revised ?? made, value?.related ?? []));
           onClose();
         }}
       >
@@ -794,7 +848,7 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
 
   const copy = async () => {
     try {
-      await backend.copyText(specReworkPrompt({ repo: `${owner}/${repo}`, branch: gitRef, diff, files: reworked.files, note: rework.draft.note }));
+      await backend.copyText(specReworkPrompt({ repo: `${owner}/${repo}`, branch: gitRef, diff, files: reworked.files, note: rework.draft.note, reconcile }));
       toast.show("Copied. Paste it into your coding agent.", "success");
     } catch (error) {
       toast.show(`Couldn't copy: ${errorMessage(error)}`, "error");
@@ -807,9 +861,11 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
   const suggested = useMemo(() => specPullTitle(diff), [diff]);
   const [title, setTitle] = useState<string | null>(null);
   const pullTitle = title ?? suggested;
+  // What the changes touch that wasn't changed: for the agent to reconcile, and listed for you first.
+  const reconcile = useMemo(() => toReconcile(diff, original, reworked.spec), [diff, original, reworked.spec]);
   const open = () =>
     openPull.mutate(
-      { base: gitRef, title: pullTitle, body: specPullBody({ diff, files: reworked.files, note: rework.draft.note }), files: reworked.files.map((file) => ({ path: file.path, text: file.text })) },
+      { base: gitRef, title: pullTitle, body: specPullBody({ diff, files: reworked.files, note: rework.draft.note, reconcile }), files: reworked.files.map((file) => ({ path: file.path, text: file.text })) },
       {
         onSuccess: (pull) => {
           // The changes live in the pull request now.
@@ -868,7 +924,7 @@ export function ReworkBar({ state, onDone }: { state: Reworking; onDone: () => v
 Nothing is written to {owner}/{repo} yet. Open a pull request with these changes and point your coding agent at it: its description says what follows for the product. Or copy the same as text.
         </p>
         <div className="rework-review">
-          <SpecChangesSummary diff={diff} />
+          <SpecChangesSummary diff={diff} reconcile={{ entries: reconcile, owner, repo, gitRef, partial: false }} />
           {diff.items.map((item) => (
             <SpecChangeCard key={item.id} change={item} sides={{ owner, repo, base: gitRef, head: gitRef }} />
           ))}

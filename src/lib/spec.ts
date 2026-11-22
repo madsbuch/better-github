@@ -70,6 +70,12 @@ export const SpecDeprecation = z
   );
 export type SpecDeprecation = z.infer<typeof SpecDeprecation>;
 
+/** Pointers from one entry to others it touches. They say nothing more than that: a change to one may matter to the other. */
+const Related = z
+  .array(z.string().min(1))
+  .optional()
+  .describe('What else in the spec this touches: requirements, stories or values ("#LIM-2"), or items ("uploads/limits"). A change here may matter there. Written at one end; it holds from both.');
+
 export const SpecRequirementVersion = z
   .strictObject({
     version: z.number().int().min(1).describe("Which version this was: 1 for the first."),
@@ -105,6 +111,7 @@ export const SpecRequirement = z
       .array(SpecRequirementVersion)
       .optional()
       .describe("Every earlier version, oldest first, each with why it was replaced. A requirement at version 3 has the history of versions 1 and 2."),
+    related: Related,
     deprecation: SpecDeprecation.optional(),
   })
   .describe("A single testable statement.");
@@ -123,6 +130,7 @@ export const SpecStory = z
       .array(z.string().min(1))
       .optional()
       .describe('The requirements that together make this story true, by id: "#RET-1". They can be in any item.'),
+    related: Related,
     deprecation: SpecDeprecation.optional(),
   })
   .describe("A user story: who wants what, and why. It says what the product is for; requirements say what it must do to deliver that.");
@@ -161,6 +169,7 @@ export type SpecValueChange = z.infer<typeof SpecValueChange>;
 const valueCommon = {
   id: valueId,
   description: z.string().optional().describe("What it is for, in a line."),
+  related: Related,
   deprecation: SpecDeprecation.optional(),
   history: z.array(SpecValueChange).optional().describe("Everything it was before, oldest first, each with why it changed."),
 };
@@ -288,6 +297,12 @@ export interface Spec {
   stories: Map<string, { node: SpecNode; story: SpecStory }>;
   /** Every named value by its id, with the item it is in. Values share the one set of ids too. */
   values: Map<string, { node: SpecNode; value: SpecValue }>;
+  /**
+   * What touches what, from both ends: an entry ("#RET-1") or a part
+   * ("uploads/retries") to everything it is related to, whichever of the two
+   * says so. A story and the requirements that make it true are related too.
+   */
+  relations: Map<string, string[]>;
   /** Everything that isn't an item, by its path from the spec folder, with its git object id when known. */
   assets: Map<string, string | null>;
   problems: SpecProblem[];
@@ -456,6 +471,7 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
   const requirements: Spec["requirements"] = new Map();
   const stories: Spec["stories"] = new Map();
   const values: Spec["values"] = new Map();
+  const relations: Spec["relations"] = new Map();
   for (const node of nodes.values()) {
     const entities = [
       ...(node.item?.stories ?? []).map((story) => ({ id: story.id, what: "User story", add: () => stories.set(story.id, { node, story }) })),
@@ -523,16 +539,56 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
         if (resolveSpecRef({ nodes, requirements, stories, values }, ref) === null) problems.push({ file, message: `${what} is replaced by "${ref}", which isn't in the spec.` });
       }
     }
-    for (const ref of item.related ?? []) {
-      // Whether an item that isn't loaded has the requirement can't be said yet;
-      // nor, while any item is unread, where a requirement named by its id alone is.
-      const { id, requirement } = splitSpecRef(ref);
-      if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
-      if (resolveSpecRef({ nodes, requirements, stories, values }, ref) === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
+    const pointers = [
+      { from: node.id, what: null, refs: item.related ?? [] },
+      ...(item.requirements ?? []).map((r) => ({ from: `#${r.id}`, what: `Requirement ${r.id}`, refs: r.related ?? [] })),
+      ...(item.stories ?? []).map((story) => ({ from: `#${story.id}`, what: `User story ${story.id}`, refs: [...(story.related ?? []), ...(story.requirements ?? [])] })),
+      ...(item.values ?? []).map((v) => ({ from: `#${v.id}`, what: `Value ${v.id}`, refs: v.related ?? [] })),
+    ];
+    for (const { from, what, refs } of pointers) {
+      for (const ref of refs) {
+        // Whether an item that isn't loaded has the requirement can't be said yet;
+        // nor, while any item is unread, where a requirement named by its id alone is.
+        const { id, requirement } = splitSpecRef(ref);
+        if (requirement !== null && id === "" ? !allLoaded : nodes.get(id)?.loaded === false) continue;
+        const target = resolveSpecRef({ nodes, requirements, stories, values }, ref);
+        if (target === null) {
+          // A story's requirements are checked above, with their own message.
+          if (what === null) problems.push({ file, message: `Nothing in the spec is called "${ref}".` });
+          else if (!(item.stories ?? []).some((story) => `#${story.id}` === from && (story.requirements ?? []).includes(ref))) {
+            problems.push({ file, message: `${what} is related to "${ref}", which isn't in the spec.` });
+          }
+          continue;
+        }
+        const to = specKey(target);
+        if (to === from) continue;
+        // It holds from both ends, whichever says so.
+        for (const [a, b] of [[from, to], [to, from]] as const) {
+          const known = relations.get(a);
+          if (known === undefined) relations.set(a, [b]);
+          else if (!known.includes(b)) known.push(b);
+        }
+      }
     }
   }
 
-  return { root, nodes, requirements, stories, values, assets, problems };
+  return { root, nodes, requirements, stories, values, relations, assets, problems };
+}
+
+/** How something is named in `Spec.relations`: an entry by its id ("#RET-1"), a part by its path. */
+export function specKey(target: { node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null; value: SpecValue | null }): string {
+  const id = target.requirement?.id ?? target.story?.id ?? target.value?.id;
+  return id !== undefined ? `#${id}` : target.node.id;
+}
+
+/** What an entry or a part is related to, from either end, in the order of their ids. */
+export function relatedTo(spec: Spec, key: string): { key: string; node: SpecNode; requirement: SpecRequirement | null; story: SpecStory | null; value: SpecValue | null }[] {
+  return (spec.relations.get(key) ?? [])
+    .flatMap((other) => {
+      const target = resolveSpecRef(spec, other);
+      return target === null ? [] : [{ key: other, ...target }];
+    })
+    .sort((a, b) => byId.compare(a.key, b.key));
 }
 
 /**

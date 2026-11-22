@@ -13,7 +13,7 @@ import type { ItemChange } from "../../lib/specDiff";
 import { useToast } from "../../lib/toast";
 import type { PullDetail, ReviewThread } from "../../lib/types";
 import type { LineTarget } from "../../components/DiffView";
-import { SpecChangeCard, SpecChangesSummary } from "../../components/SpecChanges";
+import { reconcileFor, SpecChangeCard, SpecChangesSummary } from "../../components/SpecChanges";
 import type { ThreadActions } from "../../components/Timeline";
 import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../../components/ui";
 import { pullQueries, useInlineComment, useToggleViewed } from "../../queries/pulls";
@@ -109,7 +109,7 @@ export function SpecTab({
 
   return (
     <div className="spec-tab">
-      <SpecChangesSummary diff={diff} onShow={show} />
+      <SpecChangesSummary diff={diff} onShow={show} reconcile={reconcileFor(diff, spec.before.spec, spec.after.spec, { owner, repo, gitRef: sides.head })} />
       {(spec.before.contentsError ?? spec.after.contentsError) !== null && (
         <div className="banner banner-danger">
           <span className="grow">Some items couldn't be read.</span>

@@ -89,6 +89,10 @@
     {
       "id": "SR17",
       "text": "A changed named value shows what it was and what it is, as each looks, with the reason when one was recorded. A value whose meaning changed without a recorded reason says so, and a deleted value counts as taking something away."
+    },
+    {
+      "id": "SR18",
+      "text": "A comparison of two specs lists what is related to something that changed and wasn't changed itself, with what it says now and what it is related to, so that it can be checked. What was dropped isn't listed. A changed `related` list shows what it pointed at before and after."
     }
   ],
   "values": [

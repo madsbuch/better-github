@@ -3475,3 +3475,36 @@ section > .spec-prose-fold {
   color: var(--fg-muted);
   text-decoration: line-through;
 }
+
+/* What an entry touches: a row of ids, each a link. */
+.spec-related-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.spec-related-line a.spec-req-id {
+  text-decoration: none;
+}
+
+/* After a change: what is related to it and wasn't changed. */
+.spec-reconcile {
+  margin: 8px 16px;
+}
+
+.spec-reconcile ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.spec-reconcile li + li {
+  margin-top: 4px;
+}
+
+.spec-reconcile-because {
+  color: var(--fg-muted);
+  font-size: 13px;
+}

@@ -211,7 +211,7 @@ const ROCKET_SPEC: Record<string, unknown> = {
     ],
     requirements: [
       { id: "R1", text: "An upload that fails with a network error or a 5xx response is retried, up to five times." },
-      { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
+      { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has.", related: ["#R1"] },
       { id: "R3", text: "The pause before a retry doubles each time, starting at `retry.first-pause` and never exceeding 30 s.", level: "should" },
       { id: "R4", text: "The caller can cancel while a retry is waiting.", level: "may" },
     ],
@@ -290,7 +290,7 @@ const ROCKET_SPEC_NEXT: Record<string, unknown> = {
           },
         ],
       },
-      { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has." },
+      { id: "R2", text: "A retry resumes where the upload stopped. It never sends bytes the server already has.", related: ["#R1"] },
       { id: "R3", text: "The pause before a retry doubles each time, starting at `retry.first-pause` and never exceeding 30 s." },
       { id: "R5", text: "A `Retry-After` header sets the pause before the next retry." },
     ],

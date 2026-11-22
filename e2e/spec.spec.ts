@@ -7,7 +7,7 @@ import { activeScreen, open, screenTitle, trackErrors } from "./helpers";
 const rows = (page: Page) => activeScreen(page).locator(".spec-row");
 const requirements = (page: Page) => activeScreen(page).locator(".spec-req:not(.spec-story)");
 
-// Spec: S9, S10, S24, S29
+// Spec: S9, S10, S24, S29, S36
 test("a repository with a spec links to it, and the outline leads to its items", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket");
@@ -36,6 +36,9 @@ test("a repository with a spec links to it, and the outline leads to its items",
   await expect(stories.locator(".spec-req-head .spec-req-id")).toHaveText(["US-1", "US-2"]);
   await expect(stories.nth(0).locator(".spec-story-text")).toHaveText("As a commuter sending a file from a train, I want the upload to survive the tunnel, so that I don't have to start it again.");
   await expect(requirements(page).locator(".spec-req-head")).toHaveText(["R1must", "R2must", "R3should", "R4may"]);
+  // What an entry touches shows at both ends, whichever of them says so; a story is related to what makes it true.
+  await expect(requirements(page).nth(0).locator(".spec-related-line a")).toHaveText(["R2", "US-1"]);
+  await expect(requirements(page).nth(1).locator(".spec-related-line a")).toHaveText(["R1", "US-1"]);
   // Named values show as what they are, and a requirement that names one shows what it is.
   const values = activeScreen(page).locator(".spec-val");
   await expect(values.locator(".spec-req-id")).toHaveText(["retry.max", "retry.first-pause", "color.retrying", "retry.label"]);

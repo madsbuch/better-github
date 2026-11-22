@@ -12,9 +12,10 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { anchorKey, type Hunk, type Segment, type Side } from "../lib/diff";
 import { to } from "../lib/nav";
 import { setPref, useMediaQuery, usePrefs } from "../lib/prefs";
-import { SPEC_DIR, specTrail, storySentence, type SpecFigure, type SpecRequirement, type SpecStory, type SpecValue } from "../lib/spec";
+import { SPEC_DIR, specTrail, storySentence, type Spec, type SpecFigure, type SpecRequirement, type SpecStory, type SpecValue } from "../lib/spec";
 import { VALUE_TYPE_LABEL } from "../lib/specValues";
 import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange, ValueChange } from "../lib/specDiff";
+import { toReconcile, type ToReconcile } from "../lib/specReconcile";
 import { commentLine, entrySpan, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
 import { foldUnchanged, proseDiff, proseUnits, sideParts, type ProseBlock } from "../lib/specProse";
 import { repoQueries } from "../queries/repos";
@@ -64,7 +65,16 @@ const plural = (count: number, noun: string) => `${count} ${count === 1 ? noun :
 // ----------------------------------------------------------------- summary
 
 /** How much changed, and what takes something away from the spec: the first thing a reviewer should see. */
-export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: ((id: string) => void) | undefined }) {
+export function SpecChangesSummary({
+  diff,
+  onShow,
+  reconcile,
+}: {
+  diff: SpecDiff;
+  onShow?: ((id: string) => void) | undefined;
+  /** What is related to the changes and wasn't changed with them, and where to open each: the newer spec. */
+  reconcile?: { entries: ToReconcile[]; owner: string; repo: string; gitRef: string; partial: boolean } | undefined;
+}) {
   const line = <K extends ItemKind>(counts: Record<K, number>, kinds: readonly K[], noun: string) => {
     const total = kinds.reduce((sum, kind) => sum + counts[kind], 0);
     if (total === 0) return null;
@@ -119,9 +129,42 @@ export function SpecChangesSummary({ diff, onShow }: { diff: SpecDiff; onShow?: 
           </div>
         </div>
       )}
+      {reconcile !== undefined && reconcile.entries.length > 0 && (
+        // Edited one context at a time: whether what touches the change still holds is the next thing to settle.
+        <div className="banner spec-reconcile" role="region" aria-label="To reconcile">
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="bold">{plural(reconcile.entries.length, "related entry")} not changed: check they still hold</div>
+            <ul>
+              {reconcile.entries.slice(0, RECONCILE_SHOWN).map((entry) => (
+                <li key={entry.key}>
+                  <Link {...to.spec(reconcile.owner, reconcile.repo, reconcile.gitRef, entry.kind === "part" ? entry.key : `${entry.node.id}${entry.key}`)} className="bold">
+                    {entry.label}
+                  </Link>{" "}
+                  <span className="small">
+                    <CheckText text={entry.text} />
+                  </span>{" "}
+                  <span className="spec-reconcile-because">Related to {entry.because.join(", ")}.</span>
+                </li>
+              ))}
+            </ul>
+            {reconcile.entries.length > RECONCILE_SHOWN && <div className="small muted">And {reconcile.entries.length - RECONCILE_SHOWN} more.</div>}
+            {reconcile.partial && <div className="small muted">The spec isn't read whole: pointers from parts not read aren't followed.</div>}
+          </div>
+        </div>
+      )}
     </>
   );
 }
+
+/** What a summary needs to list the entries to reconcile; undefined while a side isn't there. */
+export function reconcileFor(diff: SpecDiff, before: Spec | null, after: Spec | null, place: { owner: string; repo: string; gitRef: string }) {
+  if (after === null) return undefined;
+  const partial = [...after.nodes.values()].some((node) => !node.loaded);
+  return { entries: toReconcile(diff, before, after), ...place, partial };
+}
+
+/** How many entries to reconcile are listed before the rest is only counted. */
+const RECONCILE_SHOWN = 20;
 
 /** The item's title on the side that has it, the newer one first. */
 function titleOf(change: ItemChange): string {
@@ -692,6 +735,9 @@ function Field({ change, action }: { change: FieldChange; action: ReactNode }) {
 const levelOf = (requirement: SpecRequirement) => requirement.level ?? "must";
 const REQUIREMENT_KIND: Record<ChangeKind, string> = { added: "Added", removed: "Removed", changed: "Changed" };
 
+const pointers = (entry: { related?: string[] | undefined }) => (entry.related ?? []).map((ref) => ref.replace(/^#/, "")).join(", ");
+const none = (text: string) => (text === "" ? "nothing" : text);
+
 /** A named value that changed: what it was beside what it is, as each looks. */
 function Value({ change, action, comments, selected }: { change: ValueChange; action: ReactNode; comments: ReactNode; selected: boolean }) {
   const { before, after } = change;
@@ -740,6 +786,7 @@ function Value({ change, action, comments, selected }: { change: ValueChange; ac
       )}
       {change.unexplained && <div className="spec-diff-same small spec-same-version">Nothing says why it changed. Add what it was, and the reason, to its history.</div>}
       {before !== null && after !== null && before.description !== after.description && <TextChange before={before.description} after={after.description} />}
+      {before !== null && after !== null && pointers(before) !== pointers(after) && <Move label="Related" before={none(pointers(before))} after={none(pointers(after))} />}
       {(before === null || after === null) && shown.description !== undefined && (
         <div className="spec-diff-same small">
           <CheckText text={shown.description} />
@@ -798,6 +845,7 @@ function Story({ change, action, comments, selected }: { change: StoryChange; ac
       {before !== null && after !== null && (
         <>
           {refs(before) !== refs(after) && <Move label="Made true by" before={refs(before) === "" ? "nothing" : refs(before)} after={refs(after) === "" ? "nothing" : refs(after)} />}
+          {pointers(before) !== pointers(after) && <Move label="Related" before={none(pointers(before))} after={none(pointers(after))} />}
         </>
       )}
       {(before === null || after === null) && refs(shown) !== "" && (
@@ -886,6 +934,7 @@ function Requirement({ change, action, comments, selected }: { change: Requireme
       {before !== null && after !== null && (
         <>
           {levelOf(before) !== levelOf(after) && <Move label="Level" before={levelOf(before)} after={levelOf(after)} />}
+          {pointers(before) !== pointers(after) && <Move label="Related" before={none(pointers(before))} after={none(pointers(after))} />}
         </>
       )}
       {after?.deprecation !== undefined && (

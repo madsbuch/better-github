@@ -110,7 +110,7 @@ test("requirements are revised, deprecated and added while reading, then handed 
   expect(handover).toContain('"reason": "Five retries kept phones awake."');
   expect(handover).toContain("requirement by requirement: R1, R2, R5");
   // The file it hands over is a valid item: the app would read it back.
-  const json = /### `\.spec\/uploads\/retries\.json`\n\n([\s\S]*?)\n\n## What to do/.exec(handover)?.[1] ?? "";
+  const json = /### `\.spec\/uploads\/retries\.json`\n\n([\s\S]*?)\n\n## Reconcile the spec/.exec(handover)?.[1] ?? "";
   const written: unknown = JSON.parse(json.replace(/^ {4}/gm, ""));
   expect(written).toMatchObject({ title: "Retries", requirements: [{ id: "R1", version: 2 }, { id: "R2", deprecation: { reason: "Uploads restart cheaply now." } }, { id: "R3" }, { id: "R4" }, { id: "R5" }] });
   expect(errors).toEqual([]);
@@ -274,5 +274,44 @@ test("a named value is edited with the input that fits it, and a change to what 
   expect(handover).toContain("- color.retrying: was #9a6700 (dark: #d29922), now #1f6feb (dark: #d29922). Why: Amber read as an error.");
   expect(handover).toContain("- upload.max-size: new number value, 200 MB.");
   expect(handover).toContain("value by value: color.retrying, upload.max-size");
+});
+
+// Spec: RW16
+test("related entries are set while reworking, and the handover asks the agent to reconcile", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
+  await activeScreen(page).getByRole("button", { name: "Rework the spec" }).click();
+  const r3 = requirement(page, "R3");
+  // What it touches: ids, checked against the spec.
+  await r3.getByRole("button", { name: "What R3 is related to" }).click();
+  await sheet(page).getByRole("textbox").fill("retry.first-pause, E9");
+  await expect(sheet(page)).toContainText("Not in the spec: E9.");
+  await expect(sheet(page).getByRole("button", { name: "Save" })).toBeDisabled();
+  await sheet(page).getByRole("textbox").fill("retry.first-pause, E1");
+  await sheet(page).getByRole("button", { name: "Save" }).click();
+  await expect(r3.locator(".spec-related-line a")).toHaveText(["E1", "retry.first-pause"]);
+  // It shows at the other end too.
+  await expect(activeScreen(page).locator('.spec-val[data-value="retry.first-pause"] .spec-related-line a')).toHaveText(["R3"]);
+
+  // Change R1 freely; what it touches is listed for afterwards, not asked about now.
+  await requirement(page, "R1").getByRole("button", { name: "Revise" }).click();
+  await sheet(page).getByLabel("What it should say").fill("An upload that fails is retried, up to three times.");
+  await sheet(page).getByLabel("Why it changes").fill("Five retries kept phones awake.");
+  await sheet(page).getByRole("button", { name: "Save" }).click();
+  const copied = clipboard(page);
+  await bar(page).getByRole("button", { name: "Review & hand over" }).click();
+  const reconcile = sheet(page).getByRole("region", { name: "To reconcile" });
+  await expect(reconcile.locator("li a")).toHaveText(["E1", "R2", "retry.first-pause", "US-1"]);
+  await expect(reconcile.locator("li").nth(1)).toContainText("Related to R1.");
+  await expect(sheet(page).locator('.spec-diff-req[data-req="R3"]')).toContainText("Related nothing → retry.first-pause, E1");
+
+  await sheet(page).getByRole("button", { name: "Copy for my agent" }).click();
+  await expect(page.locator(".toast", { hasText: "Copied." })).toBeVisible();
+  const handover = copied()[0] ?? "";
+  expect(handover).toContain("## Reconcile the spec");
+  expect(handover).toContain('- R2: "A retry resumes where the upload stopped. It never sends bytes the server already has." Related to R1.');
+  expect(handover).toContain("Where two entries contradict each other and the change doesn't say which one wins, don't choose.");
+  expect(handover).toContain("3. Reconcile the spec (above), before touching the product.");
+  expect(handover).toContain("- R3: now related to retry.first-pause, E1.");
+  expect(handover).toMatch(/"related": \[\s+"#retry\.first-pause",\s+"#E1"\s+\]/);
 });
 

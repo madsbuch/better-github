@@ -19,6 +19,8 @@ import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
   findInSpec,
+  relatedTo,
+  specKey,
   requirementStatus,
   SPEC_FINDS,
   specFindCounts,
@@ -409,7 +411,13 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
   const requirements = item?.requirements ?? [];
   const figures = item?.figures ?? [];
   const stories = item?.stories ?? [];
-  const related = item?.related ?? [];
+  // What the part points at, and what points at it: related holds from both ends.
+  const own = item?.related ?? [];
+  const ownKeys = own.flatMap((ref) => {
+    const target = resolveSpecRef(spec, ref);
+    return target === null ? [] : [specKey(target)];
+  });
+  const related = [...own, ...relatedTo(spec, node.id).map((target) => target.key).filter((key) => !ownKeys.includes(key))];
   const values = item?.values ?? [];
 
   const reworking = useReworking() !== null;
@@ -608,6 +616,7 @@ function Story({
         </div>
       )}
       {deprecated && <Deprecation spec={spec} place={place} deprecation={story.deprecation} />}
+      <RelatedLine spec={spec} place={place} from={`#${story.id}`} skip={story.requirements ?? []} />
       <StoryTools node={node} story={story} />
     </div>
   );
@@ -690,6 +699,7 @@ function Requirement({
         <SpecText text={requirement.text} />
       </div>
       {deprecated && <Deprecation spec={spec} place={place} deprecation={requirement.deprecation} />}
+      <RelatedLine spec={spec} place={place} from={`#${requirement.id}`} />
       <RequirementTools node={node} requirement={requirement} />
       {showHistory && (
         // Newest first: why it says what it says now, then how it got there.
@@ -721,6 +731,26 @@ function Requirement({
   );
 }
 
+/**
+ * What an entry touches, from either end: a change to it may matter to these.
+ * `skip`: pointers the entry already shows another way.
+ */
+function RelatedLine({ spec, place, from, skip = [] }: { spec: Spec; place: Place; from: string; skip?: string[] }) {
+  const related = relatedTo(spec, from).filter((target) => !skip.some((ref) => ref === target.key || ref.endsWith(target.key)));
+  if (related.length === 0) return null;
+  return (
+    <p className="spec-related-line">
+      <span className="muted">Related</span>
+      {related.map((target) => (
+        // An entry by its id; a part by its title, which isn't one.
+        <Link key={target.key} {...to.spec(place.owner, place.repo, place.gitRef, specTarget(target))} className={target.key.startsWith("#") ? "spec-req-id" : "spec-related-part"}>
+          {target.requirement?.id ?? target.story?.id ?? target.value?.id ?? target.node.title}
+        </Link>
+      ))}
+    </p>
+  );
+}
+
 /** A named value: what it is called, what it is, and what it was before. */
 function Value({ spec, place, node, value, inherited, current }: { spec: Spec; place: Place; node: SpecNode; value: SpecValue; inherited: SpecStatus | undefined; current: boolean }) {
   const deprecated = specStatus(value) === "deprecated";
@@ -747,6 +777,7 @@ function Value({ spec, place, node, value, inherited, current }: { spec: Spec; p
         </p>
       )}
       {deprecated && <Deprecation spec={spec} place={place} deprecation={value.deprecation} />}
+      <RelatedLine spec={spec} place={place} from={`#${value.id}`} />
       <ValueTools node={node} value={value} />
       {showHistory && (
         // Newest first: why it is what it is now, then how it got there.

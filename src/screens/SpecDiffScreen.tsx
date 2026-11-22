@@ -10,7 +10,7 @@ import { repoQueries } from "../queries/repos";
 import { useSpecDiff } from "../queries/spec";
 import { BranchSheet } from "../components/BranchSheet";
 import { Screen } from "../components/Screen";
-import { SpecChangeCard, SpecChangesSummary, SpecLayoutButton } from "../components/SpecChanges";
+import { reconcileFor, SpecChangeCard, SpecChangesSummary, SpecLayoutButton } from "../components/SpecChanges";
 import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
 
 const route = getRouteApi("/$owner/$repo/spec-diff");
@@ -108,7 +108,7 @@ export function SpecDiffScreen() {
                   {before.spec === null ? `${base} has no spec: all of it is new on ${head}.` : `${head} has no spec: all of it is removed.`}
                 </div>
               )}
-              <SpecChangesSummary diff={diff} onShow={show} />
+              <SpecChangesSummary diff={diff} onShow={show} reconcile={reconcileFor(diff, before.spec, after.spec, { owner, repo, gitRef: head })} />
               {(before.contentsError ?? after.contentsError) !== null && (
                 <div className="banner banner-danger">
                   <span className="grow">Some items couldn't be read.</span>

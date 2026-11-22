@@ -91,6 +91,13 @@
     {
       "id": "RW15",
       "text": "While reworking, a named value can be added, revised and deprecated. Its input fits its type: a color picker with the hex beside it, a number with a unit for sizes and times, one name per line for a list. Changing what a value is asks why, and records what it was."
+    },
+    {
+      "id": "RW16",
+      "text": "While reworking, what a requirement, story or value is related to can be set. The review lists what the changes are related to and didn't change, and both handovers tell the agent to reconcile the spec first: check each of those, find what nobody linked and link it, and report contradictions instead of settling them.",
+      "related": [
+        "#SR18"
+      ]
     }
   ],
   "related": [

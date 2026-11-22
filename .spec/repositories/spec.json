@@ -226,6 +226,14 @@
     {
       "id": "S35",
       "text": "A search over everything also shows what was dropped, marked as deprecated, so an idea that was dropped before is seen before it is added again."
+    },
+    {
+      "id": "S36",
+      "text": "A requirement, a user story and a named value can say what else they are related to, as a part can. It is written at one end and shown at both. A story is related to the requirements that make it true. A pointer that leads nowhere is listed as a problem.",
+      "related": [
+        "#SR18",
+        "#RW16"
+      ]
     }
   ],
   "values": [
