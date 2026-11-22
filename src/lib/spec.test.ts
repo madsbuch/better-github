@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import committedSchema from "../../schema/spec.schema.json";
-import { buildSpec, searchSpec, SpecItem, storySentence, valueText, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, unloadedBelow, type SpecFile } from "./spec";
+import { buildSpec, findInSpec, searchSpec, specFindCounts, SpecItem, storySentence, valueText, specCounts, specJsonSchema, specTextBlocks, specTrail, resolveSpecRef, unloadedBelow, type SpecFile } from "./spec";
 
 const file = (path: string, value: unknown): SpecFile => ({ path, text: typeof value === "string" ? value : JSON.stringify(value), truncated: false });
 
@@ -334,6 +334,53 @@ describe("this repository's own .spec", () => {
       { id: "a", type: "money", value: 5 },
     ];
     for (const value of bad) expect(SpecItem.safeParse({ title: "X", values: [value] }).success).toBe(false);
+  });
+});
+
+describe("the index of a spec, and the search over it", () => {
+  const spec = buildSpec([
+    file("index.json", { title: "Rocket" }),
+    file("uploads/index.json", { title: "Uploads", summary: "Sending a file." }),
+    file("uploads/retries.json", {
+      title: "Retries",
+      stories: [{ id: "US-1", as: "a commuter", want: "uploads to survive tunnels" }],
+      requirements: [
+        { id: "R10", text: "Gives up after a minute." },
+        { id: "R2", text: "Resumes where it stopped.", version: 2, history: [{ version: 1, text: "Starts over.", reason: "Trains have tunnels." }] },
+        { id: "R1", text: "Retried up to `retry.max` times." },
+        { id: "R3", text: "Writes a log of every retry.", deprecation: { reason: "Nobody read the log." } },
+      ],
+      values: [{ id: "retry.max", type: "number", value: 5, unit: "times" }],
+    }),
+    file("old.json", { title: "Legacy uploader", deprecation: { reason: "Replaced by resumable uploads." }, requirements: [{ id: "L1", text: "Uploads in one request." }] }),
+  ]);
+  const ids = (entries: { kind: string; id: string }[]) => entries.map((entry) => `${entry.kind}:${entry.id}`);
+
+  it("lists every entry of a kind by id, the way a person orders ids, and what was dropped apart", () => {
+    expect(ids(findInSpec(spec, "", "requirements"))).toEqual(["requirement:R1", "requirement:R2", "requirement:R10"]);
+    expect(ids(findInSpec(spec, "", "stories"))).toEqual(["story:US-1"]);
+    expect(ids(findInSpec(spec, "", "values"))).toEqual(["value:retry.max"]);
+    // What was dropped, of any kind. A dropped part stands for what is in it.
+    expect(ids(findInSpec(spec, "", "deprecated"))).toEqual(["part:old", "requirement:R3"]);
+    // Everything, unasked, is the outline's to show.
+    expect(findInSpec(spec, "", "all")).toEqual([]);
+    expect(specFindCounts(spec)).toEqual({ requirements: 3, stories: 1, values: 1, deprecated: 3 });
+  });
+
+  it("finds by id first, then by what an entry says, then by what it used to say and why it went", () => {
+    // The entry whose id it is comes before ids that only start with it.
+    expect(ids(findInSpec(spec, "r1", "all"))).toEqual(["requirement:R1", "requirement:R10"]);
+    expect(ids(findInSpec(spec, "retry", "all"))).toEqual(["value:retry.max", "requirement:R1", "requirement:R3"]);
+    // By what it used to say, and by why it changed.
+    expect(ids(findInSpec(spec, "tunnels", "all"))).toEqual(["story:US-1", "requirement:R2"]);
+    // A search over everything shows what was dropped too, marked: the idea has been here before.
+    expect(findInSpec(spec, "log", "all").map((entry) => [entry.id, entry.deprecated])).toEqual([["R3", true]]);
+    expect(findInSpec(spec, "log", "requirements")).toEqual([]);
+    expect(ids(findInSpec(spec, "resumable", "deprecated"))).toEqual(["part:old"]);
+    // A part is found by its path, its title and its summary.
+    expect(ids(findInSpec(spec, "uploads", "all")).slice(0, 2)).toEqual(["part:uploads", "part:uploads/retries"]);
+    expect(ids(findInSpec(spec, "legacy uploader", "all"))).toEqual(["part:old"]);
+    expect(findInSpec(spec, "nothing like this", "all")).toEqual([]);
   });
 });
 

@@ -8,12 +8,14 @@ import { SpecScreen } from "../../../screens/SpecScreen";
 export const Route = createFileRoute("/$owner/$repo/spec")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { ref?: string | undefined; id?: string | undefined; r?: string | undefined; q?: string | undefined } => ({
+  ): { ref?: string | undefined; id?: string | undefined; r?: string | undefined; q?: string | undefined; k?: string | undefined } => ({
     ref: optionalString(search.ref),
     // An item ("uploads/retries"), one of its requirements, and the outline's filter.
     id: optionalString(search.id),
     r: optionalString(search.r),
     q: optionalString(search.q),
+    // What the outline's index shows: requirements, stories, values or deprecated.
+    k: optionalString(search.k),
   }),
   loaderDeps: ({ search }) => ({ ref: search.ref }),
   loader: ({ context: { queryClient }, params: { owner, repo }, deps, preload }) =>

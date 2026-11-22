@@ -18,11 +18,15 @@ import { useEffect, useMemo, useState } from "react";
 import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
+  findInSpec,
   requirementStatus,
+  SPEC_FINDS,
+  specFindCounts,
+  type SpecEntry,
+  type SpecFind,
   specStatus,
   requirementVersion,
   resolveSpecRef,
-  searchSpec,
   SPEC_DIR,
   specCounts,
   specFilesAround,
@@ -42,7 +46,8 @@ import {
   type SpecStory,
 } from "../lib/spec";
 import { repoQueries } from "../queries/repos";
-import { useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
+import { errorMessage } from "../lib/api";
+import { specQueries, useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { applyRework, useSpecRework } from "../lib/specRework";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
@@ -124,6 +129,12 @@ export function SpecScreen() {
               <GitCompareIcon size={18} />
             </Link>
           )}
+          {node !== null && id !== "" && (
+            // From any part: the index of every requirement by id, with the search over the whole spec.
+            <Link {...to.spec(owner, repo, search.ref, undefined, undefined, "requirements")} className="icon-btn" aria-label="Search and index">
+              <SearchIcon size={18} />
+            </Link>
+          )}
           {node !== null && node.file !== null && (
             <Link {...to.blob(owner, repo, gitRef, node.file)} className="icon-btn" aria-label="View source">
               <CodeIcon size={18} />
@@ -172,7 +183,7 @@ export function SpecScreen() {
             <ReworkContext.Provider value={reworking}>
               <SpecValuesProvider values={spec.values}>
               {id === "" ? (
-                <Outline spec={spec} loaded={loaded} place={place} initialFilter={search.q ?? ""} />
+                <Outline spec={spec} loaded={loaded} place={place} initialFilter={search.q ?? ""} initialFind={SPEC_FINDS.find((option) => option === search.k) ?? "all"} />
               ) : (
                 <>
                   <Trail node={node} place={place} />
@@ -199,22 +210,36 @@ export function SpecScreen() {
 
 // ----------------------------------------------------------------- outline
 
-/** The spec's first page: what it is, a filter over everything in it, and its top-level parts. */
-function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: LoadedSpec; place: Place; initialFilter: string }) {
+const FIND_LABEL: Record<SpecFind, string> = { all: "Outline", requirements: "Requirements", stories: "User stories", values: "Values", deprecated: "Deprecated" };
+const ENTRY_KIND: Record<SpecEntry["kind"], string> = { part: "Part", story: "User story", requirement: "Requirement", value: "Value" };
+
+/**
+ * The spec's first page: what it is and its top-level parts, an index of every
+ * requirement, user story and value by id, and a search over all of it.
+ */
+function Outline({ spec, loaded, place, initialFilter, initialFind }: { spec: Spec; loaded: LoadedSpec; place: Place; initialFilter: string; initialFind: SpecFind }) {
   const nav = useNav();
   const [filter, setFilter] = useState(initialFilter);
+  const [find, setFind] = useState(initialFind);
   const filtering = filter.trim() !== "";
-  // Filtering looks at every item, so a large spec is read in full the first time it is filtered.
-  const unread = useMemo(() => (filtering ? unloadedBelow(spec.root) : []), [filtering, spec]);
+  // An index, or a search: either looks at every item, so a large spec is read in full the first time.
+  const listing = filtering || find !== "all";
+  const unread = useMemo(() => (listing ? unloadedBelow(spec.root) : []), [listing, spec]);
   useSpecContents(loaded, unread);
   const [shown, setShown] = useState(PAGE);
-  // The filter is in the URL too, so coming back from a result shows the results again.
-  const change = (next: string) => {
-    setFilter(next);
-    nav.replace(to.spec(place.owner, place.repo, place.gitRef, undefined, next));
+  // Both are in the URL too, so coming back from a result shows the results again.
+  const change = (nextFilter: string, nextFind: SpecFind) => {
+    setFilter(nextFilter);
+    setFind(nextFind);
+    setShown(PAGE);
+    nav.replace(to.spec(place.owner, place.repo, place.gitRef, undefined, nextFilter, nextFind));
   };
-  const matches = searchSpec(spec, filter);
+  const found = useMemo(() => findInSpec(spec, filter, find), [spec, filter, find]);
+  const findCounts = useMemo(() => specFindCounts(spec), [spec]);
   const counts = specCounts(spec.root);
+  const target = (entry: SpecEntry) => (entry.kind === "part" ? entry.id : `${entry.node.id}#${entry.id}`);
+  // Typing an id and pressing Enter goes there.
+  const exact = filtering ? found.find((entry) => entry.kind !== "part" && entry.id.toLowerCase() === filter.trim().toLowerCase()) : undefined;
 
   return (
     <>
@@ -222,57 +247,68 @@ function Outline({ spec, loaded, place, initialFilter }: { spec: Spec; loaded: L
         <SearchIcon size={16} />
         <input
           type="search"
-          placeholder="Filter the spec"
-          aria-label="Filter the spec"
+          placeholder="Search the spec, or type an id"
+          aria-label="Search the spec"
           value={filter}
-          onChange={(e) => change(e.target.value)}
+          onChange={(e) => change(e.target.value, find)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && exact !== undefined) nav.navigate(to.spec(place.owner, place.repo, place.gitRef, target(exact)));
+          }}
           autoCapitalize="off"
           autoCorrect="off"
           enterKeyHint="search"
         />
         {filter !== "" && (
-          <button className="icon-btn sm" aria-label="Clear" onClick={() => change("")}>
+          <button className="icon-btn sm" aria-label="Clear" onClick={() => change("", find)}>
             <XIcon size={14} />
           </button>
         )}
       </div>
-      {filtering && unread.length > 0 && (
+      <div className="chips spec-find" role="radiogroup" aria-label="Show">
+        {SPEC_FINDS.filter((option) => option === "all" || option === find || counts.unloaded > 0 || findCounts[option] > 0).map((option) => (
+          <button key={option} role="radio" aria-checked={find === option} className={find === option ? "chip active" : "chip"} onClick={() => change(filter, option)}>
+            {FIND_LABEL[option]}
+            {option !== "all" && counts.unloaded === 0 && <span className="counter">{findCounts[option].toLocaleString()}</span>}
+          </button>
+        ))}
+      </div>
+      {listing && unread.length > 0 && (
         <p className="spec-counts muted small" role="status">
           Reading the spec: {(counts.items - unread.length).toLocaleString()} of {plural(counts.items, "item")} so far…
         </p>
       )}
-      {filtering ? (
-        matches.length === 0 ? (
-          unread.length > 0 ? null : (
-            <EmptyState title="Nothing matches">No item or requirement contains “{filter.trim()}”.</EmptyState>
+      {listing &&
+        (found.length === 0 ? (
+          unread.length > 0 ? null : filtering ? (
+            <EmptyState title="Nothing matches">
+              Nothing {find === "all" ? "in the spec" : `among the ${FIND_LABEL[find].toLowerCase()}`} contains “{filter.trim()}”.
+            </EmptyState>
+          ) : (
+            <EmptyState title={`No ${FIND_LABEL[find].toLowerCase()}`}>{find === "deprecated" ? "Nothing was dropped from this spec." : "This spec has none."}</EmptyState>
           )
         ) : (
-          matches.slice(0, shown).map(({ node, stories, requirements, values }) => {
-            // A part matches as a whole, or by the user stories, requirements and values in it that do.
-            const hits = [
-              ...stories.map((story) => ({ id: story.id, text: storySentence(story) })),
-              ...requirements.map((r) => ({ id: r.id, text: r.text })),
-              ...values.map((v) => ({ id: v.id, text: `${v.type === "text" ? `“${v.value}”` : valueText(v)}${v.description !== undefined ? `: ${v.description}` : ""}` })),
-            ];
-            if (hits.length === 0) return <NodeRow key={node.id} node={node} place={place} showPath />;
-            return hits.map((hit) => (
-              <Link key={`${node.id}#${hit.id}`} {...to.spec(place.owner, place.repo, place.gitRef, `${node.id}#${hit.id}`)} className="row spec-row">
+          found.slice(0, shown).map((entry) =>
+            entry.kind === "part" && !entry.deprecated ? (
+              <NodeRow key={`part:${entry.id}`} node={entry.node} place={place} showPath />
+            ) : (
+              <Link key={`${entry.kind}:${entry.node.id}#${entry.id}`} {...to.spec(place.owner, place.repo, place.gitRef, target(entry))} className="row spec-row spec-entry" data-kind={entry.kind} data-deprecated={entry.deprecated}>
                 <span className="row-body">
                   <span className="row-meta">
-                    <span className="spec-req-id">{hit.id}</span>
-                    <span className="ellipsis">{specTrail(node).map((n) => n.title).join(" / ")}</span>
+                    <span className="spec-req-id">{entry.kind === "part" ? entry.node.title : entry.id}</span>
+                    {(find === "all" || find === "deprecated") && <span className="spec-entry-kind">{ENTRY_KIND[entry.kind]}</span>}
+                    {entry.deprecated && find !== "deprecated" && <span className="pill pill-attention spec-status">Deprecated</span>}
+                    <span className="ellipsis">{specTrail(entry.kind === "part" ? (entry.node.parent ?? entry.node) : entry.node).map((n) => n.title).join(" / ")}</span>
                   </span>
                   <span className="spec-row-summary">
-                    <CheckText text={hit.text} />
+                    <CheckText text={entry.text} />
                   </span>
                 </span>
               </Link>
-            ));
-          })
-        )
-      ) : null}
-      {filtering && <LoadMore hasMore={matches.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />}
-      {filtering ? null : (
+            ),
+          )
+        ))}
+      {listing && <LoadMore hasMore={found.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />}
+      {listing ? null : (
         <>
           <Problems spec={spec} place={place} />
           <Item spec={spec} node={spec.root} place={place} current={undefined} />
@@ -656,6 +692,7 @@ function Requirement({
       </div>
       {deprecated && <Deprecation spec={spec} place={place} deprecation={requirement.deprecation} />}
       <RequirementTools node={node} requirement={requirement} />
+      <Cited place={place} id={requirement.id} deprecated={deprecated || inherited === "deprecated"} />
       {showHistory && (
         // Newest first: why it says what it says now, then how it got there.
         <ol className="spec-history" aria-label={`Earlier versions of ${requirement.id}`}>
@@ -732,6 +769,56 @@ function Value({ spec, place, node, value, inherited, current }: { spec: Spec; p
           ))}
         </ol>
       )}
+    </div>
+  );
+}
+
+/**
+ * Where the code cites a requirement, as "Spec: <id>": looked up in the code
+ * when asked for. The spec itself holds nothing about code.
+ */
+function Cited({ place, id, deprecated }: { place: Place; id: string; deprecated: boolean }) {
+  const guest = useIsGuest();
+  const [open, setOpen] = useState(false);
+  const cited = useQuery({ ...specQueries.cited(place.owner, place.repo, id), enabled: open && !guest });
+  // Searching code needs an account.
+  if (guest) return null;
+  return (
+    <div className="spec-cited">
+      <button className="spec-cited-toggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={`Where the code cites ${id}`}>
+        {open ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />} <CodeIcon size={12} /> Cited in code
+        {cited.data !== undefined && ` · ${cited.data.paths.length}`}
+      </button>
+      {open &&
+        (cited.isPending ? (
+          <p className="muted small spec-cited-note">Searching the code…</p>
+        ) : cited.isError ? (
+          <p className="small spec-cited-note">
+            <span className="c-danger">{errorMessage(cited.error)}</span>{" "}
+            <button className="btn btn-sm" onClick={() => void cited.refetch()}>
+              Retry
+            </button>
+          </p>
+        ) : cited.data.paths.length === 0 ? (
+          <p className="muted small spec-cited-note">
+            {deprecated ? "Nothing cites it any more." : `Nothing on the default branch has a comment “Spec: ${id}”.`}
+          </p>
+        ) : (
+          <>
+            {/* What still cites something that was dropped is what is left to remove. */}
+            {deprecated && <p className="small spec-cited-note c-attention">It was dropped from the spec, and the code still cites it:</p>}
+            <ul className="spec-cited-list">
+              {cited.data.paths.map((path) => (
+                <li key={path}>
+                  <Link {...to.blob(place.owner, place.repo, undefined, path)} className="mono small">
+                    {path}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {cited.data.more && <p className="muted small spec-cited-note">There may be more: GitHub returned only the first files it found.</p>}
+          </>
+        ))}
     </div>
   );
 }

@@ -192,6 +192,14 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
 - `figures` name pictures by their path from `.spec`. `related` lists ids of
   other items (`uploads/errors`) or requirements (`#ERR-1`, or
   `uploads/errors#ERR-1`).
+- **Index and search.** The spec's first page lists every requirement, user
+  story and named value by id, and everything that was dropped. Its search
+  covers all of it and puts the id you typed first; Enter on an exact id opens
+  it. Searching everything also shows what was dropped, so an idea that was
+  dropped before is seen before it is added again.
+- **Cited in code.** A requirement shows, on request, the files that carry a
+  `Spec:` comment with its id. They are found with GitHub's code search (the
+  default branch only), not stored in the spec.
 - **The code cites the spec, not the other way round.** A comment
   `// Spec: RET-1` sits on the code that meets a requirement and above the
   test that proves it. Searching the code base for an id finds what to change

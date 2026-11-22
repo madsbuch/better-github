@@ -654,6 +654,119 @@ export function searchSpec(spec: Spec, query: string): SpecMatch[] {
   return matches;
 }
 
+// ------------------------------------------------------------------- index
+
+export type SpecEntryKind = "part" | "story" | "requirement" | "value";
+
+/** One thing in a spec that can be found: a part, or a story, requirement or value in one. */
+export interface SpecEntry {
+  kind: SpecEntryKind;
+  /** The entry's own id ("RET-1", "color.accent"); a part's is its path ("uploads/retries"). */
+  id: string;
+  /** The part it is, or is in. */
+  node: SpecNode;
+  /** What it says, in a line. */
+  text: string;
+  /** Dropped from the spec, by its own record or with its part. */
+  deprecated: boolean;
+}
+
+/** What to look through: everything, one kind of entry, or what was dropped. */
+export const SPEC_FINDS = ["all", "requirements", "stories", "values", "deprecated"] as const;
+export type SpecFind = (typeof SPEC_FINDS)[number];
+
+/** Ids the way a person orders them: R2 before R10, and color.accent next to color.danger. */
+const byId = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+
+const valueLine = (value: SpecValue) => `${value.type === "text" ? `“${value.value}”` : valueText(value)}${value.description !== undefined ? `: ${value.description}` : ""}`;
+
+interface Indexed extends SpecEntry {
+  /** Everything else it can be found by: what it used to say, why it changed, why it was dropped. */
+  more: string;
+}
+
+function entries(spec: Spec): Indexed[] {
+  const found: Indexed[] = [];
+  for (const node of spec.nodes.values()) {
+    const item = node.item;
+    if (node.id !== "") {
+      found.push({ kind: "part", id: node.id, node, text: item?.summary ?? node.title, deprecated: specStatus(item) !== undefined, more: [node.title, item?.description ?? "", item?.deprecation?.reason ?? ""].join("\n") });
+    }
+    for (const story of item?.stories ?? []) {
+      found.push({ kind: "story", id: story.id, node, text: storySentence(story), deprecated: requirementStatus(item, story) !== undefined, more: story.deprecation?.reason ?? "" });
+    }
+    for (const requirement of item?.requirements ?? []) {
+      found.push({
+        kind: "requirement",
+        id: requirement.id,
+        node,
+        text: requirement.text,
+        deprecated: requirementStatus(item, requirement) !== undefined,
+        more: [requirement.deprecation?.reason ?? "", ...(requirement.history ?? []).flatMap((earlier) => [earlier.text, earlier.reason])].join("\n"),
+      });
+    }
+    for (const value of item?.values ?? []) {
+      found.push({
+        kind: "value",
+        id: value.id,
+        node,
+        text: valueLine(value),
+        deprecated: requirementStatus(item, value) !== undefined,
+        more: [value.type === "color" ? (value.dark ?? "") : "", value.deprecation?.reason ?? "", ...(value.history ?? []).map((earlier) => earlier.reason)].join("\n"),
+      });
+    }
+  }
+  return found;
+}
+
+const FIND_KIND: Record<Exclude<SpecFind, "all" | "deprecated">, SpecEntryKind> = { requirements: "requirement", stories: "story", values: "value" };
+
+/** How many entries each way of looking holds, for the index's tabs. Parts aren't counted: the outline is their index. */
+export function specFindCounts(spec: Spec): Record<Exclude<SpecFind, "all">, number> {
+  const counts = { requirements: 0, stories: 0, values: 0, deprecated: 0 };
+  for (const entry of entries(spec)) {
+    if (entry.deprecated) counts.deprecated++;
+    else if (entry.kind === "requirement") counts.requirements++;
+    else if (entry.kind === "story") counts.stories++;
+    else if (entry.kind === "value") counts.values++;
+  }
+  return counts;
+}
+
+/**
+ * The index of a spec, and the search over it. Without a query: every entry of
+ * one kind in the order of its id (nothing for "all", which is the outline's).
+ * With one: what contains every word, best first: the entry whose id it is,
+ * ids that start with or contain it, then what an entry says, then what it
+ * used to say and why it changed or was dropped. One kind holds only what is
+ * still in the spec; "deprecated" holds what was dropped, of any kind; "all"
+ * holds both, so a search shows when an idea was dropped before.
+ */
+export function findInSpec(spec: Spec, query: string, within: SpecFind): SpecEntry[] {
+  const words = query.toLowerCase().split(/\s+/).filter((word) => word !== "");
+  if (words.length === 0 && within === "all") return [];
+  const whole = words.join(" ");
+  const has = (text: string) => {
+    const lower = text.toLowerCase();
+    return words.every((word) => lower.includes(word));
+  };
+  const ranked: { entry: SpecEntry; rank: number }[] = [];
+  for (const { more, ...entry } of entries(spec)) {
+    if (within === "deprecated" ? !entry.deprecated : within !== "all" && (entry.kind !== FIND_KIND[within] || entry.deprecated)) continue;
+    // In the index of what was dropped, a part stands for everything in it.
+    if (within === "deprecated" && entry.kind !== "part" && specStatus(entry.node.item) !== undefined) continue;
+    if (words.length === 0) {
+      ranked.push({ entry, rank: 0 });
+      continue;
+    }
+    const id = entry.id.toLowerCase();
+    const title = entry.kind === "part" ? entry.node.title.toLowerCase() : "";
+    const rank = id === whole || title === whole ? 0 : id.startsWith(whole) ? 1 : id.includes(whole) || (title !== "" && has(title)) ? 2 : has(entry.text) ? 3 : has(`${entry.id}\n${entry.text}\n${more}`) ? 4 : -1;
+    if (rank !== -1) ranked.push({ entry, rank });
+  }
+  return ranked.sort((a, b) => (a.rank !== b.rank ? a.rank - b.rank : byId.compare(a.entry.id, b.entry.id))).map(({ entry }) => entry);
+}
+
 // -------------------------------------------------------------------- text
 
 export type SpecTextBlock = { kind: "paragraph"; text: string } | { kind: "list"; items: string[] };

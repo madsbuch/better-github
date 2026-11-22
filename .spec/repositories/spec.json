@@ -59,7 +59,16 @@
     },
     {
       "id": "S6",
-      "text": "The outline can be filtered by the words in titles, summaries, descriptions and requirements. A matching requirement opens its item with that requirement highlighted."
+      "text": "The spec can be searched by the words in titles, summaries, descriptions, requirements, user stories and values. A result opens its part with the entry highlighted.",
+      "history": [
+        {
+          "version": 1,
+          "text": "The outline can be filtered by the words in titles, summaries, descriptions and requirements. A matching requirement opens its item with that requirement highlighted.",
+          "reason": "The filter became a search with an index: results are single entries, ranked, and can be narrowed by kind.",
+          "date": "2026-11-22"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "S7",
@@ -197,6 +206,22 @@
     {
       "id": "S31",
       "text": "The format's description, the agent prompt and both handovers tell a coding agent to cite requirement ids in the code and tests it writes, as a comment `Spec:` followed by the ids. The spec itself still names no code."
+    },
+    {
+      "id": "S32",
+      "text": "A requirement shows, on request, the files that cite it: those with a comment `Spec:` followed by its id as an id of its own. They are found by searching the repository's code on its default branch, not stored in the spec. A deprecated requirement that is still cited says so."
+    },
+    {
+      "id": "S33",
+      "text": "The spec's first page has an index: every requirement, user story and named value by id, in the order a person reads ids, and everything that was dropped. A dropped part stands for what is in it."
+    },
+    {
+      "id": "S34",
+      "text": "The search covers parts, requirements, user stories and values, and can be narrowed to one kind. The entry whose id was typed comes first, then ids that start with or contain it, then what entries say, then what they used to say and why they changed or were dropped. Enter on an exact id opens it."
+    },
+    {
+      "id": "S35",
+      "text": "A search over everything also shows what was dropped, marked as deprecated, so an idea that was dropped before is seen before it is added again."
     }
   ],
   "values": [

@@ -121,7 +121,7 @@ test("a requirement shows its version, and what it said before with why that cha
 // Spec: S6
 test("the outline filters items and requirements", async ({ page }) => {
   await open(page, "/acme/rocket/spec");
-  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("no error message");
+  await activeScreen(page).getByRole("searchbox", { name: "Search the spec" }).fill("no error message");
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page)).toContainText("E2");
   await expect(rows(page)).toContainText("Uploads / Errors");
@@ -130,12 +130,82 @@ test("the outline filters items and requirements", async ({ page }) => {
 
   // Coming back shows the results again.
   await page.goBack();
-  await expect(activeScreen(page).getByRole("searchbox", { name: "Filter the spec" })).toHaveValue("no error message");
+  await expect(activeScreen(page).getByRole("searchbox", { name: "Search the spec" })).toHaveValue("no error message");
   await expect(rows(page)).toHaveCount(1);
-  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("retries");
+  await activeScreen(page).getByRole("searchbox", { name: "Search the spec" }).fill("retries");
   await expect(rows(page).locator(".row-title")).toHaveText(["Retries"]);
-  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("zzz");
+  await activeScreen(page).getByRole("searchbox", { name: "Search the spec" }).fill("zzz");
   await expect(activeScreen(page)).toContainText("Nothing matches");
+});
+
+// Spec: S33, S34, S35
+test("the spec has an index by id, and a search that puts the id you typed first", async ({ page }) => {
+  await open(page, "/acme/rocket/spec");
+  const show = activeScreen(page).getByRole("radiogroup", { name: "Show" });
+  await expect(show.getByRole("radio")).toHaveText(["Outline", "Requirements7", "User stories2", "Values4", "Deprecated1"]);
+
+  // Every requirement by id, in the order a person reads ids, each saying where it is.
+  await show.getByRole("radio", { name: /Requirements/ }).click();
+  await expect(rows(page).locator(".spec-req-id")).toHaveText(["C1", "E1", "E2", "R1", "R2", "R3", "R4"]);
+  await expect(rows(page).nth(3)).toContainText("Uploads / Retries");
+  // The index is in the address too: coming back lands on it.
+  await rows(page).nth(3).click();
+  await expect(requirements(page).nth(0)).toHaveAttribute("data-current", "true");
+  await page.goBack();
+  await expect(show.getByRole("radio", { name: /Requirements/ })).toBeChecked();
+
+  await show.getByRole("radio", { name: /Values/ }).click();
+  await expect(rows(page).locator(".spec-req-id")).toHaveText(["color.retrying", "retry.first-pause", "retry.label", "retry.max"]);
+  // What was dropped has an index of its own.
+  await show.getByRole("radio", { name: /Deprecated/ }).click();
+  await expect(rows(page).locator(".spec-req-id")).toHaveText(["E3"]);
+  await expect(rows(page).locator(".spec-entry-kind")).toHaveText(["Requirement"]);
+
+  // Searching everything: the entry whose id was typed comes first, and Enter opens it.
+  await show.getByRole("radio", { name: "Outline" }).click();
+  const search = activeScreen(page).getByRole("searchbox", { name: "Search the spec" });
+  await search.fill("retry.max");
+  await expect(rows(page).nth(0).locator(".spec-req-id")).toHaveText("retry.max");
+  await expect(rows(page).nth(0).locator(".spec-entry-kind")).toHaveText("Value");
+  // What was dropped is found too, and says so: the idea has been here before.
+  await search.fill("log file");
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).locator(".spec-status")).toHaveText("Deprecated");
+  // Narrowed to one kind, only that kind.
+  await search.fill("retry");
+  await show.getByRole("radio", { name: /User stories/ }).click();
+  await expect(rows(page).locator(".spec-req-id")).toHaveText(["US-2"]);
+  await show.getByRole("radio", { name: "Outline" }).click();
+  await search.fill("e2");
+  await search.press("Enter");
+  await expect(screenTitle(page)).toHaveText("Errors");
+  await expect(activeScreen(page).locator('.spec-req[data-req="E2"]')).toHaveAttribute("data-current", "true");
+  // And from any part, one button back to the index.
+  await activeScreen(page).getByRole("link", { name: "Search and index" }).click();
+  await expect(activeScreen(page).getByRole("radio", { name: /Requirements/ })).toBeChecked();
+});
+
+// Spec: S32
+test("a requirement shows where the code cites it, looked up in the code", async ({ page }) => {
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/retries");
+  const r1 = activeScreen(page).locator('.spec-req[data-req="R1"]');
+  await r1.getByRole("button", { name: "Where the code cites R1" }).click();
+  // The file that only mentions R10 isn't a citation of R1.
+  await expect(r1.locator(".spec-cited-list li")).toHaveText(["src/retry.rs", "tests/retry.rs"]);
+  await expect(r1.getByRole("button", { name: "Where the code cites R1" })).toContainText("Cited in code · 2");
+  const r2 = activeScreen(page).locator('.spec-req[data-req="R2"]');
+  await r2.getByRole("button", { name: "Where the code cites R2" }).click();
+  await expect(r2).toContainText("Nothing on the default branch has a comment “Spec: R2”.");
+  // A cited file opens in the app.
+  await r1.getByRole("link", { name: "src/retry.rs" }).click();
+  await expect(page).toHaveURL(/#\/acme\/rocket\/blob\?.*path=src%2Fretry\.rs/);
+
+  // What was dropped and is still cited is what is left to remove.
+  await open(page, "/acme/rocket/spec?ref=main&id=uploads/errors&r=E3");
+  const e3 = activeScreen(page).locator('.spec-req[data-req="E3"]');
+  await e3.getByRole("button", { name: "Where the code cites E3" }).click();
+  await expect(e3).toContainText("It was dropped from the spec, and the code still cites it:");
+  await expect(e3.locator(".spec-cited-list li")).toHaveText(["src/log.rs"]);
 });
 
 // Spec: S3
@@ -228,7 +298,7 @@ test("a huge spec opens at once and is read as it is looked at", async ({ page }
 
   // Filtering looks everywhere, so it reads the rest, and says so while it does.
   await page.goBack();
-  await activeScreen(page).getByRole("searchbox", { name: "Filter the spec" }).fill("needle");
+  await activeScreen(page).getByRole("searchbox", { name: "Search the spec" }).fill("needle");
   await expect(rows(page)).toHaveCount(40);
   await expect(rows(page).nth(0)).toContainText("Feature 1.42");
   expect(files()).toBe(3041);

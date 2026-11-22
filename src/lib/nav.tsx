@@ -60,14 +60,14 @@ export const to = {
     linkOptions({ to: "/$owner/$repo/tree", params: { owner, repo }, search: { ref, path: path === "" ? undefined : path } }),
   blob: (owner: string, repo: string, ref: string | undefined, path: string) =>
     linkOptions({ to: "/$owner/$repo/blob", params: { owner, repo }, search: { ref, path } }),
-  /** The spec browser: the item `id` ("uploads/retries", optionally "#R2" for one requirement), or the outline, filtered by `q`. */
-  spec: (owner: string, repo: string, ref?: string, id?: string, q?: string) => {
+  /** The spec browser: the item `id` ("uploads/retries", optionally "#R2" for one requirement), or the outline, filtered by `q` and showing the index `k`. */
+  spec: (owner: string, repo: string, ref?: string, id?: string, q?: string, k?: string) => {
     const hash = id?.indexOf("#") ?? -1;
     const item = hash === -1 ? id : id?.slice(0, hash);
     return linkOptions({
       to: "/$owner/$repo/spec",
       params: { owner, repo },
-      search: { ref, id: item === "" ? undefined : item, r: hash === -1 ? undefined : id?.slice(hash + 1), q: q === "" ? undefined : q },
+      search: { ref, id: item === "" ? undefined : item, r: hash === -1 ? undefined : id?.slice(hash + 1), q: q === "" ? undefined : q, k: k === "all" ? undefined : k },
     });
   },
   /** What changed in the spec from `base` (default: the default branch) to `head`. */
