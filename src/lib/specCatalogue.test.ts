@@ -59,7 +59,8 @@ describe("planImport", () => {
     expect(plan.body).toContain("// Spec: tandem.<id>");
     // What adopting the part takes is settled in the format, which the description points to.
     expect(plan.body).toContain("as **Adopting a shared part** in the spec format says: https://raw.githubusercontent.com/madsbuch/better-github/main/spec-llms.txt");
-    expect(plan.body).toContain("This is the only thing to ask about.");
+    // Taking a part means taking all of it: implementing is not a question.
+    expect(plan.body).toContain("implement every requirement it doesn't meet yet, without asking whether to");
     // What it writes reads back without problems.
     expect(buildSpec([APP[1] ?? file("x.json", {}), file("index.json", root), ...tandem("tandem")]).problems).toEqual([]);
   });

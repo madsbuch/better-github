@@ -226,7 +226,7 @@ function importPullBody(source: ImportSource, id: string, updates: string | null
         ];
   const steps = [
     `1. **Cite** every requirement of the part the product meets, in the code and its test: \`// Spec: ${id}.<id>\`.`,
-    "2. **Meet, or ask.** Implement what the product doesn't meet yet, unless that changes what the product does in a way nobody asked for, or the requirement can't hold here: then list those, with what meeting them would take, and ask whether to implement or waive them (in the import's `waived`, with the reason). This is the only thing to ask about.",
+    "2. **Meet all of it.** The product takes the part to have all of it: implement every requirement it doesn't meet yet, without asking whether to, and don't propose waivers. Only what the import's `waived` already lists is left out. Stop only for a contradiction with a requirement the product's own spec keeps: report both, ask which wins, and meet the rest meanwhile.",
     "3. **Values:** constants follow the part's named values (or the import's `values`), each with a test that fails when it drifts.",
     "4. **What the product had specified itself:** deprecate its own entries that the part now states, `replacedBy` the shared ids, and move `related` pointers and code citations to them. Entries about the product's own content stay, linked to the shared ones.",
     "5. **Link** the product's entries to the shared entries they touch with `related`, at the product's end.",

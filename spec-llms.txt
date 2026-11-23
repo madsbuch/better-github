@@ -1509,10 +1509,10 @@ Products can share a part of their spec, such as how their devices sync. The par
 
 ## Adopting a shared part
 
-A pull request that copies a shared part into a product, or updates the copy, is finished in the product. What that takes is settled here; don't ask about it. Ask only about the one decision that is the product owner's (step 2).
+A pull request that copies a shared part into a product, or updates the copy, is finished in the product. A product takes a shared part to have all of it: every requirement of the part holds in the product once the pull request is done. What that takes is settled here; don't ask about it.
 
 1. **Cite.** Where the product meets a requirement of the part, the code that meets it and the test that proves it cite it by its namespaced id: `// Spec: tandem.SYN-5`.
-2. **Meet, or ask.** Where the product doesn't meet a requirement, implement it, unless that changes what the product does in a way nobody asked for, or the requirement can't hold in this product. Then don't decide: list it, with what meeting it would take, and ask whether to implement it or waive it. A waiver goes in the import's `waived`, with the reason.
+2. **Meet all of it.** Where the product doesn't meet a requirement yet, implement it. Don't ask whether to, and don't propose waiving it: what the product did before, and why it was built that way, is what the shared part replaces. A requirement is waived only when the import's `waived` already says so, with the person's reason; leave those out. The one thing to stop for is a contradiction: a requirement of the part that can't hold together with one the product's own spec keeps. Report both and ask which wins (reconciling, above), and meet everything else meanwhile.
 3. **Values.** Constants in the product follow the part's named values, or the import's `values` where the product sets one differently. Each such constant gets a test that fails when it no longer matches the spec.
 4. **What the product had specified itself.** Where the product's own spec states what a shared requirement now states, deprecate the product's entry, with the reason and `replacedBy` the shared id; don't delete it. Point the product's `related` pointers and code citations at the shared id. Entries about the product's own content stay, linked to the shared entries they touch.
 5. **Link.** Reconcile (above): every entry of the product that touches an entry of the part gets a `related` pointer to it, at the product's end.
