@@ -385,51 +385,76 @@ describe("the index of a spec, and the search over it", () => {
 });
 
 
-// Spec: S39, S40, S41
+// Spec: S39, S40, S41, S42, S43
 describe("parts imported from a shared spec", () => {
   const TREE = "9e2d7b1c4a6f0e8d3b5c7a9f1e2d4b6c8a0f3e5d";
+  const COMMIT = "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a";
   const shared = [
-    file("sync/index.json", { title: "Sync", order: 1, requirements: [{ id: "SYN-1", text: "Devices sync." }], values: [{ id: "sync.lifetime", type: "duration", value: "10min" }] }),
-    file("sync/pairing.json", { title: "Pairing", requirements: [{ id: "SYN-2", text: "A device joins by a code." }] }),
+    file("tandem/index.json", {
+      title: "Tandem",
+      order: 1,
+      shared: { id: "tandem", logo: "tandem/logo.png" },
+      requirements: [{ id: "tandem.SYN-1", text: "Devices sync." }],
+      values: [{ id: "tandem.lifetime", type: "duration", value: "10min" }],
+    }),
+    file("tandem/pairing.json", { title: "Pairing", requirements: [{ id: "tandem.SYN-2", text: "A device joins by a code." }] }),
+    { path: "tandem/logo.png", text: null, truncated: false },
   ];
+  const root = (entry: Record<string, unknown>) => file("index.json", { title: "App", imports: [{ id: "tandem", at: "tandem", from: "acme/shared", commit: COMMIT, tree: TREE, ...entry }] });
   const imported = (entry: Record<string, unknown>, more: SpecFile[] = []) =>
     buildSpec(
-      [
-        file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a", tree: TREE, ...entry }] }),
-        file("book.json", { title: "Book", order: 1, requirements: [{ id: "B1", text: "A book has pages.", related: ["#SYN-1"] }] }),
-        ...shared,
-        ...more,
-      ],
+      [root(entry), file("book.json", { title: "Book", order: 1, requirements: [{ id: "B1", text: "A book has pages.", related: ["#tandem.SYN-1"] }] }), ...shared, ...more],
       false,
-      new Map([["sync", TREE]]),
+      new Map([["tandem", TREE]]),
     );
+  const messages = (spec: ReturnType<typeof buildSpec>) => spec.problems.map((problem) => problem.message);
 
   it("reads the copy like any other part, placed where the product puts it", () => {
-    const spec = imported({ order: 0, values: [{ id: "sync.lifetime", value: "5min", reason: "Shorter." }], waived: [{ ref: "#SYN-2", reason: "No pairing." }, { ref: "sync/pairing", reason: "No pairing." }] });
+    const spec = imported({ order: 0, values: [{ id: "tandem.lifetime", value: "5min", reason: "Shorter." }], waived: [{ ref: "#tandem.SYN-2", reason: "No pairing." }, { ref: "tandem/pairing", reason: "No pairing." }] });
     expect(spec.problems).toEqual([]);
-    expect(spec.root.children.map((node) => node.id)).toEqual(["sync", "book"]);
-    expect(imported({}).root.children.map((node) => node.id)).toEqual(["book", "sync"]);
+    expect(spec.root.children.map((node) => node.id)).toEqual(["tandem", "book"]);
+    expect(imported({}).root.children.map((node) => node.id)).toEqual(["book", "tandem"]);
   });
 
   it("says when the copy was edited, so the change goes to the shared spec instead", () => {
-    const spec = buildSpec([file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a", tree: TREE }] }), ...shared], false, new Map([["sync", "0".repeat(40)]]));
-    expect(spec.problems.map((problem) => problem.message)).toEqual([".spec/sync isn't what was copied from acme/shared at 4f1c2a9: it was edited here. Change it in acme/shared and import it again."]);
+    const spec = buildSpec([root({}), ...shared], false, new Map([["tandem", "0".repeat(40)]]));
+    expect(messages(spec)).toEqual([`.spec/tandem isn't what was copied from acme/shared at 4f1c2a9: it was edited here. Change it in acme/shared and import it again.`]);
     // Without git's ids for the folders (an older listing, a draft), there is nothing to compare.
-    expect(buildSpec([file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a", tree: TREE }] }), ...shared]).problems).toEqual([]);
+    expect(buildSpec([root({}), ...shared]).problems).toEqual([]);
   });
 
   it("lists what an import says about something that isn't in the part", () => {
-    const messages = (entry: Record<string, unknown>) => imported(entry).problems.map((problem) => problem.message);
-    expect(messages({ values: [{ id: "sync.nope", value: "1min", reason: "x" }] })).toEqual([".spec/sync sets sync.nope, which isn't a named value of it."]);
-    expect(messages({ values: [{ id: "sync.lifetime", value: 5, reason: "x" }] })).toEqual([".spec/sync sets sync.lifetime to 5, which a duration can't be."]);
-    expect(messages({ waived: [{ ref: "#B1", reason: "x" }] })).toEqual(['.spec/sync waives "#B1", which isn\'t a requirement, story or part of it.']);
-    expect(messages({ waived: [{ ref: "book", reason: "x" }] })).toEqual(['.spec/sync waives "book", which isn\'t a requirement, story or part of it.']);
-    expect(messages({ at: "nothing" })).toEqual([".spec/nothing is imported from acme/shared, but the spec has no such folder."]);
+    const say = (entry: Record<string, unknown>) => messages(imported(entry));
+    expect(say({ values: [{ id: "tandem.nope", value: "1min", reason: "x" }] })).toEqual([".spec/tandem sets tandem.nope, which isn't a named value of it."]);
+    expect(say({ values: [{ id: "tandem.lifetime", value: 5, reason: "x" }] })).toEqual([".spec/tandem sets tandem.lifetime to 5, which a duration can't be."]);
+    expect(say({ waived: [{ ref: "#B1", reason: "x" }] })).toEqual(['.spec/tandem waives "#B1", which isn\'t a requirement, story or part of it.']);
+    expect(say({ waived: [{ ref: "book", reason: "x" }] })).toEqual(['.spec/tandem waives "book", which isn\'t a requirement, story or part of it.']);
+    expect(say({ at: "nothing" })).toEqual([".spec/nothing is imported from acme/shared, but the spec has no such folder."]);
+    expect(say({ id: "duet" })).toEqual([".spec/tandem is imported as the shared part duet, but its index.json says it is tandem."]);
   });
 
   it("keeps imports on the root item", () => {
     const spec = buildSpec([file("index.json", { title: "App" }), file("other.json", { title: "Other", imports: [] })]);
     expect(spec.problems).toEqual([{ file: ".spec/other.json", message: "Only the root item lists imports. These are left out." }]);
-    expect(SpecItem.safeParse({ title: "x", imports: [{ at: "/sync", from: "a/b", commit: "x", tree: "y" }] }).success).toBe(false);
+    expect(SpecItem.safeParse({ title: "x", imports: [{ id: "tandem", at: "/sync", from: "a/b", commit: "x", tree: "y" }] }).success).toBe(false);
+  });
+
+  it("gives a shared part a permanent id, and keeps every id in the part in its namespace", () => {
+    const spec = buildSpec([
+      file("index.json", { title: "Catalogue", shared: { id: "root" } }),
+      file("tandem/index.json", { title: "Tandem", shared: { id: "tandem", logo: "tandem/logo.png" }, requirements: [{ id: "SYN-1", text: "Not in the namespace." }] }),
+      file("tandem/pairing.json", { title: "Pairing", shared: { id: "pairing" }, stories: [{ id: "tandem.US-1", as: "someone", want: "this" }] }),
+      file("duet/index.json", { title: "Duet", shared: { id: "tandem" }, values: [{ id: "tandem.x", type: "number", value: 1 }] }),
+      file("book.json", { title: "Book", requirements: [{ id: "tandem.B1", text: "Borrows the namespace." }] }),
+    ]);
+    expect(messages(spec)).toEqual([
+      "Only a folder's index.json can make a shared part. This one is read without it.",
+      "Only a folder's index.json can make a shared part. This one is read without it.",
+      "The shared part id tandem is .spec/duet/index.json's too. Each shared part has an id of its own.",
+      "The logo tandem/logo.png isn't in .spec.",
+      'Requirement tandem.B1 uses the namespace of the shared part "Duet", but isn\'t in it.',
+      'Requirement SYN-1 is in the shared part "Tandem", so its id starts with "tandem.".',
+    ]);
+    expect(SpecItem.safeParse({ title: "x", shared: { id: "Tandem" } }).success).toBe(false);
   });
 });

@@ -2061,6 +2061,15 @@ details.disclosure[open] > summary {
   margin-bottom: 0;
 }
 
+/* A shared part's logo: square, rounded, a quiet square while it loads. */
+.spec-logo {
+  flex: none;
+  display: inline-block;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  object-fit: cover;
+}
+
 .spec-figure {
   margin: 14px 0;
 }

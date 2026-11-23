@@ -25,7 +25,9 @@
       "requirements": [
         "#S39",
         "#S40",
-        "#S41"
+        "#S41",
+        "#S42",
+        "#S43"
       ]
     }
   ],
@@ -256,7 +258,16 @@
     },
     {
       "id": "S39",
-      "text": "The root item can list `imports`: parts of the spec copied from a shared spec in another repository, each with the folder it fills, the repository it came from, and the commit and git tree it was copied from. `imports` on any other item is listed as a problem."
+      "text": "The root item can list `imports`: parts of the spec copied from a shared spec in another repository, each with the shared part's permanent id, the folder it fills, the repository it came from, and the commit and git tree it was copied from. `imports` on any other item is listed as a problem.",
+      "history": [
+        {
+          "version": 1,
+          "text": "The root item can list `imports`: parts of the spec copied from a shared spec in another repository, each with the folder it fills, the repository it came from, and the commit and git tree it was copied from. `imports` on any other item is listed as a problem.",
+          "reason": "A shared part has a permanent id now, so that an import still finds its part after the part is renamed.",
+          "date": "2026-11-23"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "S40",
@@ -265,6 +276,14 @@
     {
       "id": "S41",
       "text": "An import can place its part in the outline, and set a named value of the part differently or waive a requirement, story or part of it, each with the reason. An import of a folder the spec doesn't have, and a value or waiver that isn't in the imported part, are listed as problems."
+    },
+    {
+      "id": "S42",
+      "text": "A folder's index.json can make the folder a shared part, with `shared`: a permanent id that never changes, and optionally a logo. The item's title is the part's name, and its folder is named after it; both can be renamed. `shared` anywhere else, two shared parts with the same id, and a logo that isn't in the folder are listed as problems."
+    },
+    {
+      "id": "S43",
+      "text": "Every story, requirement and value id in a shared part starts with the part's permanent id and a dot, as `tandem.SYN-1`, so ids from different shared parts never collide. An id in a shared part without it, and an id outside the part that uses its namespace, are listed as problems. An import whose part says it is another shared part is a problem too."
     }
   ],
   "values": [

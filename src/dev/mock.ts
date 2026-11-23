@@ -371,29 +371,34 @@ function atlasSpec(next: boolean): Record<string, unknown> {
 /** A catalogue of shared specs (acme/shared-specs): parts that several apps copy into their spec. */
 const SHARED_SPECS: Record<string, unknown> = {
   "index.json": { title: "Acme shared specs", summary: "Parts that several Acme apps share." },
-  "sync/index.json": {
-    title: "Sync",
+  "tandem/index.json": {
+    title: "Tandem",
     summary: "Peer-to-peer sync between the devices of one collection.",
-    requirements: [{ id: "SYN-1", text: "Two devices on the same local network sync with each other, without a server." }],
-    values: [{ id: "sync.pairing-lifetime", type: "duration", value: "10min" }],
+    shared: { id: "tandem", logo: "tandem/logo.png" },
+    requirements: [{ id: "tandem.SYN-1", text: "Two devices on the same local network sync with each other, without a server." }],
+    values: [{ id: "tandem.pairing-lifetime", type: "duration", value: "10min" }],
   },
-  "sync/pairing.json": { title: "Pairing", order: 1, requirements: [{ id: "SYN-9", text: "A new device joins by scanning a pairing code, which works for `sync.pairing-lifetime`." }] },
-  "telemetry/index.json": { title: "Telemetry", summary: "What an app may report about itself.", requirements: [{ id: "TEL-1", text: "No report holds anything the user wrote." }] },
+  "tandem/pairing.json": { title: "Pairing", order: 1, requirements: [{ id: "tandem.SYN-9", text: "A new device joins by scanning a pairing code, which works for `tandem.pairing-lifetime`." }] },
+  "tandem/logo.png": null,
+  "telemetry/index.json": { title: "Telemetry", summary: "What an app may report about itself.", shared: { id: "telemetry" }, requirements: [{ id: "telemetry.TEL-1", text: "No report holds anything the user wrote." }] },
+  // A folder that isn't a shared part (no permanent id): not offered.
+  "drafts/index.json": { title: "Drafts", summary: "Ideas that aren't shared yet." },
 };
 /** The tip of every fixture repository's default branch, as the commits API answers for HEAD. */
 const TIP = "ba5eba11".padEnd(40, "0");
 
 function rocketWithSync(): Record<string, unknown> {
-  const shared = Object.fromEntries(Object.entries(SHARED_SPECS).filter(([path]) => path.startsWith("sync/")));
-  const tree = treeOf({ files: shared, pictures: "1" }).find((entry) => entry.path === "sync")?.sha ?? "";
+  const shared = Object.fromEntries(Object.entries(SHARED_SPECS).filter(([path]) => path.startsWith("tandem/")));
+  const tree = treeOf({ files: shared, pictures: "1" }).find((entry) => entry.path === "tandem")?.sha ?? "";
   const root = z.record(z.string(), z.unknown()).parse(ROCKET_SPEC["index.json"]);
   const entry = {
-    at: "sync",
+    id: "tandem",
+    at: "tandem",
     from: "acme/shared-specs",
     commit: TIP,
     tree,
-    values: [{ id: "sync.pairing-lifetime", value: "5min", reason: "Pairing happens at a desk." }],
-    waived: [{ ref: "#SYN-9", reason: "Rocket pairs with a token instead." }],
+    values: [{ id: "tandem.pairing-lifetime", value: "5min", reason: "Pairing happens at a desk." }],
+    waived: [{ ref: "#tandem.SYN-9", reason: "Rocket pairs with a token instead." }],
   };
   return { ...ROCKET_SPEC, ...shared, "index.json": { ...root, imports: [entry] } };
 }
@@ -424,11 +429,16 @@ const SPEC_VERSIONS: Record<string, { files: Record<string, unknown>; pictures: 
 
 /** Contents by object id, filled as trees are listed (like a repository's object store). */
 const SPEC_OBJECTS = new Map<string, string>();
+const SPEC_PICTURE_BYTES = new Map<string, string>();
 
 /** A version's files as a recursive tree listing, folders included: a folder's id is made from what is in it. */
 function specListing(version: { files: Record<string, unknown>; pictures: string }) {
   const listing = treeOf(version);
-  for (const entry of listing) if (entry.text !== null) SPEC_OBJECTS.set(entry.sha, entry.text);
+  for (const entry of listing) {
+    if (entry.text !== null) SPEC_OBJECTS.set(entry.sha, entry.text);
+    // A picture's "bytes" are what its id is made from, so a copy of it has the same id.
+    else if (entry.type === "blob") SPEC_PICTURE_BYTES.set(entry.sha, `${entry.path}@${version.pictures}`);
+  }
   return listing.map(({ text: _text, ...entry }) => entry);
 }
 
@@ -1005,7 +1015,7 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
   if (method !== "GET") return undefined;
   const blob = /\/git\/blobs\/([0-9a-f]+)$/.exec(path);
   if (blob) {
-    const text = SPEC_OBJECTS.get(group(blob));
+    const text = SPEC_OBJECTS.get(group(blob)) ?? SPEC_PICTURE_BYTES.get(group(blob));
     return text === undefined ? NOT_FOUND : { sha: group(blob), content: btoa(text), encoding: "base64" };
   }
   // The tip of a branch, to start a new one from.

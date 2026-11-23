@@ -1088,10 +1088,15 @@
       "items": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,30}$",
+            "description": "The shared part's permanent id, from its index.json. An update follows the part by it when it was renamed."
+          },
           "at": {
             "type": "string",
             "pattern": "^[^/.](?:.*[^/])?$",
-            "description": "The folder the part fills, the same as in the spec it comes from: \"sync\" for .spec/sync."
+            "description": "The folder the part fills, the same as in the spec it comes from: \"tandem\" for .spec/tandem."
           },
           "from": {
             "type": "string",
@@ -1167,7 +1172,7 @@
                 "ref": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "A requirement or story of the part (\"#SYN-17\"), or a part of it (\"sync/snapshots\")."
+                  "description": "A requirement or story of the part (\"#tandem.SYN-17\"), or a part of it (\"tandem/snapshots\")."
                 },
                 "reason": {
                   "type": "string",
@@ -1184,6 +1189,7 @@
           }
         },
         "required": [
+          "id",
           "at",
           "from",
           "commit",
@@ -1192,6 +1198,27 @@
         "additionalProperties": false,
         "description": "A part copied from a shared spec in another repository. The copy isn't edited; what this product does differently is recorded here."
       }
+    },
+    "shared": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+          "description": "The part's permanent id, such as \"tandem\". It never changes, also when the part is renamed. Every story, requirement and value id in the part starts with it and a dot: \"tandem.SYN-1\"."
+        },
+        "logo": {
+          "description": "Its logo: a square picture in the spec folder, as a path from that folder: \"tandem/logo.png\".",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^/]"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "description": "Makes a folder's index.json a shared part: one that several products copy into their spec. The item's title is the part's name, and the folder is named after it; both can change, the id can't."
     }
   },
   "required": [

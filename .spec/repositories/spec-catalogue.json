@@ -16,7 +16,8 @@
         "#SC3",
         "#SC4",
         "#SC5",
-        "#SC6"
+        "#SC6",
+        "#SC7"
       ]
     }
   ],
@@ -27,7 +28,16 @@
     },
     {
       "id": "SC2",
-      "text": "The Shared specs screen lists each catalogue's parts, its top-level folders with an index.json, read at the newest commit of its default branch. Each shows its title, summary and how many requirements, parts and values it has, and opens in the spec browser."
+      "text": "The Shared specs screen lists each catalogue's shared parts, its top-level folders whose index.json gives a permanent id, read at the newest commit of its default branch. Each shows its logo, name, id, summary and how many requirements, parts and values it has, and opens in the spec browser.",
+      "history": [
+        {
+          "version": 1,
+          "text": "The Shared specs screen lists each catalogue's parts, its top-level folders with an index.json, read at the newest commit of its default branch. Each shows its title, summary and how many requirements, parts and values it has, and opens in the spec browser.",
+          "reason": "Shared parts have an identity now: only folders with a permanent id are offered, and the list shows the logo, name and id.",
+          "date": "2026-11-23"
+        }
+      ],
+      "version": 2
     },
     {
       "id": "SC3",
@@ -43,7 +53,20 @@
     },
     {
       "id": "SC6",
-      "text": "In the spec browser, an imported part says which catalogue and commit it came from, linking to it there, and lists the named values the repository sets differently and what it waives in that part."
+      "text": "In the spec browser, an imported part shows its logo, name and permanent id, says which catalogue and commit it came from, linking to it there, and lists the named values the repository sets differently and what it waives in that part.",
+      "history": [
+        {
+          "version": 1,
+          "text": "In the spec browser, an imported part says which catalogue and commit it came from, linking to it there, and lists the named values the repository sets differently and what it waives in that part.",
+          "reason": "Shared parts have a logo and a permanent id now, shown where the part is read.",
+          "date": "2026-11-23"
+        }
+      ],
+      "version": 2
+    },
+    {
+      "id": "SC7",
+      "text": "An earlier copy of a part is found by the part's permanent id. When the part was renamed in its catalogue since, adding it again moves the copy to the new folder, removes the old one and moves the waivers of parts by path with it; ids stay as they are."
     }
   ],
   "related": [

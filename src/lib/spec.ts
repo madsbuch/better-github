@@ -218,12 +218,28 @@ export type SpecFigure = z.infer<typeof SpecFigure>;
 
 const GitId = z.string().regex(/^[0-9a-f]{40}$/, "is a git object id: 40 hexadecimal digits");
 
+const SharedId = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{1,30}$/, "is lowercase letters, digits and dashes, starting with a letter")
+  .describe('A shared part\'s permanent id, such as "tandem". It never changes, also when the part is renamed or moved.');
+
+export const SpecShared = z
+  .strictObject({
+    id: SharedId.describe(
+      'The part\'s permanent id, such as "tandem". It never changes, also when the part is renamed. Every story, requirement and value id in the part starts with it and a dot: "tandem.SYN-1".',
+    ),
+    logo: RepoPath.optional().describe('Its logo: a square picture in the spec folder, as a path from that folder: "tandem/logo.png".'),
+  })
+  .describe("Makes a folder's index.json a shared part: one that several products copy into their spec. The item's title is the part's name, and the folder is named after it; both can change, the id can't.");
+export type SpecShared = z.infer<typeof SpecShared>;
+
 export const SpecImport = z
   .strictObject({
+    id: SharedId.describe("The shared part's permanent id, from its index.json. An update follows the part by it when it was renamed."),
     at: z
       .string()
       .regex(/^[^/.](?:.*[^/])?$/, "is a folder of the spec, without a leading or trailing slash")
-      .describe('The folder the part fills, the same as in the spec it comes from: "sync" for .spec/sync.'),
+      .describe('The folder the part fills, the same as in the spec it comes from: "tandem" for .spec/tandem.'),
     from: z.string().min(1).describe('The repository it comes from: "owner/repo".'),
     commit: GitId.describe("The commit it was copied from."),
     tree: GitId.describe("Git's id for the folder at that commit. The copy has the same id as long as nobody edits it."),
@@ -242,7 +258,7 @@ export const SpecImport = z
     waived: z
       .array(
         z.strictObject({
-          ref: z.string().min(1).describe('A requirement or story of the part ("#SYN-17"), or a part of it ("sync/snapshots").'),
+          ref: z.string().min(1).describe('A requirement or story of the part ("#tandem.SYN-17"), or a part of it ("tandem/snapshots").'),
           reason: z.string().min(1).describe("Why it doesn't hold in this product."),
         }),
       )
@@ -269,6 +285,7 @@ export const SpecItem = z
       .optional()
       .describe('Ids of other items ("uploads/limits"), or requirements: "#LIM-2" wherever it is, or "uploads/limits#LIM-2". "#LIM-2@1" names one version.'),
     imports: z.array(SpecImport).optional().describe("Only on the root item: the parts of this spec copied from a shared spec in another repository."),
+    shared: SpecShared.optional(),
   })
   .describe("One item of a repository's spec: a .json file in its .spec folder.");
 export type SpecItem = z.infer<typeof SpecItem>;
@@ -618,8 +635,59 @@ export function buildSpec(files: SpecFile[], listingCutOff = false, folders?: Re
     }
   }
 
+  problems.push(...sharedProblems(nodes, assets));
   problems.push(...importProblems({ root, nodes, requirements, stories, values }, allLoaded, folders));
   return { root, nodes, requirements, stories, values, relations, assets, problems };
+}
+
+/** The shared parts in a spec, by folder: the folders whose index.json carries `shared`. */
+export function sharedPartsOf(nodes: Iterable<SpecNode>): { node: SpecNode; shared: SpecShared }[] {
+  return [...nodes].flatMap((node) =>
+    node.item?.shared !== undefined && node.id !== "" && node.file === `${SPEC_DIR}/${node.id}/index.json` ? [{ node, shared: node.item.shared }] : [],
+  );
+}
+
+/**
+ * What is wrong with the shared parts: one marked where it can't be, two with
+ * the same id, an id outside its part's namespace, a logo that isn't there.
+ */
+// Spec: S42, S43
+function sharedProblems(nodes: Map<string, SpecNode>, assets: Map<string, string | null>): SpecProblem[] {
+  const problems: SpecProblem[] = [];
+  const parts = sharedPartsOf(nodes.values());
+  for (const node of nodes.values()) {
+    if (node.item?.shared !== undefined && node.file !== null && (node.id === "" || node.file !== `${SPEC_DIR}/${node.id}/index.json`)) {
+      problems.push({ file: node.file, message: "Only a folder's index.json can make a shared part. This one is read without it." });
+    }
+  }
+  const byId = new Map<string, SpecNode>();
+  for (const { node, shared } of parts) {
+    const file = node.file ?? node.id;
+    const other = byId.get(shared.id);
+    if (other !== undefined) problems.push({ file, message: `The shared part id ${shared.id} is ${other.file ?? other.id}'s too. Each shared part has an id of its own.` });
+    else byId.set(shared.id, node);
+    if (shared.logo !== undefined && !assets.has(shared.logo)) problems.push({ file, message: `The logo ${shared.logo} isn't in ${SPEC_DIR}.` });
+  }
+  // Every id in a shared part is in its namespace, and only there.
+  for (const node of nodes.values()) {
+    const { item, file } = node;
+    if (item === null || file === null) continue;
+    const owner = parts.find(({ node: part }) => node.id === part.id || node.id.startsWith(`${part.id}/`));
+    const entries = [
+      ...(item.stories ?? []).map((entry) => ({ what: "User story", id: entry.id })),
+      ...(item.requirements ?? []).map((entry) => ({ what: "Requirement", id: entry.id })),
+      ...(item.values ?? []).map((entry) => ({ what: "Value", id: entry.id })),
+    ];
+    for (const { what, id } of entries) {
+      const prefix = id.split(".")[0] ?? "";
+      if (owner !== undefined && !id.startsWith(`${owner.shared.id}.`)) {
+        problems.push({ file, message: `${what} ${id} is in the shared part "${owner.node.title}", so its id starts with "${owner.shared.id}.".` });
+      } else if (owner === undefined && id.includes(".") && byId.has(prefix)) {
+        problems.push({ file, message: `${what} ${id} uses the namespace of the shared part "${byId.get(prefix)?.title ?? prefix}", but isn't in it.` });
+      }
+    }
+  }
+  return problems;
 }
 
 /**
@@ -648,9 +716,15 @@ function importProblems(spec: Pick<Spec, "root" | "nodes" | "requirements" | "st
     seen.add(at);
     const outer = imports.find((other) => other !== entry && at.startsWith(`${other.at}/`));
     if (outer !== undefined) problems.push({ file, message: `${where} is inside ${SPEC_DIR}/${outer.at}, which is imported already.` });
-    if (spec.nodes.get(at) === undefined) {
+    const part = spec.nodes.get(at);
+    if (part === undefined) {
       problems.push({ file, message: `${where} is imported from ${from}, but the spec has no such folder.` });
       continue;
+    }
+    if (part.loaded) {
+      const shared = part.item?.shared;
+      if (shared === undefined) problems.push({ file, message: `${where} is imported as the shared part ${entry.id}, but its index.json doesn't make it a shared part.` });
+      else if (shared.id !== entry.id) problems.push({ file, message: `${where} is imported as the shared part ${entry.id}, but its index.json says it is ${shared.id}.` });
     }
     const copied = folders?.get(at);
     if (copied !== undefined && copied !== entry.tree) {

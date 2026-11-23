@@ -222,16 +222,21 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   old `code` list are read without it and listed as a problem that says to
   remove it.
 - **Shared parts.** Products can share a part of their spec, such as how
-  their devices sync. The part is written once in a spec of its own (for
-  example [madsbuch/spec-repo](https://github.com/madsbuch/spec-repo)), and
-  each product copies its folder in whole, at the same path. The root item
-  records each copy in `imports`: the folder, the repository, the commit and git's
-  id for the folder at that commit. A copy that differs from that is listed as a
-  problem, because the change belongs in the shared spec. In its import, a
-  product can place the part in its outline (`order`), set one of the part's
-  named values differently (`values`) and waive what doesn't hold for it
-  (`waived`), each with the reason. An import of a missing folder, or a value
-  or waiver that isn't in the part, is listed as a problem.
+  their devices sync. The part is written once in a catalogue (for example
+  [madsbuch/spec-repo](https://github.com/madsbuch/spec-repo)), as a top-level
+  folder whose `index.json` has `shared`: a permanent id (`tandem`) and
+  optionally a logo. Its title is its name and the folder is named after it;
+  both can change, the id can't. Every id in the part starts with the
+  permanent id and a dot (`tandem.SYN-1`), so ids from different parts never
+  collide. A product copies the folder in whole, at the same path, and records the copy in
+  `imports` in its root item: the part's id, the folder, the repository, the commit
+  and git's id for the folder at that commit. A copy that differs from that is
+  listed as a problem, because the change belongs in the shared spec. In its
+  import, a product can place the part in its outline (`order`), set one of the
+  part's named values differently (`values`) and waive what doesn't hold for it
+  (`waived`), each with the reason. An import of a missing folder, a value or
+  waiver that isn't in the part, and an id outside its part's namespace are
+  listed as problems.
 - Unknown keys are errors, so a typo doesn't silently drop a field. A file the
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.
@@ -315,12 +320,12 @@ isn't viewed yet.
 
 *Shared specs* (under *You*) is a catalogue of spec parts that several apps
 share, such as how their devices sync. A catalogue is a repository whose spec is
-made of parts: its top-level folders, each with an `index.json` (for example
-[madsbuch/spec-repo](https://github.com/madsbuch/spec-repo)). Add one by name,
+made of shared parts: its top-level folders whose `index.json` gives them a
+permanent id (for example [madsbuch/spec-repo](https://github.com/madsbuch/spec-repo)). Add one by name,
 or with *Add to shared specs* in a repository's menu. The list stays on the device.
 
 Each catalogue lists its parts, read at the newest commit of its default branch,
-with how many requirements, parts and values each has. A part opens in the spec
+with their logo, name and id, and how many requirements, parts and values each has. A part opens in the spec
 browser. *Use in…* picks the repository it goes into; *Add a shared part* in a
 repository's menu opens the catalogue for that repository. Before anything is
 written, the app says what it will do, and refuses, saying why, when the repository
@@ -333,10 +338,13 @@ original's object id. It removes what an earlier copy had that the part no longe
 has, and records the import in the root item, keeping its `order`, `values` and
 `waived`. The description tells a coding agent what to do next: cite the shared
 requirements, set values or waive what doesn't hold, and link the app's own parts.
-Running it again on a newer commit updates the copy the same way.
+Running it again on a newer commit updates the copy the same way. An earlier
+copy is found by the part's permanent id, so when the part was renamed in its
+catalogue, the copy moves to the new folder and its waivers of parts move with
+it; its ids stay.
 
-In the spec browser, an imported part says which catalogue and commit it came
-from, with a link to it there, and lists the values the repository sets
+In the spec browser, an imported part shows its logo, name and id, says which
+catalogue and commit it came from, with a link to it there, and lists the values the repository sets
 differently and what it waives.
 
 ### Large specs

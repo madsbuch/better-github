@@ -18,6 +18,7 @@ import { useCatalogue, type LoadedCatalogue } from "../queries/specCatalogue";
 import { useOpenSpecPull } from "../queries/specPull";
 import { viewerQueries } from "../queries/viewer";
 import { Screen } from "../components/Screen";
+import { SpecLogo } from "../components/SpecLogo";
 import { Sheet } from "../components/Sheet";
 import { CenterSpinner, EmptyState, ErrorView, SkeletonList, Spinner } from "../components/ui";
 
@@ -145,14 +146,15 @@ function Catalogue({ name, into, onPick }: { name: string; into: string | null; 
       ) : catalogue.spec === null ? (
         <p className="pad muted small">This repository has no {SPEC_DIR} folder on its default branch.</p>
       ) : parts.length === 0 ? (
-        <p className="pad muted small">Its spec has no shared parts: folders at the top of {SPEC_DIR}, each with an index.json.</p>
+        <p className="pad muted small">Its spec has no shared parts: folders at the top of {SPEC_DIR} whose index.json gives the part a permanent id in shared.</p>
       ) : (
         parts.map((part) => {
           const counts = specCounts(part);
           return (
             <div key={part.id} className="row" style={{ alignItems: "center" }}>
+              <SpecLogo owner={owner} repo={repo} gitRef={catalogue.commit} src={part.item?.shared?.logo} />
               <Link {...to.spec(owner, repo, undefined, part.id)} className="row-body" style={{ minWidth: 0 }}>
-                <span className="bold">{part.title}</span> <span className="muted small mono">{part.id}</span>
+                <span className="bold">{part.title}</span> <span className="muted small mono">{part.item?.shared?.id}</span>
                 {part.item?.summary !== undefined && <span className="muted small" style={{ display: "block" }}>{part.item.summary}</span>}
                 <span className="muted small" style={{ display: "block" }}>
                   {plural(counts.requirements, "requirement")}
@@ -334,7 +336,15 @@ function ImportReview({ picked, target, onBack, onDone }: { picked: Picked; targ
               )}
               .
             </li>
-            {plan.deletes.length > 0 && <li>Removes {plural(plan.deletes.length, "file")} the part no longer has.</li>}
+            {plan.movesFrom !== null && (
+              <li>
+                Moves it from <span className="mono">
+                  {SPEC_DIR}/{plan.movesFrom}
+                </span>
+                : the part was renamed. Its ids stay the same.
+              </li>
+            )}
+            {plan.deletes.length > 0 && <li>Removes {plural(plan.deletes.length, "file")} the earlier copy has and this one doesn't.</li>}
             <li>
               Records it in <span className="mono">imports</span> in <span className="mono">{plan.root.path}</span>
               {loaded.spec === null ? `, which it creates: ${target} has no spec yet` : ""}.

@@ -1247,10 +1247,15 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
           "items": {
             "type": "object",
             "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                "description": "The shared part's permanent id, from its index.json. An update follows the part by it when it was renamed."
+              },
               "at": {
                 "type": "string",
                 "pattern": "^[^/.](?:.*[^/])?$",
-                "description": "The folder the part fills, the same as in the spec it comes from: \"sync\" for .spec/sync."
+                "description": "The folder the part fills, the same as in the spec it comes from: \"tandem\" for .spec/tandem."
               },
               "from": {
                 "type": "string",
@@ -1326,7 +1331,7 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
                     "ref": {
                       "type": "string",
                       "minLength": 1,
-                      "description": "A requirement or story of the part (\"#SYN-17\"), or a part of it (\"sync/snapshots\")."
+                      "description": "A requirement or story of the part (\"#tandem.SYN-17\"), or a part of it (\"tandem/snapshots\")."
                     },
                     "reason": {
                       "type": "string",
@@ -1343,6 +1348,7 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
               }
             },
             "required": [
+              "id",
               "at",
               "from",
               "commit",
@@ -1351,6 +1357,27 @@ Stories and requirements are what matters; the rest serves them. A spec has no o
             "additionalProperties": false,
             "description": "A part copied from a shared spec in another repository. The copy isn't edited; what this product does differently is recorded here."
           }
+        },
+        "shared": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{1,30}$",
+              "description": "The part's permanent id, such as \"tandem\". It never changes, also when the part is renamed. Every story, requirement and value id in the part starts with it and a dot: \"tandem.SYN-1\"."
+            },
+            "logo": {
+              "description": "Its logo: a square picture in the spec folder, as a path from that folder: \"tandem/logo.png\".",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^/]"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "description": "Makes a folder's index.json a shared part: one that several products copy into their spec. The item's title is the part's name, and the folder is named after it; both can change, the id can't."
         }
       },
       "required": [
@@ -1447,27 +1474,38 @@ Whether a spec is consistent can't be proven, and nothing in the format records 
 
 ## Parts shared between products
 
-Products can share a part of their spec, such as how their devices sync. The part is written once, in a spec of its own in its own repository, and each product copies it into its spec.
+Products can share a part of their spec, such as how their devices sync. The part is written once, in a spec of its own in its own repository (a catalogue), and each product copies it into its spec.
 
-- A shared part is a folder, copied whole to the same path it has in the shared spec, so its references keep working. Its ids have their own prefix and are unique in the shared spec, so they don't collide with the product's. It names no product, and refers only to itself.
-- The root item records each copy in `imports`: the folder (`at`), the repository it came from (`from`), the `commit` it was copied from, and git's id for the folder at that commit (`tree`):
+- A shared part is a top-level folder whose `index.json` has `shared`: a permanent id, and optionally a logo (a square picture in the folder). The item's `title` is the part's name, and the folder is named after it.
+
+      {
+        "title": "Tandem",
+        "summary": "Peer-to-peer sync between the devices of one collection.",
+        "shared": { "id": "tandem", "logo": "tandem/logo.png" }
+      }
+
+- The permanent id never changes. The name and the folder can: a part that is renamed keeps its id, and the products that copied it follow it by that id.
+- Every story, requirement and value id in the part starts with the permanent id and a dot: `tandem.SYN-1`, `tandem.pairing-lifetime`. Ids from different shared parts never collide, and none of them is a product's. The code cites them like any other: `// Spec: tandem.SYN-1`.
+- A shared part names no product, and refers only to itself.
+- A product copies the folder whole, to the same path, and records the copy in `imports` in its root item: the part's permanent `id`, the folder (`at`), the repository it came from (`from`), the `commit` it was copied from, and git's id for the folder at that commit (`tree`):
 
       "imports": [
         {
-          "at": "uploads",
-          "from": "acme/shared-spec",
+          "id": "tandem",
+          "at": "tandem",
+          "from": "acme/shared-specs",
           "commit": "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a",
           "tree": "9e2d7b1c4a6f0e8d3b5c7a9f1e2d4b6c8a0f3e5d",
           "order": 2,
-          "values": [{ "id": "retry.max", "value": 3, "reason": "Our uploads are small; failing sooner says more." }],
-          "waived": [{ "ref": "#RET-3", "reason": "Uploads here can't be cancelled." }]
+          "values": [{ "id": "tandem.pairing-lifetime", "value": "5min", "reason": "Pairing happens at a desk." }],
+          "waived": [{ "ref": "#tandem.SYN-17", "reason": "There is no Android app." }]
         }
       ]
 
 - Don't edit the copy. Change the shared spec, then copy the part again. A copy whose folder isn't the git tree in `tree` is listed as a problem.
 - What the product does differently goes in its import, each with its `reason`: `order` places the part in the product's outline, `values` sets a named value of the part differently, and `waived` lists a requirement, story or part of it that doesn't hold in the product. The code doesn't cite a waived requirement. To promise something else, waive the shared requirement and write the product's own, related to it.
 - The shared part doesn't know the products that use it. A product links its own entries to the shared ones with `related`, written at its end.
-- Copying a newer version is a change to the spec like any other: compare the two, then reconcile what in the product is related to what changed, and search the code for the changed ids.
+- Copying a newer version is a change to the spec like any other: compare the two, then reconcile what in the product is related to what changed, and search the code for the changed ids. When the part was renamed, the copy moves to its new folder and `at` changes with it; references to the old folder's paths change too, and the ids stay.
 
 ## A good spec
 

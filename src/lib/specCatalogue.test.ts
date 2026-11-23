@@ -1,4 +1,4 @@
-// Spec: SC1, SC2, SC4, SC5
+// Spec: SC1, SC2, SC4, SC5, SC7
 
 import { describe, expect, it } from "vitest";
 import { buildSpec, type SpecFile } from "./spec";
@@ -10,24 +10,29 @@ const oid = (files: SpecFile[], path: string) => files.find((f) => f.path === pa
 const COMMIT = "c".repeat(40);
 const TREE = "7".repeat(40);
 
-const CATALOGUE: SpecFile[] = [
-  file("index.json", { title: "Shared specs" }),
-  file("sync/index.json", { title: "Sync", requirements: [{ id: "SYN-1", text: "Devices sync." }], values: [{ id: "sync.lifetime", type: "duration", value: "10min" }] }),
-  file("sync/pairing.json", { title: "Pairing", requirements: [{ id: "SYN-2", text: "A device joins by a code." }] }),
-  { path: "sync/assets/flow.png", text: null, truncated: false, oid: "oid:flow" },
-  file("loose.json", { title: "Not a part" }),
+const tandem = (folder: string): SpecFile[] => [
+  file(`${folder}/index.json`, {
+    title: "Tandem",
+    shared: { id: "tandem", logo: `${folder}/logo.png` },
+    requirements: [{ id: "tandem.SYN-1", text: "Devices sync." }],
+    values: [{ id: "tandem.lifetime", type: "duration", value: "10min" }],
+  }),
+  file(`${folder}/pairing.json`, { title: "Pairing", requirements: [{ id: "tandem.SYN-2", text: "A device joins by a code." }] }),
+  { path: `${folder}/logo.png`, text: null, truncated: false, oid: "oid:logo" },
 ];
+const CATALOGUE: SpecFile[] = [file("index.json", { title: "Shared specs" }), ...tandem("tandem"), file("drafts/index.json", { title: "Not shared yet" }), file("loose.json", { title: "Not a part" })];
 const catalogue = buildSpec(CATALOGUE);
-const sync = catalogue.nodes.get("sync");
-if (sync === undefined) throw new Error("fixture");
-const source: ImportSource = { from: "acme/shared", commit: COMMIT, tree: TREE, part: sync, files: CATALOGUE };
+const part = catalogue.nodes.get("tandem");
+if (part === undefined) throw new Error("fixture");
+const source: ImportSource = { from: "acme/shared", commit: COMMIT, tree: TREE, part, files: CATALOGUE };
 
 const target = (files: SpecFile[] | null) => ({ name: "acme/app", spec: files === null ? null : buildSpec(files), files });
 const APP: SpecFile[] = [file("index.json", { title: "App", summary: "An app." }), file("book.json", { title: "Book", requirements: [{ id: "B1", text: "Pages." }] })];
+const imported = (entry: Record<string, unknown>) => ({ id: "tandem", from: "acme/shared", commit: "a".repeat(40), tree: "1".repeat(40), ...entry });
 
 describe("the catalogue's parts", () => {
-  it("are its top-level folders with an index.json", () => {
-    expect(sharedParts(catalogue).map((node) => node.id)).toEqual(["sync"]);
+  it("are its top-level folders that are shared parts, with a permanent id", () => {
+    expect(sharedParts(catalogue).map((node) => node.id)).toEqual(["tandem"]);
   });
 
   it("come from repositories named as owner/repo", () => {
@@ -40,46 +45,53 @@ describe("the catalogue's parts", () => {
 });
 
 describe("planImport", () => {
-  it("copies the part's files, and records where they came from in the root item", () => {
+  it("copies the part's files, and records the part and where it came from in the root item", () => {
     const plan = planImport(source, target(APP));
     if (plan.kind !== "ready") throw new Error(JSON.stringify(plan));
     expect(plan.copies).toEqual([
-      { path: ".spec/sync/index.json", oid: oid(CATALOGUE, "sync/index.json") },
-      { path: ".spec/sync/pairing.json", oid: oid(CATALOGUE, "sync/pairing.json") },
-      { path: ".spec/sync/assets/flow.png", oid: "oid:flow" },
+      { path: ".spec/tandem/index.json", oid: oid(CATALOGUE, "tandem/index.json") },
+      { path: ".spec/tandem/pairing.json", oid: oid(CATALOGUE, "tandem/pairing.json") },
+      { path: ".spec/tandem/logo.png", oid: "oid:logo" },
     ]);
-    expect(plan.deletes).toEqual([]);
-    expect(plan.updates).toBeNull();
-    expect(plan.root.path).toBe(".spec/index.json");
+    expect(plan).toMatchObject({ deletes: [], updates: null, movesFrom: null, title: 'Spec: use the shared part "Tandem" from acme/shared' });
     const root: unknown = JSON.parse(plan.root.text);
-    expect(root).toMatchObject({ title: "App", summary: "An app.", imports: [{ at: "sync", from: "acme/shared", commit: COMMIT, tree: TREE }] });
-    expect(plan.title).toBe('Spec: use the shared part "Sync" from acme/shared');
-    expect(plan.body).toContain("For a coding agent");
+    expect(root).toMatchObject({ title: "App", summary: "An app.", imports: [{ id: "tandem", at: "tandem", from: "acme/shared", commit: COMMIT, tree: TREE }] });
+    expect(plan.body).toContain("// Spec: tandem.<id>");
     // What it writes reads back without problems.
-    expect(buildSpec([...APP.filter((f) => f.path !== "index.json"), file("index.json", root), ...CATALOGUE.filter((f) => f.path.startsWith("sync/"))]).problems).toEqual([]);
+    expect(buildSpec([APP[1] ?? file("x.json", {}), file("index.json", root), ...tandem("tandem")]).problems).toEqual([]);
   });
 
   it("starts a spec for a repository that has none", () => {
     const plan = planImport(source, target(null));
     if (plan.kind !== "ready") throw new Error(JSON.stringify(plan));
-    expect(JSON.parse(plan.root.text)).toMatchObject({ title: "app", imports: [{ at: "sync" }] });
+    expect(JSON.parse(plan.root.text)).toMatchObject({ title: "app", imports: [{ id: "tandem", at: "tandem" }] });
   });
 
   it("updates an earlier copy, keeping what the repository set, and removes what the part no longer has", () => {
     const before = [
-      file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "a".repeat(40), tree: "1".repeat(40), order: 3, waived: [{ ref: "#SYN-2", reason: "No pairing." }] }] }),
-      file("sync/index.json", { title: "Sync", requirements: [{ id: "SYN-1", text: "Devices sync." }] }),
-      file("sync/old.json", { title: "Old", requirements: [{ id: "SYN-2", text: "A device joins by a code." }] }),
+      file("index.json", { title: "App", imports: [imported({ at: "tandem", order: 3, waived: [{ ref: "#tandem.SYN-2", reason: "No pairing." }] })] }),
+      ...tandem("tandem").slice(0, 1),
+      file("tandem/old.json", { title: "Old" }),
     ];
     const plan = planImport(source, target(before));
     if (plan.kind !== "ready") throw new Error(JSON.stringify(plan));
-    expect(plan.updates).toBe("a".repeat(40));
-    expect(plan.deletes).toEqual([".spec/sync/old.json"]);
-    expect(JSON.parse(plan.root.text)).toMatchObject({ imports: [{ at: "sync", commit: COMMIT, tree: TREE, order: 3, waived: [{ ref: "#SYN-2" }] }] });
-    expect(plan.title).toBe(`Spec: update the shared part "Sync" to ${COMMIT.slice(0, 7)}`);
+    expect(plan).toMatchObject({ updates: "a".repeat(40), movesFrom: null, deletes: [".spec/tandem/old.json"], title: `Spec: update the shared part "Tandem" to ${COMMIT.slice(0, 7)}` });
+    expect(JSON.parse(plan.root.text)).toMatchObject({ imports: [{ id: "tandem", at: "tandem", commit: COMMIT, tree: TREE, order: 3, waived: [{ ref: "#tandem.SYN-2" }] }] });
     // The same version again changes nothing.
-    const current = [file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: COMMIT, tree: TREE }] }), ...before.slice(1)];
+    const current = [file("index.json", { title: "App", imports: [imported({ at: "tandem", commit: COMMIT, tree: TREE })] }), ...before.slice(1)];
     expect(planImport(source, target(current))).toEqual({ kind: "current", commit: COMMIT });
+  });
+
+  it("follows a part that was renamed by its permanent id: the copy moves, its ids stay", () => {
+    // It was called "sync" when it was copied.
+    const before = [file("index.json", { title: "App", imports: [imported({ at: "sync", waived: [{ ref: "sync/pairing", reason: "No pairing." }, { ref: "#tandem.SYN-1", reason: "x" }] })] }), ...tandem("sync")];
+    const plan = planImport(source, target(before));
+    if (plan.kind !== "ready") throw new Error(JSON.stringify(plan));
+    expect(plan.movesFrom).toBe("sync");
+    expect(plan.deletes).toEqual([".spec/sync/index.json", ".spec/sync/pairing.json", ".spec/sync/logo.png"]);
+    expect(plan.copies.map((copy) => copy.path)).toEqual([".spec/tandem/index.json", ".spec/tandem/pairing.json", ".spec/tandem/logo.png"]);
+    expect(JSON.parse(plan.root.text)).toMatchObject({ imports: [{ id: "tandem", at: "tandem", waived: [{ ref: "tandem/pairing" }, { ref: "#tandem.SYN-1" }] }] });
+    expect(plan.body).toContain("The part was renamed: it moves from `.spec/sync` to `.spec/tandem`.");
   });
 
   it("refuses what would break the spec, and says why", () => {
@@ -87,14 +99,17 @@ describe("planImport", () => {
       const plan = planImport(source, target(files));
       return plan.kind === "blocked" ? plan.reasons : [];
     };
-    expect(reasons([...APP, file("sync.json", { title: "Our sync" })])).toEqual([
-      "It already has its own part at .spec/sync (.spec/sync.json). Move it out of the way first, or deprecate it in favour of the shared one.",
+    expect(reasons([...APP, file("tandem.json", { title: "Our sync" })])).toEqual([
+      "It already has its own part at .spec/tandem (.spec/tandem.json). Move it out of the way first, or deprecate it in favour of the shared one.",
     ]);
-    expect(reasons([...APP, file("net.json", { title: "Net", requirements: [{ id: "SYN-2", text: "Taken." }] })])).toEqual([
-      "It already uses an id of the part: SYN-2 (.spec/net.json). Ids are unique in the whole spec.",
+    expect(reasons([...APP, file("net.json", { title: "Net", requirements: [{ id: "tandem.SYN-2", text: "Taken." }] })])).toEqual([
+      "It already uses an id of the part: tandem.SYN-2 (.spec/net.json). Ids are unique in the whole spec.",
     ]);
-    expect(reasons([file("index.json", { title: "App", imports: [{ at: "sync", from: "other/specs", commit: COMMIT, tree: TREE }] }), file("sync/index.json", { title: "Sync" })])).toEqual([
-      "It already has .spec/sync from other/specs.",
+    expect(reasons([file("index.json", { title: "App", imports: [imported({ at: "tandem", from: "other/specs" })] }), ...tandem("tandem")])).toEqual([
+      'It already has "Tandem" (tandem) from other/specs.',
+    ]);
+    expect(reasons([file("index.json", { title: "App", imports: [imported({ id: "duet", at: "tandem" })] }), file("tandem/index.json", { title: "Duet", shared: { id: "duet" } })])).toEqual([
+      "It already has another shared part, duet, at .spec/tandem.",
     ]);
     expect(reasons([file("index.json", { title: "App", bogus: 1 })])).toEqual(["Its .spec/index.json can't be read, and the import is recorded there. Fix that first."]);
   });

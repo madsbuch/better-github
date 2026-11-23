@@ -51,6 +51,7 @@ import { repoQueries } from "../queries/repos";
 import { useCopySpecConsistencyPrompt, useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { applyRework, useSpecRework } from "../lib/specRework";
 import { importOf, inPart } from "../lib/specCatalogue";
+import { SpecLogo } from "../components/SpecLogo";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
@@ -436,8 +437,15 @@ function SharedFrom({ spec, node, place }: { spec: Spec; node: SpecNode; place: 
     const target = resolveSpecRef(spec, ref);
     return target !== null && (ref.startsWith("#") ? own(target.node) : inPart(target.node.id, node));
   });
+  const part = spec.nodes.get(entry.at);
   return (
     <div className="banner" style={{ margin: "12px 0", display: "block" }}>
+      <div className="row-flex" style={{ gap: 10, marginBottom: 6 }}>
+        <SpecLogo owner={place.owner} repo={place.repo} gitRef={place.gitRef} src={part?.item?.shared?.logo} size={32} />
+        <span className="grow">
+          <span className="bold">{part?.title ?? entry.at}</span> <span className="muted small mono">{entry.id}</span>
+        </span>
+      </div>
       <div className="small">
         Shared part from{" "}
         <Link {...to.spec(owner, repo, entry.commit, node.id)}>
