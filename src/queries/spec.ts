@@ -36,6 +36,8 @@ export const RestGitTree = z.object({
 /** Every file of a spec folder: its path from the folder and its git object id. */
 export interface SpecListing {
   files: { path: string; oid: string }[];
+  /** Every folder in it ("uploads"), with git's id for it. Missing from listings cached before there were imports. */
+  folders?: { path: string; oid: string }[] | undefined;
   /** The folder has more files than GitHub lists; the rest is missing. */
   cutOff: boolean;
 }
@@ -61,6 +63,7 @@ export const specQueries = {
         const listed = await rest(RestGitTree, `/repos/${owner}/${repo}/git/trees/${tree}`, { query: { recursive: 1 } });
         return {
           files: listed.tree.filter((entry) => entry.type === "blob").map((entry) => ({ path: entry.path, oid: entry.sha })),
+          folders: listed.tree.filter((entry) => entry.type === "tree").map((entry) => ({ path: entry.path, oid: entry.sha })),
           cutOff: listed.truncated,
         };
       },
@@ -215,6 +218,11 @@ const filesAsOf = (listing: SpecListing, _arrivals: number): SpecFile[] => listi
 
 // --------------------------------------------------------------------- spec
 
+/** Git's id for each folder of a listing, by its path from the spec folder. */
+function folderIds(listing: SpecListing | undefined): ReadonlyMap<string, string> | undefined {
+  return listing?.folders === undefined ? undefined : new Map(listing.folders.map((folder) => [folder.path, folder.oid]));
+}
+
 /** Specs up to this many items are read whole, so filtering and counts are complete from the start. */
 export const SPEC_READ_WHOLE = 300;
 
@@ -243,7 +251,8 @@ export function useSpec(owner: string, repo: string, ref: string): LoadedSpec {
   const files = listing.data;
   // Rebuilt as files arrive (`contents` counts arrivals); each file is only parsed once (see readItem).
   const read = useMemo(() => (files === undefined ? null : filesAsOf(files, contents)), [files, contents]);
-  const spec = useMemo(() => (read === null ? null : buildSpec(read, files?.cutOff ?? false)), [read, files?.cutOff]);
+  const folders = useMemo(() => folderIds(files), [files]);
+  const spec = useMemo(() => (read === null ? null : buildSpec(read, files?.cutOff ?? false, folders)), [read, files?.cutOff, folders]);
 
   const want = useCallback(
     (nodes: Iterable<SpecNode>) => {
@@ -407,7 +416,7 @@ async function wholeSpec(queryClient: QueryClient, owner: string, repo: string, 
       });
     });
   }
-  return buildSpec(listing.files.map(fileOf), listing.cutOff);
+  return buildSpec(listing.files.map(fileOf), listing.cutOff, folderIds(listing));
 }
 
 /**

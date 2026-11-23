@@ -384,3 +384,52 @@ describe("the index of a spec, and the search over it", () => {
   });
 });
 
+
+// Spec: S39, S40, S41
+describe("parts imported from a shared spec", () => {
+  const TREE = "9e2d7b1c4a6f0e8d3b5c7a9f1e2d4b6c8a0f3e5d";
+  const shared = [
+    file("sync/index.json", { title: "Sync", order: 1, requirements: [{ id: "SYN-1", text: "Devices sync." }], values: [{ id: "sync.lifetime", type: "duration", value: "10min" }] }),
+    file("sync/pairing.json", { title: "Pairing", requirements: [{ id: "SYN-2", text: "A device joins by a code." }] }),
+  ];
+  const imported = (entry: Record<string, unknown>, more: SpecFile[] = []) =>
+    buildSpec(
+      [
+        file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a", tree: TREE, ...entry }] }),
+        file("book.json", { title: "Book", order: 1, requirements: [{ id: "B1", text: "A book has pages.", related: ["#SYN-1"] }] }),
+        ...shared,
+        ...more,
+      ],
+      false,
+      new Map([["sync", TREE]]),
+    );
+
+  it("reads the copy like any other part, placed where the product puts it", () => {
+    const spec = imported({ order: 0, values: [{ id: "sync.lifetime", value: "5min", reason: "Shorter." }], waived: [{ ref: "#SYN-2", reason: "No pairing." }, { ref: "sync/pairing", reason: "No pairing." }] });
+    expect(spec.problems).toEqual([]);
+    expect(spec.root.children.map((node) => node.id)).toEqual(["sync", "book"]);
+    expect(imported({}).root.children.map((node) => node.id)).toEqual(["book", "sync"]);
+  });
+
+  it("says when the copy was edited, so the change goes to the shared spec instead", () => {
+    const spec = buildSpec([file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a", tree: TREE }] }), ...shared], false, new Map([["sync", "0".repeat(40)]]));
+    expect(spec.problems.map((problem) => problem.message)).toEqual([".spec/sync isn't what was copied from acme/shared at 4f1c2a9: it was edited here. Change it in acme/shared and import it again."]);
+    // Without git's ids for the folders (an older listing, a draft), there is nothing to compare.
+    expect(buildSpec([file("index.json", { title: "App", imports: [{ at: "sync", from: "acme/shared", commit: "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a", tree: TREE }] }), ...shared]).problems).toEqual([]);
+  });
+
+  it("lists what an import says about something that isn't in the part", () => {
+    const messages = (entry: Record<string, unknown>) => imported(entry).problems.map((problem) => problem.message);
+    expect(messages({ values: [{ id: "sync.nope", value: "1min", reason: "x" }] })).toEqual([".spec/sync sets sync.nope, which isn't a named value of it."]);
+    expect(messages({ values: [{ id: "sync.lifetime", value: 5, reason: "x" }] })).toEqual([".spec/sync sets sync.lifetime to 5, which a duration can't be."]);
+    expect(messages({ waived: [{ ref: "#B1", reason: "x" }] })).toEqual(['.spec/sync waives "#B1", which isn\'t a requirement, story or part of it.']);
+    expect(messages({ waived: [{ ref: "book", reason: "x" }] })).toEqual(['.spec/sync waives "book", which isn\'t a requirement, story or part of it.']);
+    expect(messages({ at: "nothing" })).toEqual([".spec/nothing is imported from acme/shared, but the spec has no such folder."]);
+  });
+
+  it("keeps imports on the root item", () => {
+    const spec = buildSpec([file("index.json", { title: "App" }), file("other.json", { title: "Other", imports: [] })]);
+    expect(spec.problems).toEqual([{ file: ".spec/other.json", message: "Only the root item lists imports. These are left out." }]);
+    expect(SpecItem.safeParse({ title: "x", imports: [{ at: "/sync", from: "a/b", commit: "x", tree: "y" }] }).success).toBe(false);
+  });
+});

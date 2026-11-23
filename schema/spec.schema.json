@@ -1081,6 +1081,117 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "imports": {
+      "description": "Only on the root item: the parts of this spec copied from a shared spec in another repository.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "pattern": "^[^/.](?:.*[^/])?$",
+            "description": "The folder the part fills, the same as in the spec it comes from: \"sync\" for .spec/sync."
+          },
+          "from": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The repository it comes from: \"owner/repo\"."
+          },
+          "commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "The commit it was copied from."
+          },
+          "tree": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "Git's id for the folder at that commit. The copy has the same id as long as nobody edits it."
+          },
+          "order": {
+            "description": "Where the part sits among its siblings in this spec, in place of its own order.",
+            "type": "number"
+          },
+          "values": {
+            "description": "Named values of the part that this product sets differently.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "A named value of the imported part."
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "What it is in this product."
+                },
+                "dark": {
+                  "description": "For a color: what it is in dark mode in this product.",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Why this product sets it differently."
+                }
+              },
+              "required": [
+                "id",
+                "value",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "waived": {
+            "description": "What of the part doesn't hold in this product.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "A requirement or story of the part (\"#SYN-17\"), or a part of it (\"sync/snapshots\")."
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Why it doesn't hold in this product."
+                }
+              },
+              "required": [
+                "ref",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "at",
+          "from",
+          "commit",
+          "tree"
+        ],
+        "additionalProperties": false,
+        "description": "A part copied from a shared spec in another repository. The copy isn't edited; what this product does differently is recorded here."
+      }
     }
   },
   "required": [

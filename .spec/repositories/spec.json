@@ -16,6 +16,17 @@
       "as": "a maintainer",
       "want": "a record of what was promised, changed and dropped, each with its reason",
       "soThat": "nobody has to remember why"
+    },
+    {
+      "id": "US-SPEC-3",
+      "as": "someone who builds several products on the same parts",
+      "want": "to specify a shared part once and use it in each product",
+      "soThat": "a decision about it is made, and changed, in one place",
+      "requirements": [
+        "#S39",
+        "#S40",
+        "#S41"
+      ]
     }
   ],
   "requirements": [
@@ -242,6 +253,18 @@
     {
       "id": "S38",
       "text": "A user story that is still wanted and names a deprecated requirement as making it true is listed as a problem."
+    },
+    {
+      "id": "S39",
+      "text": "The root item can list `imports`: parts of the spec copied from a shared spec in another repository, each with the folder it fills, the repository it came from, and the commit and git tree it was copied from. `imports` on any other item is listed as a problem."
+    },
+    {
+      "id": "S40",
+      "text": "An imported part whose folder isn't the git tree it was copied from is listed as a problem: the copy was edited by hand, and the change belongs in the shared spec."
+    },
+    {
+      "id": "S41",
+      "text": "An import can place its part in the outline, and set a named value of the part differently or waive a requirement, story or part of it, each with the reason. An import of a folder the spec doesn't have, and a value or waiver that isn't in the imported part, are listed as problems."
     }
   ],
   "values": [

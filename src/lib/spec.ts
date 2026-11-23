@@ -216,6 +216,42 @@ export const SpecFigure = z
   .describe("A picture: a mockup, a diagram, a screenshot.");
 export type SpecFigure = z.infer<typeof SpecFigure>;
 
+const GitId = z.string().regex(/^[0-9a-f]{40}$/, "is a git object id: 40 hexadecimal digits");
+
+export const SpecImport = z
+  .strictObject({
+    at: z
+      .string()
+      .regex(/^[^/.](?:.*[^/])?$/, "is a folder of the spec, without a leading or trailing slash")
+      .describe('The folder the part fills, the same as in the spec it comes from: "sync" for .spec/sync.'),
+    from: z.string().min(1).describe('The repository it comes from: "owner/repo".'),
+    commit: GitId.describe("The commit it was copied from."),
+    tree: GitId.describe("Git's id for the folder at that commit. The copy has the same id as long as nobody edits it."),
+    order: z.number().optional().describe("Where the part sits among its siblings in this spec, in place of its own order."),
+    values: z
+      .array(
+        z.strictObject({
+          id: z.string().min(1).describe("A named value of the imported part."),
+          value: z.union([z.string(), z.number(), z.array(z.string())]).describe("What it is in this product."),
+          dark: z.string().optional().describe("For a color: what it is in dark mode in this product."),
+          reason: z.string().min(1).describe("Why this product sets it differently."),
+        }),
+      )
+      .optional()
+      .describe("Named values of the part that this product sets differently."),
+    waived: z
+      .array(
+        z.strictObject({
+          ref: z.string().min(1).describe('A requirement or story of the part ("#SYN-17"), or a part of it ("sync/snapshots").'),
+          reason: z.string().min(1).describe("Why it doesn't hold in this product."),
+        }),
+      )
+      .optional()
+      .describe("What of the part doesn't hold in this product."),
+  })
+  .describe("A part copied from a shared spec in another repository. The copy isn't edited; what this product does differently is recorded here.");
+export type SpecImport = z.infer<typeof SpecImport>;
+
 export const SpecItem = z
   .strictObject({
     $schema: z.string().optional().describe("Where this schema lives, so editors can check the file."),
@@ -232,6 +268,7 @@ export const SpecItem = z
       .array(z.string().min(1))
       .optional()
       .describe('Ids of other items ("uploads/limits"), or requirements: "#LIM-2" wherever it is, or "uploads/limits#LIM-2". "#LIM-2@1" names one version.'),
+    imports: z.array(SpecImport).optional().describe("Only on the root item: the parts of this spec copied from a shared spec in another repository."),
   })
   .describe("One item of a repository's spec: a .json file in its .spec folder.");
 export type SpecItem = z.infer<typeof SpecItem>;
@@ -414,8 +451,10 @@ export function splitSpecRef(ref: string): { id: string; requirement: string | n
 /**
  * Builds the outline from the spec folder's files. Files that can't be read
  * and references that lead nowhere become problems; the rest still shows.
+ * `folders` holds git's id for each folder ("uploads"), when it is known,
+ * to tell whether an imported part is still what was copied.
  */
-export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
+export function buildSpec(files: SpecFile[], listingCutOff = false, folders?: ReadonlyMap<string, string>): Spec {
   const root: SpecNode = { id: "", name: "", title: "Spec", item: null, file: null, error: null, loaded: true, oid: null, parent: null, children: [] };
   const nodes = new Map<string, SpecNode>([["", root]]);
   const assets = new Map<string, string | null>();
@@ -489,9 +528,12 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     }
   }
 
+  // An imported part can be placed differently in this spec than in its own.
+  const placed = new Map((root.item?.imports ?? []).flatMap((entry) => (entry.order === undefined ? [] : [[entry.at, entry.order] as const])));
+  const orderOf = (node: SpecNode) => placed.get(node.id) ?? node.item?.order ?? Infinity;
   for (const node of nodes.values()) {
     node.children.sort((a, b) => {
-      const byOrder = (a.item?.order ?? Infinity) - (b.item?.order ?? Infinity);
+      const byOrder = orderOf(a) - orderOf(b);
       // Infinity - Infinity is NaN: neither has an order.
       return byOrder < 0 ? -1 : byOrder > 0 ? 1 : a.title.localeCompare(b.title);
     });
@@ -576,7 +618,66 @@ export function buildSpec(files: SpecFile[], listingCutOff = false): Spec {
     }
   }
 
+  problems.push(...importProblems({ root, nodes, requirements, stories, values }, allLoaded, folders));
   return { root, nodes, requirements, stories, values, relations, assets, problems };
+}
+
+/**
+ * What is wrong with the parts copied from shared specs: a copy edited by
+ * hand, and a value or waiver that isn't in the part it is about.
+ */
+// Spec: S39, S40, S41
+function importProblems(spec: Pick<Spec, "root" | "nodes" | "requirements" | "stories" | "values">, allLoaded: boolean, folders: ReadonlyMap<string, string> | undefined): SpecProblem[] {
+  const problems: SpecProblem[] = [];
+  for (const node of spec.nodes.values()) {
+    if (node.id !== "" && node.file !== null && node.item?.imports !== undefined) {
+      problems.push({ file: node.file, message: "Only the root item lists imports. These are left out." });
+    }
+  }
+  const file = spec.root.file;
+  const imports = spec.root.item?.imports ?? [];
+  if (file === null) return problems;
+  const seen = new Set<string>();
+  for (const entry of imports) {
+    const { at, from } = entry;
+    const where = `${SPEC_DIR}/${at}`;
+    if (seen.has(at)) {
+      problems.push({ file, message: `${where} is imported twice.` });
+      continue;
+    }
+    seen.add(at);
+    const outer = imports.find((other) => other !== entry && at.startsWith(`${other.at}/`));
+    if (outer !== undefined) problems.push({ file, message: `${where} is inside ${SPEC_DIR}/${outer.at}, which is imported already.` });
+    if (spec.nodes.get(at) === undefined) {
+      problems.push({ file, message: `${where} is imported from ${from}, but the spec has no such folder.` });
+      continue;
+    }
+    const copied = folders?.get(at);
+    if (copied !== undefined && copied !== entry.tree) {
+      problems.push({ file, message: `${where} isn't what was copied from ${from} at ${entry.commit.slice(0, 7)}: it was edited here. Change it in ${from} and import it again.` });
+    }
+    const inPart = (node: SpecNode) => node.id === at || node.id.startsWith(`${at}/`);
+    for (const set of entry.values ?? []) {
+      if (!allLoaded) break;
+      const found = spec.values.get(set.id);
+      if (found === undefined || !inPart(found.node)) {
+        problems.push({ file, message: `${where} sets ${set.id}, which isn't a named value of it.` });
+        continue;
+      }
+      // What it would be with this product's setting: the shared value's type, this value.
+      const asSet = SpecValue.safeParse({ id: set.id, type: found.value.type, value: set.value, ...(set.dark === undefined ? {} : { dark: set.dark }) });
+      if (!asSet.success) problems.push({ file, message: `${where} sets ${set.id} to ${JSON.stringify(set.value)}, which a ${found.value.type} can't be.` });
+    }
+    for (const { ref } of entry.waived ?? []) {
+      const { id, requirement } = splitSpecRef(ref);
+      if (requirement !== null && id === "" ? !allLoaded : spec.nodes.get(id)?.loaded === false) continue;
+      const target = resolveSpecRef(spec, ref);
+      if (target === null || !inPart(target.node) || (requirement !== null && target.requirement === null && target.story === null)) {
+        problems.push({ file, message: `${where} waives "${ref}", which isn't a requirement, story or part of it.` });
+      }
+    }
+  }
+  return problems;
 }
 
 /** How something is named in `Spec.relations`: an entry by its id ("#RET-1"), a part by its path. */

@@ -220,6 +220,31 @@ Whether a spec is consistent can't be proven, and nothing in the format records 
 5. Don't settle a contradiction. Report it with both ids, what each says, and what deciding either way would change.
 6. End with a plain statement: what you read (how many parts and entries), what you linked, what you fixed, what is left for a person to decide, and whether, apart from that, you found the spec to agree with itself. Say that this is a careful reading and not a proof.`,
 
+    // Spec: S39, S40, S41
+    `## Parts shared between products
+
+Products can share a part of their spec, such as how their devices sync. The part is written once, in a spec of its own in its own repository, and each product copies it into its spec.
+
+- A shared part is a folder, copied whole to the same path it has in the shared spec, so its references keep working. Its ids have their own prefix and are unique in the shared spec, so they don't collide with the product's. It names no product, and refers only to itself.
+- The root item records each copy in \`imports\`: the folder (\`at\`), the repository it came from (\`from\`), the \`commit\` it was copied from, and git's id for the folder at that commit (\`tree\`):
+
+      "imports": [
+        {
+          "at": "uploads",
+          "from": "acme/shared-spec",
+          "commit": "4f1c2a9e0b7d3c6a8e5f1b2d9c0a7e6f3b4d5c8a",
+          "tree": "9e2d7b1c4a6f0e8d3b5c7a9f1e2d4b6c8a0f3e5d",
+          "order": 2,
+          "values": [{ "id": "retry.max", "value": 3, "reason": "Our uploads are small; failing sooner says more." }],
+          "waived": [{ "ref": "#RET-3", "reason": "Uploads here can't be cancelled." }]
+        }
+      ]
+
+- Don't edit the copy. Change the shared spec, then copy the part again. A copy whose folder isn't the git tree in \`tree\` is listed as a problem.
+- What the product does differently goes in its import, each with its \`reason\`: \`order\` places the part in the product's outline, \`values\` sets a named value of the part differently, and \`waived\` lists a requirement, story or part of it that doesn't hold in the product. The code doesn't cite a waived requirement. To promise something else, waive the shared requirement and write the product's own, related to it.
+- The shared part doesn't know the products that use it. A product links its own entries to the shared ones with \`related\`, written at its end.
+- Copying a newer version is a change to the spec like any other: compare the two, then reconcile what in the product is related to what changed, and search the code for the changed ids.`,
+
     `## A good spec
 
 - It says what the product does and why. It can also say how the product is built, where that is decided and has to hold: an architecture, a data model, a protocol, a limit on what a component may do. Someone who has never seen the code can read an item and know what to expect from that part.
@@ -235,7 +260,7 @@ Whether a spec is consistent can't be proven, and nothing in the format records 
   ];
 }
 
-const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists (on items and on their requirements, stories and values), every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every value that changed has what it was in its \`history\` with the reason, every deprecated story, requirement, value or item has a \`deprecation\` with its reason, and no story, requirement or value id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing)`;
+const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists (on items and on their requirements, stories and values), every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every value that changed has what it was in its \`history\` with the reason, every deprecated story, requirement, value or item has a \`deprecation\` with its reason, no story, requirement or value id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing), and every part in the root item's \`imports\` is unchanged from the commit it was copied from`;
 
 /**
  * spec-llms.txt: the spec format for coding agents, to point one at when it

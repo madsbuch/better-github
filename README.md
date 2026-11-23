@@ -221,6 +221,17 @@ one; open it from the repository's Overview, or *Browse spec* in its menu.
   format: there is no field that points at files. Items that still carry the
   old `code` list are read without it and listed as a problem that says to
   remove it.
+- **Shared parts.** Products can share a part of their spec, such as how
+  their devices sync. The part is written once in a spec of its own (for
+  example [madsbuch/spec-repo](https://github.com/madsbuch/spec-repo)), and
+  each product copies its folder in whole, at the same path. The root item
+  records each copy in `imports`: the folder, the repository, the commit and git's
+  id for the folder at that commit. A copy that differs from that is listed as a
+  problem, because the change belongs in the shared spec. In its import, a
+  product can place the part in its outline (`order`), set one of the part's
+  named values differently (`values`) and waive what doesn't hold for it
+  (`waived`), each with the reason. An import of a missing folder, or a value
+  or waiver that isn't in the part, is listed as a problem.
 - Unknown keys are errors, so a typo doesn't silently drop a field. A file the
   app can't read, a figure that isn't there or a reference that leads nowhere is
   listed above the outline; everything else still shows.
