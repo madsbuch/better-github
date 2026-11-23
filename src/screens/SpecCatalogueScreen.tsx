@@ -152,7 +152,7 @@ function Catalogue({ name, into, onPick }: { name: string; into: string | null; 
           const counts = specCounts(part);
           return (
             <div key={part.id} className="row" style={{ alignItems: "center" }}>
-              <SpecLogo owner={owner} repo={repo} gitRef={catalogue.commit} src={part.item?.shared?.logo} />
+              <SpecLogo owner={owner} repo={repo} gitRef={catalogue.commit} src={part.item?.shared?.logo} name={part.title} />
               <Link {...to.spec(owner, repo, undefined, part.id)} className="row-body" style={{ minWidth: 0 }}>
                 <span className="bold">{part.title}</span> <span className="muted small mono">{part.item?.shared?.id}</span>
                 {part.item?.summary !== undefined && <span className="muted small" style={{ display: "block" }}>{part.item.summary}</span>}

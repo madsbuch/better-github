@@ -70,18 +70,35 @@ test("a repository's menu adds it as a catalogue, or opens the catalogue to add 
   await expect(sheet(page).getByRole("button", { name: "Change" })).toHaveCount(0);
 });
 
-// Spec: SC2, SC6
+// Spec: SC2, SC6, S44
 test("an imported part says where it came from, and what this repository does differently", async ({ page }) => {
   const errors = trackErrors(page);
   await open(page, "/acme/rocket/spec?ref=with-sync&id=tandem");
+  // A shared part is read with its logo, name and permanent id.
+  const header = activeScreen(page).locator(".spec-item .spec-shared-title");
+  await expect(header.locator("img.spec-logo")).toBeVisible();
+  await expect(header).toContainText("Tandem");
+  await expect(header).toContainText("Shared part · tandem");
   const banner = activeScreen(page).locator(".spec-item .banner").first();
-  await expect(banner).toContainText(`Tandem tandemShared part from acme/shared-specs at ${TIP.slice(0, 7)}. It is changed there, not here.`);
+  await expect(banner).toContainText(`Copied from acme/shared-specs at ${TIP.slice(0, 7)}. It is changed there, not here.`);
   await expect(banner.getByRole("link", { name: /acme\/shared-specs/ })).toHaveAttribute("href", new RegExp(`#/acme/shared-specs/spec\\?ref=${TIP}&id=tandem$`));
   await expect(banner).toContainText("Set here: tandem.pairing-lifetime is 5min. Pairing happens at a desk.");
   await open(page, "/acme/rocket/spec?ref=with-sync&id=tandem/pairing");
-  await expect(activeScreen(page).locator(".spec-item .banner").first()).toContainText("Waived here: #tandem.SYN-9. Rocket pairs with a token instead.");
-  // The copy is as it was copied: no problems on the outline.
+  const inside = activeScreen(page).locator(".spec-item .banner").first();
+  await expect(inside).toContainText("Part of Tandem (tandem).");
+  await expect(inside).toContainText("Waived here: #tandem.SYN-9. Rocket pairs with a token instead.");
+  // In the outline, the logo stands in for the folder icon. The copy is as it was copied: no problems.
   await open(page, "/acme/rocket/spec?ref=with-sync");
+  await expect(activeScreen(page).locator(".spec-row", { hasText: "Tandem" }).locator("img.spec-logo")).toBeVisible();
   await expect(activeScreen(page)).not.toContainText("isn't what was copied");
   expect(errors).toEqual([]);
+});
+
+// Spec: S44
+test("a catalogue's own spec shows its shared parts with their logos", async ({ page }) => {
+  await open(page, "/acme/shared-specs/spec?id=tandem");
+  await expect(activeScreen(page).locator(".spec-item .spec-shared-title")).toContainText("Shared part · tandem");
+  await expect(activeScreen(page).locator(".spec-item .spec-shared-title img.spec-logo")).toBeVisible();
+  // Not copied from anywhere: no banner saying so.
+  await expect(activeScreen(page).locator(".spec-item")).not.toContainText("Copied from");
 });

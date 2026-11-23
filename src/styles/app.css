@@ -1964,6 +1964,18 @@ details.disclosure[open] > summary {
   overflow-wrap: anywhere;
 }
 
+/* A shared part: its logo beside its name and permanent id. */
+.spec-shared-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.spec-shared-title h2 {
+  margin: 0 0 2px;
+}
+
 .spec-item h2 .pill {
   vertical-align: middle;
 }
@@ -2068,6 +2080,14 @@ details.disclosure[open] > summary {
   border-radius: 10px;
   background: var(--bg-subtle);
   object-fit: cover;
+}
+
+.spec-logo-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-muted);
+  font-weight: 600;
 }
 
 .spec-figure {

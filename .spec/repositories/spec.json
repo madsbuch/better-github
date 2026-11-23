@@ -27,7 +27,8 @@
         "#S40",
         "#S41",
         "#S42",
-        "#S43"
+        "#S43",
+        "#S44"
       ]
     }
   ],
@@ -284,6 +285,13 @@
     {
       "id": "S43",
       "text": "Every story, requirement and value id in a shared part starts with the part's permanent id and a dot, as `tandem.SYN-1`, so ids from different shared parts never collide. An id in a shared part without it, and an id outside the part that uses its namespace, are listed as problems. An import whose part says it is another shared part is a problem too."
+    },
+    {
+      "id": "S44",
+      "text": "A shared part is shown with its logo, name and permanent id wherever the spec browser reads or lists it: above the part, and in place of the folder icon in the outline. That is so in its catalogue and in every product that copied it.",
+      "related": [
+        "#S42"
+      ]
     }
   ],
   "values": [

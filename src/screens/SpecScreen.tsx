@@ -423,7 +423,7 @@ function SpecText({ text }: { text: string }) {
  * Where an imported part came from, and what this repository does differently:
  * a value it sets otherwise, an entry it waives.
  */
-// Spec: SC6
+// Spec: SC6, S44
 function SharedFrom({ spec, node, place }: { spec: Spec; node: SpecNode; place: Place }) {
   const entry = importOf(spec, node);
   if (entry === null) return null;
@@ -440,14 +440,13 @@ function SharedFrom({ spec, node, place }: { spec: Spec; node: SpecNode; place: 
   const part = spec.nodes.get(entry.at);
   return (
     <div className="banner" style={{ margin: "12px 0", display: "block" }}>
-      <div className="row-flex" style={{ gap: 10, marginBottom: 6 }}>
-        <SpecLogo owner={place.owner} repo={place.repo} gitRef={place.gitRef} src={part?.item?.shared?.logo} size={32} />
-        <span className="grow">
-          <span className="bold">{part?.title ?? entry.at}</span> <span className="muted small mono">{entry.id}</span>
-        </span>
-      </div>
       <div className="small">
-        Shared part from{" "}
+        {node !== part && (
+          <>
+            Part of <span className="bold">{part?.title ?? entry.at}</span> (<span className="mono">{entry.id}</span>).{" "}
+          </>
+        )}
+        Copied from{" "}
         <Link {...to.spec(owner, repo, entry.commit, node.id)}>
           {entry.from} at <span className="mono">{entry.commit.slice(0, 7)}</span>
         </Link>
@@ -498,9 +497,19 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
   return (
     <article className="spec-item">
       <header>
-        <h2>
-          {node.title} {specStatus(item) !== undefined && <StatusPill />}
-        </h2>
+        <div className={item?.shared !== undefined ? "spec-shared-title" : undefined}>
+          {item?.shared !== undefined && <SpecLogo owner={place.owner} repo={place.repo} gitRef={place.gitRef} src={item.shared.logo} name={node.title} size={56} />}
+          <div style={{ minWidth: 0 }}>
+            <h2>
+              {node.title} {specStatus(item) !== undefined && <StatusPill />}
+            </h2>
+            {item?.shared !== undefined && (
+              <div className="muted small">
+                Shared part · <span className="mono">{item.shared.id}</span>
+              </div>
+            )}
+          </div>
+        </div>
         {item?.summary !== undefined && item.summary !== "" && <p className="spec-summary">
             <CheckText text={item.summary} />
           </p>}
@@ -914,7 +923,13 @@ function NodeRow({ node, place, showPath = false }: { node: SpecNode; place: Pla
   return (
     <Link {...to.spec(place.owner, place.repo, place.gitRef, node.id)} className="row spec-row">
       <span className="row-icon">
-        {node.children.length > 0 ? <FileDirectoryFillIcon size={16} className="c-accent" /> : <NoteIcon size={16} className="c-muted" />}
+        {node.item?.shared !== undefined ? (
+          <SpecLogo owner={place.owner} repo={place.repo} gitRef={place.gitRef} src={node.item.shared.logo} name={node.title} size={28} />
+        ) : node.children.length > 0 ? (
+          <FileDirectoryFillIcon size={16} className="c-accent" />
+        ) : (
+          <NoteIcon size={16} className="c-muted" />
+        )}
       </span>
       <span className="row-body">
         {showPath && trail.length > 0 && <span className="row-meta ellipsis">{trail.map((n) => n.title).join(" / ")}</span>}

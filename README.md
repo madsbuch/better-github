@@ -343,8 +343,10 @@ copy is found by the part's permanent id, so when the part was renamed in its
 catalogue, the copy moves to the new folder and its waivers of parts move with
 it; its ids stay.
 
-In the spec browser, an imported part shows its logo, name and id, says which
-catalogue and commit it came from, with a link to it there, and lists the values the repository sets
+In the spec browser, a shared part is shown with its logo, name and permanent id,
+above the part and in the outline, both in its catalogue and in every app that
+copied it (a part without a logo shows the first letter of its name). An imported
+part also says which catalogue and commit it came from, with a link to it there, and lists the values the repository sets
 differently and what it waives.
 
 ### Large specs
