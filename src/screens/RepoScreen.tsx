@@ -14,6 +14,7 @@ import {
   LinkIcon,
   LockIcon,
   NoteIcon,
+  PlusIcon,
   RepoForkedIcon,
   StarFillIcon,
   StarIcon,
@@ -38,6 +39,7 @@ import { reviewQueries, useCopyRulesPrompt } from "../queries/reviewRules";
 import { repoListQuery, searchQueries, useIssueSearch } from "../queries/search";
 import { specQueries, useCopySpecPrompt, useSpec, useSpecContents } from "../queries/spec";
 import { specCounts } from "../lib/spec";
+import { addSpecCatalogue, isSpecCatalogue, useSpecCatalogues } from "../lib/specCatalogue";
 import { ActionsTab } from "./actions/ActionsTab";
 import { ReleasesTab } from "./releases/ReleasesTab";
 import { Markdown, type MarkdownBase } from "../components/Markdown";
@@ -61,6 +63,8 @@ export function RepoScreen() {
   const toast = useToast();
   const [menu, setMenu] = useState(false);
   const fullName = `${owner}/${repo}`;
+  // So the menu's "Add to shared specs" goes once it is added.
+  useSpecCatalogues();
 
   const detail = useQuery(repoQueries.detail(owner, repo));
   const data = detail.data?.repository ?? null;
@@ -210,6 +214,21 @@ export function RepoScreen() {
             icon: <NoteIcon size={18} />,
             hidden: gitRef === "" || guest,
             onSelect: () => nav.navigate(to.spec(owner, repo, search.ref)),
+          },
+          {
+            label: "Add a shared part",
+            icon: <NoteIcon size={18} />,
+            hidden: gitRef === "" || guest,
+            onSelect: () => nav.navigate(to.specs(fullName)),
+          },
+          {
+            label: "Add to shared specs",
+            icon: <PlusIcon size={18} />,
+            hidden: gitRef === "" || guest || isSpecCatalogue(fullName),
+            onSelect: () => {
+              addSpecCatalogue(fullName);
+              toast.show("Added to your shared specs");
+            },
           },
           {
             label: "Copy spec prompt",

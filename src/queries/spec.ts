@@ -231,6 +231,8 @@ export interface LoadedSpec {
   spec: Spec | null;
   /** The folder's files with the contents read so far; what `spec` is built from. */
   files: SpecFile[] | null;
+  /** Git's id for each folder in it ("uploads"), when the listing has them. */
+  folders: ReadonlyMap<string, string> | undefined;
   /** Whether the branch has been checked, and its files listed. */
   loaded: boolean;
   isPending: boolean;
@@ -277,6 +279,7 @@ export function useSpec(owner: string, repo: string, ref: string): LoadedSpec {
   return {
     spec: tree === null ? null : spec,
     files: tree === null ? null : read,
+    folders: tree === null ? undefined : folders,
     loaded: root.isSuccess && (tree === null || listing.isSuccess),
     isPending: root.isPending || (tree !== null && listing.isPending),
     error: root.error ?? listing.error,

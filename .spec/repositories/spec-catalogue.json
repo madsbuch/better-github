@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/madsbuch/better-github/main/schema/spec.schema.json",
+  "title": "Shared specs",
+  "summary": "A catalogue of spec parts that several apps share, and adding one to an app.",
+  "order": 4,
+  "description": "Apps that sync, sign in or draw alike can share the part of their spec that says how. The part is written once in a catalogue repository; each app gets a copy, recorded in its root item's imports (S39).",
+  "stories": [
+    {
+      "id": "US-SC-1",
+      "as": "someone who builds several apps",
+      "want": "to see the shared spec parts I could use, and add one to an app in a few taps",
+      "soThat": "each app gets the same decisions without copying files by hand",
+      "requirements": [
+        "#SC1",
+        "#SC2",
+        "#SC3",
+        "#SC4",
+        "#SC5",
+        "#SC6"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "SC1",
+      "text": "The app keeps a list of catalogues on the device: repositories whose spec is made of shared parts. One is added by name on the Shared specs screen, or from a repository's menu, and removed on the screen."
+    },
+    {
+      "id": "SC2",
+      "text": "The Shared specs screen lists each catalogue's parts, its top-level folders with an index.json, read at the newest commit of its default branch. Each shows its title, summary and how many requirements, parts and values it has, and opens in the spec browser."
+    },
+    {
+      "id": "SC3",
+      "text": "A part can be added to a repository picked from yours or typed as owner/repo, or straight to the repository whose menu opened the screen."
+    },
+    {
+      "id": "SC4",
+      "text": "Before anything is written, the app says what adding the part does. It refuses, saying why, when the repository already has its own part at that path, imports it from another catalogue, imports a part that overlaps it, uses one of the part's ids elsewhere, or has a root item it can't read. A repository that has this version already is told so."
+    },
+    {
+      "id": "SC5",
+      "text": "Adding a part opens a pull request into the repository's default branch with one commit: the part's files copied byte for byte, each checked against the original's object id; the files of an earlier copy that the part no longer has removed; and the import recorded in the root item, keeping its order, values and waivers. Its description tells a coding agent what to do next."
+    },
+    {
+      "id": "SC6",
+      "text": "In the spec browser, an imported part says which catalogue and commit it came from, linking to it there, and lists the named values the repository sets differently and what it waives in that part."
+    }
+  ],
+  "related": [
+    "repositories/spec"
+  ]
+}

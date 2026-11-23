@@ -50,6 +50,7 @@ import {
 import { repoQueries } from "../queries/repos";
 import { useCopySpecConsistencyPrompt, useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { applyRework, useSpecRework } from "../lib/specRework";
+import { importOf, inPart } from "../lib/specCatalogue";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
@@ -417,6 +418,47 @@ function SpecText({ text }: { text: string }) {
 }
 
 /** One item: what it says, the user stories it serves, its requirements, pictures and what it relates to. */
+/**
+ * Where an imported part came from, and what this repository does differently:
+ * a value it sets otherwise, an entry it waives.
+ */
+// Spec: SC6
+function SharedFrom({ spec, node, place }: { spec: Spec; node: SpecNode; place: Place }) {
+  const entry = importOf(spec, node);
+  if (entry === null) return null;
+  const [owner = "", repo = ""] = entry.from.split("/");
+  const own = (target: SpecNode) => target === node;
+  const values = (entry.values ?? []).filter((set) => {
+    const found = spec.values.get(set.id);
+    return found !== undefined && own(found.node);
+  });
+  const waived = (entry.waived ?? []).filter(({ ref }) => {
+    const target = resolveSpecRef(spec, ref);
+    return target !== null && (ref.startsWith("#") ? own(target.node) : inPart(target.node.id, node));
+  });
+  return (
+    <div className="banner" style={{ margin: "12px 0", display: "block" }}>
+      <div className="small">
+        Shared part from{" "}
+        <Link {...to.spec(owner, repo, entry.commit, node.id)}>
+          {entry.from} at <span className="mono">{entry.commit.slice(0, 7)}</span>
+        </Link>
+        . It is changed there, not here. <Link {...to.specs(`${place.owner}/${place.repo}`)}>Check for a newer version</Link>
+      </div>
+      {values.map((set) => (
+        <div key={set.id} className="small" style={{ marginTop: 6 }}>
+          <span className="bold">Set here:</span> <span className="mono">{set.id}</span> is <span className="mono">{Array.isArray(set.value) ? set.value.join(", ") : set.value}</span>. {set.reason}
+        </div>
+      ))}
+      {waived.map((waiver) => (
+        <div key={waiver.ref} className="small" style={{ marginTop: 6 }}>
+          <span className="bold">Waived here:</span> <span className="mono">{waiver.ref}</span>. {waiver.reason}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; place: Place; current: string | undefined }) {
   const item = node.item;
   const requirements = item?.requirements ?? [];
@@ -455,6 +497,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
             <CheckText text={item.summary} />
           </p>}
       </header>
+      <SharedFrom spec={spec} node={node} place={place} />
       <ItemTools node={node} />
       {node.error !== null && node.file !== null && (
         <div className="banner banner-danger" style={{ margin: "12px 0" }}>

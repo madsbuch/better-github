@@ -16,6 +16,7 @@ import { Route as ProfileRouteImport } from "./routes/profile";
 import { Route as PullsRouteImport } from "./routes/pulls";
 import { Route as ReposRouteImport } from "./routes/repos";
 import { Route as SearchRouteImport } from "./routes/search";
+import { Route as SpecsRouteImport } from "./routes/specs";
 import { Route as OwnerIndexRouteImport } from "./routes/$owner/index";
 import { Route as SettingsIndexRouteImport } from "./routes/settings/index";
 import { Route as SettingsSectionRouteImport } from "./routes/settings/$section";
@@ -69,6 +70,11 @@ const ReposRoute = ReposRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: "/search",
   path: "/search",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SpecsRoute = SpecsRouteImport.update({
+  id: "/specs",
+  path: "/specs",
   getParentRoute: () => rootRouteImport,
 } as any);
 const OwnerIndexRoute = OwnerIndexRouteImport.update({
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
+  "/specs": typeof SpecsRoute;
   "/settings/$section": typeof SettingsSectionRoute;
   "/$owner/": typeof OwnerIndexRoute;
   "/settings/": typeof SettingsIndexRoute;
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
+  "/specs": typeof SpecsRoute;
   "/settings/$section": typeof SettingsSectionRoute;
   "/$owner": typeof OwnerIndexRoute;
   "/settings": typeof SettingsIndexRoute;
@@ -235,6 +243,7 @@ export interface FileRoutesById {
   "/pulls": typeof PullsRoute;
   "/repos": typeof ReposRoute;
   "/search": typeof SearchRoute;
+  "/specs": typeof SpecsRoute;
   "/settings/$section": typeof SettingsSectionRoute;
   "/$owner/": typeof OwnerIndexRoute;
   "/settings/": typeof SettingsIndexRoute;
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | "/pulls"
     | "/repos"
     | "/search"
+    | "/specs"
     | "/settings/$section"
     | "/$owner/"
     | "/settings/"
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | "/pulls"
     | "/repos"
     | "/search"
+    | "/specs"
     | "/settings/$section"
     | "/$owner"
     | "/settings"
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
     | "/pulls"
     | "/repos"
     | "/search"
+    | "/specs"
     | "/settings/$section"
     | "/$owner/"
     | "/settings/"
@@ -350,6 +362,7 @@ export interface RootRouteChildren {
   PullsRoute: typeof PullsRoute;
   ReposRoute: typeof ReposRoute;
   SearchRoute: typeof SearchRoute;
+  SpecsRoute: typeof SpecsRoute;
   SettingsSectionRoute: typeof SettingsSectionRoute;
   OwnerIndexRoute: typeof OwnerIndexRoute;
   SettingsIndexRoute: typeof SettingsIndexRoute;
@@ -420,6 +433,13 @@ declare module "@tanstack/react-router" {
       path: "/search";
       fullPath: "/search";
       preLoaderRoute: typeof SearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/specs": {
+      id: "/specs";
+      path: "/specs";
+      fullPath: "/specs";
+      preLoaderRoute: typeof SpecsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/$owner/": {
@@ -566,6 +586,7 @@ const rootRouteChildren: RootRouteChildren = {
   PullsRoute: PullsRoute,
   ReposRoute: ReposRoute,
   SearchRoute: SearchRoute,
+  SpecsRoute: SpecsRoute,
   SettingsSectionRoute: SettingsSectionRoute,
   OwnerIndexRoute: OwnerIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,

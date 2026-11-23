@@ -20,7 +20,7 @@ A fast GitHub client for Android phones and tablets and for the desktop (macOS, 
 - Merge box showing review decision, check status and mergeability, with *Ready for review* and auto-merge controls. Whenever the branch is behind its base, also while merging is blocked for another reason, *Update branch* brings the base in with a merge commit or a rebase (the last one you picked).
 - **Files**: syntax-highlighted diffs with word-level change highlighting, wrap toggle, jump-to-file, and per-file *Viewed* state synced with GitHub. Viewed files collapse automatically.
 - **Review rules**: with a `.review-rules` file in the repository, every changed file gets a risk verdict (high, medium or low) and a line above its diff that opens what to check in it, grouped by the rule it comes from. The *Review guide* lists every rule that applies to the pull request once, with the files it covers. Files are ordered riskiest first, and approving asks first if a high-risk file isn't marked viewed. See [Review rules](#review-rules).
-- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their user stories, requirements and pictures. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. See [Spec](#spec).
+- **Spec**: with a `.spec` folder in the repository, the app shows what the code is meant to do: an outline of items with their user stories, requirements and pictures. Two branches' specs can be compared item by item, and a pull request that changes the spec links to that comparison. **Shared specs** lists parts that several apps share and adds one to a repository as a pull request. See [Spec](#spec).
 - Tap any line to comment, or to **suggest a change** that GitHub can apply in one click. Comments are added to a pending review (saved on the device until you submit) or posted immediately.
 - Reply to, resolve and unresolve review threads, both in the timeline and inline in the diff.
 - Submit reviews (comment, approve or request changes), merge (merge, squash or rebase, with editable commit message and optional branch deletion), enable or disable auto-merge, close or reopen PRs, convert to draft.
@@ -310,6 +310,34 @@ reading, with reworded text shown as one sentence that has the old words struck
 through and the new ones marked. Comments and viewed marks are the same as in
 the Files tab, since each part is one file. *To read* narrows the tab to what
 isn't viewed yet.
+
+### Shared specs
+
+*Shared specs* (under *You*) is a catalogue of spec parts that several apps
+share, such as how their devices sync. A catalogue is a repository whose spec is
+made of parts: its top-level folders, each with an `index.json` (for example
+[madsbuch/spec-repo](https://github.com/madsbuch/spec-repo)). Add one by name,
+or with *Add to shared specs* in a repository's menu. The list stays on the device.
+
+Each catalogue lists its parts, read at the newest commit of its default branch,
+with how many requirements, parts and values each has. A part opens in the spec
+browser. *Use in…* picks the repository it goes into; *Add a shared part* in a
+repository's menu opens the catalogue for that repository. Before anything is
+written, the app says what it will do, and refuses, saying why, when the repository
+already has its own part at that path, imports it from another catalogue, or
+uses one of the part's ids. A repository that has this version already is told so.
+
+*Open pull request* makes one commit on a new branch into the default branch. It
+copies the part's files byte for byte, with each copy checked against the
+original's object id. It removes what an earlier copy had that the part no longer
+has, and records the import in the root item, keeping its `order`, `values` and
+`waived`. The description tells a coding agent what to do next: cite the shared
+requirements, set values or waive what doesn't hold, and link the app's own parts.
+Running it again on a newer commit updates the copy the same way.
+
+In the spec browser, an imported part says which catalogue and commit it came
+from, with a link to it there, and lists the values the repository sets
+differently and what it waives.
 
 ### Large specs
 

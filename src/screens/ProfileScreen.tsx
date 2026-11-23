@@ -4,6 +4,7 @@ import {
   GitPullRequestIcon,
   LinkExternalIcon,
   LocationIcon,
+  NoteIcon,
   OrganizationIcon,
   PeopleIcon,
   RepoIcon,
@@ -85,6 +86,11 @@ function AccountProfileScreen() {
         <Link {...to.notifications()} preload="viewport" className="kv">
           <BellIcon size={18} />
           <span className="grow">Notifications</span>
+          <ChevronRightIcon size={16} className="c-muted" />
+        </Link>
+        <Link {...to.specs()} className="kv">
+          <NoteIcon size={18} />
+          <span className="grow">Shared specs</span>
           <ChevronRightIcon size={16} className="c-muted" />
         </Link>
         <button className="kv" style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border-muted)", background: "none", textAlign: "left" }} onClick={() => void backend.openUrl(`https://github.com/${session.login}`)}>

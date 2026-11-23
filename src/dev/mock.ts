@@ -368,6 +368,36 @@ function atlasSpec(next: boolean): Record<string, unknown> {
   return files;
 }
 
+/** A catalogue of shared specs (acme/shared-specs): parts that several apps copy into their spec. */
+const SHARED_SPECS: Record<string, unknown> = {
+  "index.json": { title: "Acme shared specs", summary: "Parts that several Acme apps share." },
+  "sync/index.json": {
+    title: "Sync",
+    summary: "Peer-to-peer sync between the devices of one collection.",
+    requirements: [{ id: "SYN-1", text: "Two devices on the same local network sync with each other, without a server." }],
+    values: [{ id: "sync.pairing-lifetime", type: "duration", value: "10min" }],
+  },
+  "sync/pairing.json": { title: "Pairing", order: 1, requirements: [{ id: "SYN-9", text: "A new device joins by scanning a pairing code, which works for `sync.pairing-lifetime`." }] },
+  "telemetry/index.json": { title: "Telemetry", summary: "What an app may report about itself.", requirements: [{ id: "TEL-1", text: "No report holds anything the user wrote." }] },
+};
+/** The tip of every fixture repository's default branch, as the commits API answers for HEAD. */
+const TIP = "ba5eba11".padEnd(40, "0");
+
+function rocketWithSync(): Record<string, unknown> {
+  const shared = Object.fromEntries(Object.entries(SHARED_SPECS).filter(([path]) => path.startsWith("sync/")));
+  const tree = treeOf({ files: shared, pictures: "1" }).find((entry) => entry.path === "sync")?.sha ?? "";
+  const root = z.record(z.string(), z.unknown()).parse(ROCKET_SPEC["index.json"]);
+  const entry = {
+    at: "sync",
+    from: "acme/shared-specs",
+    commit: TIP,
+    tree,
+    values: [{ id: "sync.pairing-lifetime", value: "5min", reason: "Pairing happens at a desk." }],
+    waived: [{ ref: "#SYN-9", reason: "Rocket pairs with a token instead." }],
+  };
+  return { ...ROCKET_SPEC, ...shared, "index.json": { ...root, imports: [entry] } };
+}
+
 /** Every version of every fixture spec: what `<ref>:.spec` resolves to, by repository. */
 const SPEC_VERSIONS: Record<string, { files: Record<string, unknown>; pictures: string } | undefined> = {
   "acme/rocket@main": { files: ROCKET_SPEC, pictures: "1" },
@@ -386,19 +416,38 @@ const SPEC_VERSIONS: Record<string, { files: Record<string, unknown>; pictures: 
   [`acme/rocket@${PR_HEAD}`]: { files: ROCKET_SPEC_NEXT, pictures: "2" },
   "acme/atlas@main": { files: atlasSpec(false), pictures: "1" },
   "acme/atlas@next": { files: atlasSpec(true), pictures: "1" },
+  "acme/shared-specs@main": { files: SHARED_SPECS, pictures: "1" },
+  // Rocket with the shared sync part pulled in: a value set otherwise, and a requirement it waives.
+  "acme/rocket@with-sync": { files: rocketWithSync(), pictures: "1" },
+  [`acme/shared-specs@${TIP}`]: { files: SHARED_SPECS, pictures: "1" },
 };
 
 /** Contents by object id, filled as trees are listed (like a repository's object store). */
 const SPEC_OBJECTS = new Map<string, string>();
 
-/** A version's files as a recursive tree listing. */
+/** A version's files as a recursive tree listing, folders included: a folder's id is made from what is in it. */
 function specListing(version: { files: Record<string, unknown>; pictures: string }) {
-  return Object.entries(version.files).map(([path, value]) => {
+  const listing = treeOf(version);
+  for (const entry of listing) if (entry.text !== null) SPEC_OBJECTS.set(entry.sha, entry.text);
+  return listing.map(({ text: _text, ...entry }) => entry);
+}
+
+/** The listing, with each file's text; nothing is stored. */
+function treeOf(version: { files: Record<string, unknown>; pictures: string }) {
+  const blobs = Object.entries(version.files).map(([path, value]) => {
     const text = value === null ? null : specText(value);
     const sha = text === null ? oidOf(`${path}@${version.pictures}`) : oidOf(text);
-    if (text !== null) SPEC_OBJECTS.set(sha, text);
-    return { path, mode: "100644", type: "blob", sha, size: text?.length ?? 1000, url: "" };
+    return { path, mode: "100644", type: "blob", sha, size: text?.length ?? 1000, url: "", text };
   });
+  const folders = new Map<string, string[]>();
+  for (const blob of blobs) {
+    const parts = blob.path.split("/");
+    for (let depth = 1; depth < parts.length; depth++) {
+      const folder = parts.slice(0, depth).join("/");
+      folders.set(folder, [...(folders.get(folder) ?? []), `${blob.path} ${blob.sha}`]);
+    }
+  }
+  return [...blobs, ...[...folders].map(([path, lines]) => ({ path, mode: "040000", type: "tree", sha: oidOf(lines.sort().join("\n")), size: 0, url: "", text: null }))];
 }
 
 /** `git diff` of two texts as one hunk with the whole file for context: enough for a fixture. */
@@ -932,6 +981,12 @@ const specPullRequests: { path: string; body: unknown }[] = [];
 if (typeof window !== "undefined") Object.assign(window, { __specPull: specPullRequests });
 
 function newPullRest(path: string, method: string, request: RestRequest): unknown {
+  // Copying a file from another repository, as it is: the copy's id is made from its contents.
+  if (method === "POST" && path.endsWith("/git/blobs")) {
+    specPullRequests.push({ path, body: request.body });
+    const body = z.object({ content: z.string() }).safeParse(request.body);
+    return { sha: oidOf(body.success ? atob(body.data.content) : "") };
+  }
   // Opening a pull request from a reworked spec: a tree, a commit, a branch.
   if (method === "POST" && /\/git\/(trees|commits|refs)$/.test(path)) {
     specPullRequests.push({ path, body: request.body });
@@ -948,6 +1003,11 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
     return `<p>${text.replace(/[&<>]/g, (c) => escapes[c] ?? c)}</p>`;
   }
   if (method !== "GET") return undefined;
+  const blob = /\/git\/blobs\/([0-9a-f]+)$/.exec(path);
+  if (blob) {
+    const text = SPEC_OBJECTS.get(group(blob));
+    return text === undefined ? NOT_FOUND : { sha: group(blob), content: btoa(text), encoding: "base64" };
+  }
   // The tip of a branch, to start a new one from.
   if (/^\/repos\/[^/]+\/[^/]+\/commits\/[^/]+$/.test(path) && !/\/commits\/[0-9a-f]{7,40}$/.test(path)) return { sha: "ba5eba11".padEnd(40, "0"), commit: { tree: { sha: "7ree0".padEnd(40, "0") } } };
   const compare = /\/compare\/(.+)$/.exec(path);
