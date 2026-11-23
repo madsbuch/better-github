@@ -1507,6 +1507,23 @@ Products can share a part of their spec, such as how their devices sync. The par
 - The shared part doesn't know the products that use it. A product links its own entries to the shared ones with `related`, written at its end.
 - Copying a newer version is a change to the spec like any other: compare the two, then reconcile what in the product is related to what changed, and search the code for the changed ids. When the part was renamed, the copy moves to its new folder and `at` changes with it; references to the old folder's paths change too, and the ids stay.
 
+## Adopting a shared part
+
+A pull request that copies a shared part into a product, or updates the copy, is finished in the product. What that takes is settled here; don't ask about it. Ask only about the one decision that is the product owner's (step 2).
+
+1. **Cite.** Where the product meets a requirement of the part, the code that meets it and the test that proves it cite it by its namespaced id: `// Spec: tandem.SYN-5`.
+2. **Meet, or ask.** Where the product doesn't meet a requirement, implement it, unless that changes what the product does in a way nobody asked for, or the requirement can't hold in this product. Then don't decide: list it, with what meeting it would take, and ask whether to implement it or waive it. A waiver goes in the import's `waived`, with the reason.
+3. **Values.** Constants in the product follow the part's named values, or the import's `values` where the product sets one differently. Each such constant gets a test that fails when it no longer matches the spec.
+4. **What the product had specified itself.** Where the product's own spec states what a shared requirement now states, deprecate the product's entry, with the reason and `replacedBy` the shared id; don't delete it. Point the product's `related` pointers and code citations at the shared id. Entries about the product's own content stay, linked to the shared entries they touch.
+5. **Link.** Reconcile (above): every entry of the product that touches an entry of the part gets a `related` pointer to it, at the product's end.
+6. **Check.** The product's spec checks know shared parts: the copy is unchanged (git's id for its folder is the import's `tree`), every id in it starts with its permanent id, and no code cites a deprecated or waived requirement.
+7. **Leave alone.**
+   - Words: the product keeps its own. The part's description says what its neutral terms mean, and the product's spec says what they are in the product ("the book is the collection"). Don't rename code to the part's words, and never change a name that other devices or versions depend on: wire formats, file names, ports.
+   - Structure: a spec says what must hold, not how. Don't restructure the code to look like another product that uses the same part, or move it into a shared library. Those are decisions of their own, not part of adopting a part.
+8. **Report** what was cited, implemented, deprecated, linked and checked, and what you asked about.
+
+An update is adopted the same way, for what changed: the comparison of the two versions shows it, and the changed ids, searched for in the code, show what to change.
+
 ## A good spec
 
 - It says what the product does and why. It can also say how the product is built, where that is decided and has to hold: an architecture, a data model, a protocol, a limit on what a component may do. Someone who has never seen the code can read an item and know what to expect from that part.

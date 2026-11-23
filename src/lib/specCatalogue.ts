@@ -206,6 +206,10 @@ function descendants(node: SpecNode): SpecNode[] {
   return node.children.flatMap((child) => [child, ...descendants(child)]);
 }
 
+/** The spec format for coding agents, with "Adopting a shared part". */
+export const SPEC_LLMS_URL = SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt");
+
+// Spec: SC8
 function importPullBody(source: ImportSource, id: string, updates: string | null, movesFrom: string | null, copies: number, deletes: number): string {
   const at = `${SPEC_DIR}/${source.part.id}`;
   const files = `${copies} ${copies === 1 ? "file" : "files"}${deletes > 0 ? `, ${deletes} removed` : ""}`;
@@ -214,22 +218,26 @@ function importPullBody(source: ImportSource, id: string, updates: string | null
       ? `Copies the shared part "${source.part.title}" (\`${id}\`) into \`${at}\` (${files}) from ${source.from} at ${source.commit}, and records it in \`imports\` in \`${SPEC_DIR}/index.json\`.`
       : `Updates the shared part "${source.part.title}" (\`${id}\`) in \`${at}\` (${files}) from ${source.from} at ${updates} to ${source.commit}.`;
   const moved = movesFrom === null ? [] : [`The part was renamed: it moves from \`${SPEC_DIR}/${movesFrom}\` to \`${at}\`. Its ids stay the same; references in this spec to \`${movesFrom}/…\` paths change to \`${source.part.id}/…\`.`];
-  const steps =
+  const update =
     updates === null
-      ? [
-          `1. Read the part. Every id in it starts with \`${id}.\`. Where the product meets a requirement, cite it in the code and its test (\`// Spec: ${id}.<id>\`). Where it doesn't, implement it, or waive it in the import's \`waived\`, with the reason.`,
-          "2. Set the part's named values that this product needs differently in the import's `values`, with the reason.",
-          "3. Link the product's own parts to the shared ones they touch with `related`, written at the product's end.",
-        ]
+      ? []
       : [
-          "1. The spec comparison of this pull request shows what changed in the part, requirement by requirement.",
-          "2. Reconcile what in the product is related to what changed, and search the code for the changed ids: that is the code and the tests to change.",
-          "3. Check that the import's `values` and `waived` still name things the part has.",
+          "This is an update: what changed in the part is what to adopt. The spec comparison of this pull request shows it requirement by requirement, and the changed ids, searched for in the code, show what to change. Check that the import's `values` and `waived` still name things the part has.",
         ];
+  const steps = [
+    `1. **Cite** every requirement of the part the product meets, in the code and its test: \`// Spec: ${id}.<id>\`.`,
+    "2. **Meet, or ask.** Implement what the product doesn't meet yet, unless that changes what the product does in a way nobody asked for, or the requirement can't hold here: then list those, with what meeting them would take, and ask whether to implement or waive them (in the import's `waived`, with the reason). This is the only thing to ask about.",
+    "3. **Values:** constants follow the part's named values (or the import's `values`), each with a test that fails when it drifts.",
+    "4. **What the product had specified itself:** deprecate its own entries that the part now states, `replacedBy` the shared ids, and move `related` pointers and code citations to them. Entries about the product's own content stay, linked to the shared ones.",
+    "5. **Link** the product's entries to the shared entries they touch with `related`, at the product's end.",
+    "6. **Check:** the product's spec checks accept `shared` and `imports`, check that the copy is unchanged and its ids are in its namespace, and refuse citations of deprecated or waived requirements.",
+    "7. **Leave alone:** the product's own words (don't rename code to the part's neutral terms; never change wire formats, file names or ports), and its structure (don't reshape the code to match another product that uses the part, or move it into a shared library).",
+    "8. **Report** what was cited, implemented, deprecated, linked and checked, and what you asked about.",
+  ];
   return [
     what,
     ...moved,
     `Don't edit the copy: change the part in ${source.from} and import it again. A copy that differs from what was copied is listed as a problem.`,
-    `## For a coding agent\n\nAdd the implementation to this pull request:\n\n${steps.join("\n")}`,
+    `## For a coding agent\n\nFinish this pull request in the product, as **Adopting a shared part** in the spec format says: ${SPEC_LLMS_URL}. It settles what to do; in short:\n\n${steps.join("\n")}${update.length > 0 ? `\n\n${update.join("\n\n")}` : ""}`,
   ].join("\n\n");
 }

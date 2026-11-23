@@ -17,7 +17,8 @@
         "#SC4",
         "#SC5",
         "#SC6",
-        "#SC7"
+        "#SC7",
+        "#SC8"
       ]
     }
   ],
@@ -67,6 +68,13 @@
     {
       "id": "SC7",
       "text": "An earlier copy of a part is found by the part's permanent id. When the part was renamed in its catalogue since, adding it again moves the copy to the new folder, removes the old one and moves the waivers of parts by path with it; ids stay as they are."
+    },
+    {
+      "id": "SC8",
+      "text": "`spec-llms.txt` says what adopting a shared part takes in a product, so that a coding agent doesn't have to ask: cite the part's requirements, meet them or ask whether to waive one, make constants follow its values with a test, deprecate what the product had specified itself in favour of the shared ids, link, check, and leave the product's words and structure alone. The description of an import's pull request points to it and sums it up.",
+      "related": [
+        "#S18"
+      ]
     }
   ],
   "related": [

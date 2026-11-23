@@ -1,4 +1,4 @@
-// Spec: SC1, SC2, SC4, SC5, SC7
+// Spec: SC1, SC2, SC4, SC5, SC7, SC8
 
 import { describe, expect, it } from "vitest";
 import { buildSpec, type SpecFile } from "./spec";
@@ -57,6 +57,9 @@ describe("planImport", () => {
     const root: unknown = JSON.parse(plan.root.text);
     expect(root).toMatchObject({ title: "App", summary: "An app.", imports: [{ id: "tandem", at: "tandem", from: "acme/shared", commit: COMMIT, tree: TREE }] });
     expect(plan.body).toContain("// Spec: tandem.<id>");
+    // What adopting the part takes is settled in the format, which the description points to.
+    expect(plan.body).toContain("as **Adopting a shared part** in the spec format says: https://raw.githubusercontent.com/madsbuch/better-github/main/spec-llms.txt");
+    expect(plan.body).toContain("This is the only thing to ask about.");
     // What it writes reads back without problems.
     expect(buildSpec([APP[1] ?? file("x.json", {}), file("index.json", root), ...tandem("tandem")]).problems).toEqual([]);
   });
