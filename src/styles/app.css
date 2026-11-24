@@ -2082,6 +2082,45 @@ details.disclosure[open] > summary {
   object-fit: cover;
 }
 
+/* An imported part's import: label and value per row. */
+.spec-import {
+  margin: 12px 0;
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  font-size: 13.5px;
+}
+
+.spec-import-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.spec-import-row:first-child {
+  border-top: 0;
+}
+
+.spec-import-label {
+  flex: none;
+  width: 72px;
+  color: var(--fg-muted);
+}
+
+.spec-import-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.spec-import-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .spec-logo-letter {
   display: inline-flex;
   align-items: center;

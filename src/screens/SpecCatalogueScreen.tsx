@@ -5,7 +5,7 @@
 import { ChevronRightIcon, GitPullRequestIcon, LockIcon, NoteIcon, PlusIcon, RepoIcon, SearchIcon, TrashIcon, XIcon } from "@primer/octicons-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { errorMessage } from "../lib/api";
 import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
@@ -37,8 +37,11 @@ export function SpecCatalogueScreen() {
   const search = route.useSearch();
   const nav = useNav();
   const guest = useIsGuest();
-  const catalogues = useSpecCatalogues();
+  const added = useSpecCatalogues();
   const into = search.into !== undefined && isRepoName(search.into) ? search.into : null;
+  // An update names the catalogue the part came from: it is shown even when it isn't in the list.
+  const from = search.from !== undefined && isRepoName(search.from) ? search.from : null;
+  const catalogues = from === null || added.some((name) => name.toLowerCase() === from.toLowerCase()) ? added : [...added, from];
   const [picked, setPicked] = useState<Picked | null>(null);
 
   return (
@@ -67,7 +70,15 @@ export function SpecCatalogueScreen() {
               <span className="bold">Add to shared specs</span> in a repository's menu.
             </EmptyState>
           ) : (
-            catalogues.map((name) => <Catalogue key={name} name={name} into={into} onPick={setPicked} />)
+            catalogues.map((name) => (
+              <Catalogue
+                key={name}
+                name={name}
+                into={into}
+                open={from !== null && name.toLowerCase() === from.toLowerCase() ? (search.part ?? null) : null}
+                onPick={setPicked}
+              />
+            ))
           )}
         </>
       )}
@@ -123,11 +134,20 @@ function AddCatalogue() {
 }
 
 /** One catalogue: its parts, read at the newest commit of its default branch. */
-function Catalogue({ name, into, onPick }: { name: string; into: string | null; onPick: (picked: Picked) => void }) {
+function Catalogue({ name, into, open, onPick }: { name: string; into: string | null; open: string | null; onPick: (picked: Picked) => void }) {
   const catalogue = useCatalogue(name);
   const [owner = "", repo = ""] = name.split("/");
   const parts = catalogue.spec === null ? [] : sharedParts(catalogue.spec);
   const error = catalogue.tipError ?? catalogue.error;
+  const removable = useSpecCatalogues().some((known) => known.toLowerCase() === name.toLowerCase());
+  // Opened to update one part: its review opens by itself, once, when the part is here.
+  const opened = useRef(false);
+  const toOpen = open === null ? undefined : parts.find((part) => part.item?.shared?.id === open);
+  useEffect(() => {
+    if (opened.current || toOpen === undefined || catalogue.commit === "") return;
+    opened.current = true;
+    onPick({ name, catalogue, part: toOpen });
+  }, [toOpen, catalogue, name, onPick]);
 
   return (
     <section aria-label={name}>
@@ -135,9 +155,15 @@ function Catalogue({ name, into, onPick }: { name: string; into: string | null; 
         <Link {...to.spec(owner, repo)} className="grow ellipsis">
           {name}
         </Link>
-        <button className="icon-btn sm" aria-label={`Remove ${name}`} onClick={() => removeSpecCatalogue(name)}>
-          <TrashIcon size={14} />
-        </button>
+        {removable ? (
+          <button className="icon-btn sm" aria-label={`Remove ${name}`} onClick={() => removeSpecCatalogue(name)}>
+            <TrashIcon size={14} />
+          </button>
+        ) : (
+          <button className="btn btn-sm" onClick={() => addSpecCatalogue(name)}>
+            <PlusIcon size={14} /> Add to your list
+          </button>
+        )}
       </h3>
       {error !== null ? (
         <ErrorView error={error} onRetry={catalogue.retry} />

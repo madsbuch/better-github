@@ -79,17 +79,32 @@ test("an imported part says where it came from, and what this repository does di
   await expect(header.locator("img.spec-logo")).toBeVisible();
   await expect(header).toContainText("Tandem");
   await expect(header).toContainText("Shared part · tandem");
-  const banner = activeScreen(page).locator(".spec-item .banner").first();
-  await expect(banner).toContainText(`Copied from acme/shared-specs at ${TIP.slice(0, 7)}. It is changed there, not here.`);
-  await expect(banner.getByRole("link", { name: /acme\/shared-specs/ })).toHaveAttribute("href", new RegExp(`#/acme/shared-specs/spec\\?ref=${TIP}&id=tandem$`));
-  await expect(banner).toContainText("Set here: tandem.pairing-lifetime is 5min. Pairing happens at a desk.");
+  // The part itself shows the whole import.
+  const panel = activeScreen(page).getByRole("region", { name: "Import" });
+  await expect(panel).toContainText(`Fromacme/shared-specs at ${TIP.slice(0, 7)}`);
+  await expect(panel.getByRole("link", { name: "acme/shared-specs" })).toHaveAttribute("href", new RegExp(`#/acme/shared-specs/spec\\?ref=${TIP}&id=tandem$`));
+  await expect(panel).toContainText("CopyAs copied. It is changed in acme/shared-specs, not here.");
+  await expect(panel).toContainText("Set here: tandem.pairing-lifetime is 5min. Pairing happens at a desk.");
+  await expect(panel).toContainText("Waived here: #tandem.SYN-9. Rocket pairs with a token instead.");
+  await expect(panel).toContainText("Up to date: acme/shared-specs has this part as it was copied.");
+  // A part inside it says what it is part of, and what concerns it.
   await open(page, "/acme/rocket/spec?ref=with-sync&id=tandem/pairing");
   const inside = activeScreen(page).locator(".spec-item .banner").first();
-  await expect(inside).toContainText("Part of Tandem (tandem).");
+  await expect(inside).toContainText("Part of Tandem (tandem), copied from acme/shared-specs.");
   await expect(inside).toContainText("Waived here: #tandem.SYN-9. Rocket pairs with a token instead.");
-  // In the outline, the logo stands in for the folder icon. The copy is as it was copied: no problems.
+  // In the outline, the shared parts come first, the logo standing in for the folder icon. The copy is as copied: no problems.
   await open(page, "/acme/rocket/spec?ref=with-sync");
-  await expect(activeScreen(page).locator(".spec-row", { hasText: "Tandem" }).locator("img.spec-logo")).toBeVisible();
+  const shared = activeScreen(page).getByRole("region", { name: "Shared parts" });
+  await expect(shared.locator(".spec-row")).toHaveCount(1);
+  await expect(shared.locator(".spec-row").locator("img.spec-logo")).toBeVisible();
+  await expect(shared).toContainText("From acme/shared-specs · copied");
+  await expect(shared).toContainText("1 value set · 1 waived");
+  await expect(shared).not.toContainText("Update available");
+  const own = activeScreen(page).getByRole("region", { name: "Own parts" });
+  await expect(own).not.toContainText("Tandem");
+  await expect(own).toContainText("Uploads");
+  const sections = await activeScreen(page).locator("section[aria-label]").evaluateAll((all) => all.map((section) => section.getAttribute("aria-label")));
+  expect(sections.indexOf("Shared parts")).toBeLessThan(sections.indexOf("Own parts"));
   await expect(activeScreen(page)).not.toContainText("isn't what was copied");
   expect(errors).toEqual([]);
 });
@@ -101,4 +116,22 @@ test("a catalogue's own spec shows its shared parts with their logos", async ({ 
   await expect(activeScreen(page).locator(".spec-item .spec-shared-title img.spec-logo")).toBeVisible();
   // Not copied from anywhere: no banner saying so.
   await expect(activeScreen(page).locator(".spec-item")).not.toContainText("Copied from");
+});
+
+// Spec: SC9
+test("a part copied from an older version says so, and leads to the comparison and the update", async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page, "/acme/rocket/spec?ref=with-old-sync");
+  await expect(activeScreen(page).getByRole("region", { name: "Shared parts" })).toContainText("Update available");
+  await open(page, "/acme/rocket/spec?ref=with-old-sync&id=tandem");
+  const panel = activeScreen(page).getByRole("region", { name: "Import" });
+  await expect(panel).toContainText("A newer version, as of");
+  await expect(panel.getByRole("link", { name: "Compare" })).toHaveAttribute("href", new RegExp(`#/acme/shared-specs/spec-diff\\?base=01d5bec5\\w*&head=${TIP}$`));
+  // Update opens the catalogue on that part, ready to add to this repository, even though the catalogue isn't in the list.
+  await panel.getByRole("link", { name: "Update" }).click();
+  await expect(page).toHaveURL(/#\/specs\?into=acme%2Frocket&from=acme%2Fshared-specs&part=tandem/);
+  await expect(sheet(page)).toContainText('Add "Tandem"');
+  await expect(sheet(page)).toContainText("acme/rocket");
+  await expect(activeScreen(page).getByRole("button", { name: "Add to your list" })).toBeVisible();
+  expect(errors).toEqual([]);
 });

@@ -83,6 +83,8 @@ export const keys = {
     specListing: (owner: string, repo: string, tree: string) => [...repoBase(owner, repo), "spec-listing", tree] as const,
     /** The commit a shared spec's parts are pulled from: the tip of its default branch. */
     specTip: (owner: string, repo: string) => [...repoBase(owner, repo), "spec-tip"] as const,
+    /** A commit's date, by its id: it never changes. */
+    commitDate: (owner: string, repo: string, sha: string) => [...repoBase(owner, repo), "commit-date", sha] as const,
     /** The commit two refs both descend from. */
     mergeBase: (owner: string, repo: string, base: string, head: string) => [...repoBase(owner, repo), "merge-base", base, head] as const,
     contents: (owner: string, repo: string, ref: string, path: string) => [...repoBase(owner, repo), "contents", ref, path] as const,

@@ -343,6 +343,15 @@ copy is found by the part's permanent id, so when the part was renamed in its
 catalogue, the copy moves to the new folder and its waivers of parts move with
 it; its ids stay.
 
+In a repository that imports shared parts, the outline lists them first, under
+*Shared parts*, and the repository's own parts after them. Each row says which
+catalogue the part came from and when, how many values the repository sets and
+entries it waives, and marks *Update available* when the catalogue has changed
+the part since. On the part, an *Import* panel shows the catalogue and commit,
+whether the copy is as copied, what the repository does differently, and whether
+there is a newer version, with *Compare* (the catalogue's spec comparison from
+the copied commit to its newest) and *Update* (the review for adding it again).
+
 In the spec browser, a shared part is shown with its logo, name and permanent id,
 above the part and in the outline, both in its catalogue and in every app that
 copied it (a part without a logo shows the first letter of its name). An imported

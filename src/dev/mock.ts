@@ -386,16 +386,25 @@ const SHARED_SPECS: Record<string, unknown> = {
 };
 /** The tip of every fixture repository's default branch, as the commits API answers for HEAD. */
 const TIP = "ba5eba11".padEnd(40, "0");
+/** An older commit of acme/shared-specs, when pairing codes lasted longer. */
+const SHARED_SPECS_OLD_COMMIT = "01d5bec5".padEnd(40, "0");
+const SHARED_SPECS_OLD: Record<string, unknown> = {
+  ...SHARED_SPECS,
+  "tandem/index.json": { ...z.record(z.string(), z.unknown()).parse(SHARED_SPECS["tandem/index.json"]), values: [{ id: "tandem.pairing-lifetime", type: "duration", value: "15min" }] },
+};
+/** When each fixture commit was made, as the git data API answers. */
+const COMMIT_DATES: Record<string, string> = { [TIP]: ago(60 * 5), [SHARED_SPECS_OLD_COMMIT]: ago(60 * 24 * 9) };
 
-function rocketWithSync(): Record<string, unknown> {
-  const shared = Object.fromEntries(Object.entries(SHARED_SPECS).filter(([path]) => path.startsWith("tandem/")));
+/** Rocket with Tandem copied in from `files` at `commit`. */
+function rocketWithSync(files: Record<string, unknown> = SHARED_SPECS, commit = TIP): Record<string, unknown> {
+  const shared = Object.fromEntries(Object.entries(files).filter(([path]) => path.startsWith("tandem/")));
   const tree = treeOf({ files: shared, pictures: "1" }).find((entry) => entry.path === "tandem")?.sha ?? "";
   const root = z.record(z.string(), z.unknown()).parse(ROCKET_SPEC["index.json"]);
   const entry = {
     id: "tandem",
     at: "tandem",
     from: "acme/shared-specs",
-    commit: TIP,
+    commit,
     tree,
     values: [{ id: "tandem.pairing-lifetime", value: "5min", reason: "Pairing happens at a desk." }],
     waived: [{ ref: "#tandem.SYN-9", reason: "Rocket pairs with a token instead." }],
@@ -424,6 +433,9 @@ const SPEC_VERSIONS: Record<string, { files: Record<string, unknown>; pictures: 
   "acme/shared-specs@main": { files: SHARED_SPECS, pictures: "1" },
   // Rocket with the shared sync part pulled in: a value set otherwise, and a requirement it waives.
   "acme/rocket@with-sync": { files: rocketWithSync(), pictures: "1" },
+  // The same, copied from an older version: the catalogue has changed the part since.
+  "acme/rocket@with-old-sync": { files: rocketWithSync(SHARED_SPECS_OLD, SHARED_SPECS_OLD_COMMIT), pictures: "1" },
+  [`acme/shared-specs@${SHARED_SPECS_OLD_COMMIT}`]: { files: SHARED_SPECS_OLD, pictures: "1" },
   [`acme/shared-specs@${TIP}`]: { files: SHARED_SPECS, pictures: "1" },
 };
 
@@ -1013,6 +1025,11 @@ function newPullRest(path: string, method: string, request: RestRequest): unknow
     return `<p>${text.replace(/[&<>]/g, (c) => escapes[c] ?? c)}</p>`;
   }
   if (method !== "GET") return undefined;
+  const gitCommit = /\/git\/commits\/([0-9a-f]+)$/.exec(path);
+  if (gitCommit) {
+    const date = COMMIT_DATES[group(gitCommit)];
+    return date === undefined ? NOT_FOUND : { sha: group(gitCommit), committer: { date } };
+  }
   const blob = /\/git\/blobs\/([0-9a-f]+)$/.exec(path);
   if (blob) {
     const text = SPEC_OBJECTS.get(group(blob)) ?? SPEC_PICTURE_BYTES.get(group(blob));

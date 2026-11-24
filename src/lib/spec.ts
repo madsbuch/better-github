@@ -640,6 +640,16 @@ export function buildSpec(files: SpecFile[], listingCutOff = false, folders?: Re
   return { root, nodes, requirements, stories, values, relations, assets, problems };
 }
 
+function editedCopyMessage(entry: SpecImport): string {
+  return `${SPEC_DIR}/${entry.at} isn't what was copied from ${entry.from} at ${entry.commit.slice(0, 7)}: it was edited here. Change it in ${entry.from} and import it again.`;
+}
+
+/** Whether the copy of an imported part was edited here: its folder isn't the git tree it was copied as. */
+export function isCopyEdited(spec: Pick<Spec, "problems">, entry: SpecImport): boolean {
+  const message = editedCopyMessage(entry);
+  return spec.problems.some((problem) => problem.message === message);
+}
+
 /** The shared parts in a spec, by folder: the folders whose index.json carries `shared`. */
 export function sharedPartsOf(nodes: Iterable<SpecNode>): { node: SpecNode; shared: SpecShared }[] {
   return [...nodes].flatMap((node) =>
@@ -727,9 +737,7 @@ function importProblems(spec: Pick<Spec, "root" | "nodes" | "requirements" | "st
       else if (shared.id !== entry.id) problems.push({ file, message: `${where} is imported as the shared part ${entry.id}, but its index.json says it is ${shared.id}.` });
     }
     const copied = folders?.get(at);
-    if (copied !== undefined && copied !== entry.tree) {
-      problems.push({ file, message: `${where} isn't what was copied from ${from} at ${entry.commit.slice(0, 7)}: it was edited here. Change it in ${from} and import it again.` });
-    }
+    if (copied !== undefined && copied !== entry.tree) problems.push({ file, message: editedCopyMessage(entry) });
     const inPart = (node: SpecNode) => node.id === at || node.id.startsWith(`${at}/`);
     for (const set of entry.values ?? []) {
       if (!allLoaded) break;

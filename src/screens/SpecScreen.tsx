@@ -14,7 +14,7 @@ import {
 } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { to, useNav } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import {
@@ -40,6 +40,8 @@ import {
   splitSpecRef,
   unloadedBelow,
   type Spec,
+  type SpecImport,
+  isCopyEdited,
   type SpecDeprecation,
   type SpecFigure,
   type SpecNode,
@@ -51,11 +53,13 @@ import { repoQueries } from "../queries/repos";
 import { useCopySpecConsistencyPrompt, useCopySpecPrompt, useSpec, useSpecContents, type LoadedSpec } from "../queries/spec";
 import { applyRework, useSpecRework } from "../lib/specRework";
 import { importOf, inPart } from "../lib/specCatalogue";
+import { errorMessage } from "../lib/api";
+import { useImportStatus } from "../queries/specCatalogue";
 import { SpecLogo } from "../components/SpecLogo";
 import { BranchBar } from "../components/RepoParts";
 import { CheckText } from "../components/ReviewRules";
 import { Screen } from "../components/Screen";
-import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList } from "../components/ui";
+import { CenterSpinner, EmptyState, ErrorView, LoadMore, SkeletonList, Time } from "../components/ui";
 import { SpecValuesProvider, ValuePreview, ValueText } from "../components/SpecValues";
 import { VALUE_TYPE_LABEL } from "../lib/specValues";
 import { AddItem, AddRequirement, AddStory, AddValue, ItemTools, RequirementTools, StoryTools, ValueTools, ReworkBar, ReworkContext, useReworking, type Reworking } from "./spec/Rework";
@@ -334,10 +338,63 @@ function Outline({ spec, loaded, place, initialFilter, initialFind }: { spec: Sp
               <span className="muted small">An agent reads the whole spec, keeps the links between entries, and reports what contradicts. A careful reading, not a proof.</span>
             </div>
           )}
-          <Children node={spec.root} loaded={loaded} place={place} heading="Parts" />
+          <SharedParts spec={spec} loaded={loaded} place={place} />
+          <Children
+            node={spec.root}
+            loaded={loaded}
+            place={place}
+            heading={(spec.root.item?.imports ?? []).length > 0 ? "Own parts" : "Parts"}
+            except={(spec.root.item?.imports ?? []).map((entry) => entry.at)}
+          />
         </>
       )}
     </>
+  );
+}
+
+/**
+ * The parts copied from shared specs, before the repository's own: what it
+ * shares with other products first. Each with where it came from, what this
+ * repository does differently, and whether the catalogue has a newer version.
+ */
+// Spec: S45, SC9
+function SharedParts({ spec, loaded, place }: { spec: Spec; loaded: LoadedSpec; place: Place }) {
+  const imports = spec.root.item?.imports ?? [];
+  const nodes = spec.root.children.filter((node) => imports.some((entry) => entry.at === node.id));
+  useSpecContents(loaded, nodes);
+  if (nodes.length === 0) return null;
+  return (
+    <section aria-label="Shared parts">
+      <div className="section-title">Shared parts</div>
+      {nodes.map((node) => {
+        const entry = imports.find((candidate) => candidate.at === node.id);
+        return entry === undefined ? null : <NodeRow key={node.id} node={node} place={place} extra={<ImportLine entry={entry} />} />;
+      })}
+    </section>
+  );
+}
+
+/** An import in one line: where from, when, what is set or waived here, and whether there is a newer version. */
+function ImportLine({ entry }: { entry: SpecImport }) {
+  const status = useImportStatus(entry);
+  const values = entry.values?.length ?? 0;
+  const waived = entry.waived?.length ?? 0;
+  return (
+    <span className="row-meta spec-import-line">
+      <span>
+        From {entry.from}
+        {status.copiedAt !== null && (
+          <>
+            {" "}
+            · copied <Time iso={status.copiedAt} />
+          </>
+        )}
+        {values > 0 && ` · ${plural(values, "value")} set`}
+        {waived > 0 && ` · ${waived.toLocaleString()} waived`}
+      </span>
+      {status.state === "changed" && <span className="pill pill-attention">Update available</span>}
+      {status.state === "gone" && <span className="pill">Gone from the catalogue</span>}
+    </span>
   );
 }
 
@@ -421,37 +478,36 @@ function SpecText({ text }: { text: string }) {
 /** One item: what it says, the user stories it serves, its requirements, pictures and what it relates to. */
 /**
  * Where an imported part came from, and what this repository does differently:
- * a value it sets otherwise, an entry it waives.
+ * the part itself gets the whole import; a part inside it, a line and what
+ * concerns it.
  */
 // Spec: SC6, S44
 function SharedFrom({ spec, node, place }: { spec: Spec; node: SpecNode; place: Place }) {
   const entry = importOf(spec, node);
   if (entry === null) return null;
+  if (node.id === entry.at) return <ImportPanel spec={spec} entry={entry} place={place} />;
   const [owner = "", repo = ""] = entry.from.split("/");
-  const own = (target: SpecNode) => target === node;
-  const values = (entry.values ?? []).filter((set) => {
-    const found = spec.values.get(set.id);
-    return found !== undefined && own(found.node);
-  });
+  const part = spec.nodes.get(entry.at);
+  const values = (entry.values ?? []).filter((set) => spec.values.get(set.id)?.node === node);
   const waived = (entry.waived ?? []).filter(({ ref }) => {
     const target = resolveSpecRef(spec, ref);
-    return target !== null && (ref.startsWith("#") ? own(target.node) : inPart(target.node.id, node));
+    return target !== null && (ref.startsWith("#") ? target.node === node : inPart(target.node.id, node));
   });
-  const part = spec.nodes.get(entry.at);
   return (
     <div className="banner" style={{ margin: "12px 0", display: "block" }}>
       <div className="small">
-        {node !== part && (
-          <>
-            Part of <span className="bold">{part?.title ?? entry.at}</span> (<span className="mono">{entry.id}</span>).{" "}
-          </>
-        )}
-        Copied from{" "}
-        <Link {...to.spec(owner, repo, entry.commit, node.id)}>
-          {entry.from} at <span className="mono">{entry.commit.slice(0, 7)}</span>
-        </Link>
-        . It is changed there, not here. <Link {...to.specs(`${place.owner}/${place.repo}`)}>Check for a newer version</Link>
+        Part of <Link {...to.spec(place.owner, place.repo, place.gitRef, entry.at)}>{part?.title ?? entry.at}</Link> (<span className="mono">{entry.id}</span>), copied from{" "}
+        <Link {...to.spec(owner, repo, entry.commit, node.id)}>{entry.from}</Link>. It is changed there, not here.
       </div>
+      <ImportChanges values={values} waived={waived} />
+    </div>
+  );
+}
+
+/** What the repository does differently with a shared part: values it sets otherwise, entries it waives. */
+function ImportChanges({ values, waived }: { values: NonNullable<SpecImport["values"]>; waived: NonNullable<SpecImport["waived"]> }) {
+  return (
+    <>
       {values.map((set) => (
         <div key={set.id} className="small" style={{ marginTop: 6 }}>
           <span className="bold">Set here:</span> <span className="mono">{set.id}</span> is <span className="mono">{Array.isArray(set.value) ? set.value.join(", ") : set.value}</span>. {set.reason}
@@ -462,7 +518,86 @@ function SharedFrom({ spec, node, place }: { spec: Spec; node: SpecNode; place: 
           <span className="bold">Waived here:</span> <span className="mono">{waiver.ref}</span>. {waiver.reason}
         </div>
       ))}
-    </div>
+    </>
+  );
+}
+
+/**
+ * The import of a shared part: where and when it was copied from, whether the
+ * copy is as copied, what this repository does differently, and whether the
+ * catalogue has a newer version, to compare with and update to.
+ */
+// Spec: SC9
+function ImportPanel({ spec, entry, place }: { spec: Spec; entry: SpecImport; place: Place }) {
+  const [owner = "", repo = ""] = entry.from.split("/");
+  const status = useImportStatus(entry);
+  const edited = isCopyEdited(spec, entry);
+  return (
+    <section className="spec-import" aria-label="Import">
+      <div className="spec-import-row">
+        <span className="spec-import-label">From</span>
+        <span>
+          <Link {...to.spec(owner, repo, entry.commit, entry.at)}>{entry.from}</Link> at <span className="mono">{entry.commit.slice(0, 7)}</span>
+          {status.copiedAt !== null && (
+            <span className="muted">
+              {" "}
+              · <Time iso={status.copiedAt} />
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="spec-import-row">
+        <span className="spec-import-label">Copy</span>
+        {edited ? (
+          <span className="c-danger">Edited here. Change it in {entry.from} and import it again.</span>
+        ) : (
+          <span>As copied. It is changed in {entry.from}, not here.</span>
+        )}
+      </div>
+      {((entry.values ?? []).length > 0 || (entry.waived ?? []).length > 0) && (
+        <div className="spec-import-row">
+          <span className="spec-import-label">Here</span>
+          <span>
+            <ImportChanges values={entry.values ?? []} waived={entry.waived ?? []} />
+          </span>
+        </div>
+      )}
+      <div className="spec-import-row">
+        <span className="spec-import-label">Catalogue</span>
+        {status.error !== null ? (
+          <span className="muted">Couldn't check {entry.from}: {errorMessage(status.error)}</span>
+        ) : status.state === null ? (
+          <span className="muted">Checking for a newer version…</span>
+        ) : status.state === "current" ? (
+          <span>Up to date: {entry.from} has this part as it was copied.</span>
+        ) : status.state === "gone" ? (
+          <span>{entry.from} no longer has a part with the id {entry.id}.</span>
+        ) : (
+          <span>
+            <span className="bold">A newer version</span>
+            {status.at !== null && status.at !== entry.at && (
+              <>
+                , renamed to <span className="mono">{status.at}</span>
+              </>
+            )}
+            {status.changedAt !== null && (
+              <>
+                , as of <Time iso={status.changedAt} />
+              </>
+            )}
+            .
+            <span className="spec-import-actions">
+              <Link {...to.specDiff(owner, repo, entry.commit, status.tip)} className="btn btn-sm">
+                <GitCompareIcon size={14} /> Compare
+              </Link>
+              <Link {...to.specs(`${place.owner}/${place.repo}`, entry.from, entry.id)} className="btn btn-sm btn-primary">
+                Update
+              </Link>
+            </span>
+          </span>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -894,29 +1029,31 @@ function Figure({ figure, place }: { figure: SpecFigure; place: Place }) {
 
 // ---------------------------------------------------------------- children
 
-function Children({ node, loaded, place, heading }: { node: SpecNode; loaded: LoadedSpec; place: Place; heading: string }) {
+function Children({ node, loaded, place, heading, except = [] }: { node: SpecNode; loaded: LoadedSpec; place: Place; heading: string; except?: string[] }) {
   const [shown, setShown] = useState(PAGE);
+  // What another section lists (the shared parts) isn't listed twice.
+  const children = useMemo(() => node.children.filter((child) => !except.includes(child.id)), [node, except]);
   // The rows on screen need their titles and summaries; the rest wait until they're scrolled to.
-  const visible = useMemo(() => node.children.slice(0, shown), [node, shown]);
+  const visible = useMemo(() => children.slice(0, shown), [children, shown]);
   useSpecContents(loaded, visible);
   const reworking = useReworking() !== null;
-  if (node.children.length === 0 && !reworking) return null;
+  if (children.length === 0 && !reworking) return null;
   return (
     <section aria-label={heading}>
       <div className="section-title">
         {heading}
-        {node.children.length > PAGE && ` · ${node.children.length.toLocaleString()}`}
+        {children.length > PAGE && ` · ${children.length.toLocaleString()}`}
       </div>
       {visible.map((child) => (
         <NodeRow key={child.id} node={child} place={place} />
       ))}
-      <LoadMore hasMore={node.children.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />
+      <LoadMore hasMore={children.length > shown} loading={false} onLoadMore={() => setShown(shown + PAGE)} />
       <AddItem node={node} />
     </section>
   );
 }
 
-function NodeRow({ node, place, showPath = false }: { node: SpecNode; place: Place; showPath?: boolean }) {
+function NodeRow({ node, place, showPath = false, extra }: { node: SpecNode; place: Place; showPath?: boolean; extra?: ReactNode }) {
   const counts = specCounts(node);
   const summary = node.item?.summary;
   const trail = specTrail(node).slice(0, -1);
@@ -948,6 +1085,7 @@ function NodeRow({ node, place, showPath = false }: { node: SpecNode; place: Pla
               .join(" · ")}
           </span>
         </span>
+        {extra}
       </span>
       <ChevronRightIcon size={16} className="c-muted" />
     </Link>

@@ -18,7 +18,8 @@
         "#SC5",
         "#SC6",
         "#SC7",
-        "#SC8"
+        "#SC8",
+        "#SC9"
       ]
     }
   ],
@@ -84,6 +85,14 @@
         }
       ],
       "version": 2
+    },
+    {
+      "id": "SC9",
+      "text": "An imported part shows its import. In the outline, its row says which catalogue it came from, when that commit was made, how many values the repository sets and how many entries it waives, and marks a newer version in the catalogue. On the part, a panel shows the catalogue and commit, whether the copy is as copied, the values set and entries waived with their reasons, and whether the catalogue has the part as copied, has changed or renamed it, or no longer has it. A newer version leads to the catalogue's spec comparison from the copied commit to its newest, and to adding the part again, which opens on that part even when its catalogue isn't in the list.",
+      "related": [
+        "#SC6",
+        "#SC7"
+      ]
     }
   ],
   "related": [

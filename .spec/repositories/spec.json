@@ -28,7 +28,8 @@
         "#S41",
         "#S42",
         "#S43",
-        "#S44"
+        "#S44",
+        "#S45"
       ]
     }
   ],
@@ -291,6 +292,13 @@
       "text": "A shared part is shown with its logo, name and permanent id wherever the spec browser reads or lists it: above the part, and in place of the folder icon in the outline. That is so in its catalogue and in every product that copied it.",
       "related": [
         "#S42"
+      ]
+    },
+    {
+      "id": "S45",
+      "text": "The outline lists the parts copied from shared specs first, under Shared parts, and the repository's own after them, under Own parts. No `order` decides this; within each, the import's `order` and the parts' own `order` do.",
+      "related": [
+        "#S39"
       ]
     }
   ],
