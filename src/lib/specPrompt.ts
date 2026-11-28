@@ -58,7 +58,7 @@ export const SPEC_PROMPT_EXAMPLE = {
     {
       id: "RET-4",
       text: "A retry starts the upload over from the first byte.",
-      deprecation: { reason: "Large uploads never finished on bad networks. Uploads resume instead.", replacedBy: ["#RES-1"], date: "2026-03-02" },
+      deprecation: { reason: "Large uploads never finished on bad networks. Uploads resume instead.", replacedBy: ["#RES-1"] },
     },
   ],
   values: [
@@ -176,7 +176,7 @@ A requirement that is no longer wanted is not deleted. It stays in its item and 
 
 ${indent(JSON.stringify(SPEC_PROMPT_EXAMPLE.requirements[3], null, 2))}
 
-- \`deprecation.reason\` is required: what changed, in a sentence or two someone reading it in a year will understand. \`replacedBy\` names what takes its place, if anything: requirements (\`#RES-1\`) or items. \`date\` is the day it was deprecated, as \`YYYY-MM-DD\`.
+- \`deprecation.reason\` is required: what changed, in a sentence or two someone reading it in a year will understand. \`replacedBy\` names what takes its place, if anything: requirements (\`#RES-1\`) or items. When it was deprecated is in git, in the commit that added the record: don't write a date.
 - Leave a deprecated requirement's \`text\` and \`level\` as they were: they are the record of what was promised.
 - A user story and a named value are deprecated the same way: a \`deprecation\` on it.
 - A whole item is deprecated the same way, with a \`deprecation\` on the item. Its requirements are then all deprecated and need no record of their own. Its file stays where it is.

@@ -65,7 +65,7 @@ describe("buildSpec", () => {
         title: "A",
         requirements: [
           { id: "A-1", text: "Still wanted." },
-          { id: "A-2", text: "Dropped.",  deprecation: { reason: "Nobody used it.", replacedBy: ["#A-1", "b"], date: "2026-03-01" } },
+          { id: "A-2", text: "Dropped.",  deprecation: { reason: "Nobody used it.", replacedBy: ["#A-1", "b"] } },
           { id: "A-4", text: "Dropped for something that isn't there.", deprecation: { reason: "Replaced.", replacedBy: ["#A-9"] } },
         ],
       }),
@@ -80,7 +80,31 @@ describe("buildSpec", () => {
     // They are still there to be found, by what they said and by why they went.
     expect(searchSpec(kept, "nobody used").map((m) => m.requirements.map((r) => r.id))).toEqual([["A-2"]]);
     expect(SpecItem.safeParse({ title: "X", deprecation: { reason: "" } }).success).toBe(false);
-    expect(SpecItem.safeParse({ title: "X",  deprecation: { reason: "Why.", date: "March" } }).success).toBe(false);
+  });
+
+  it("has no date on a deprecation, and reads a file that still has one without it", () => {
+    // When it was deprecated is in git.
+    expect(SpecItem.safeParse({ title: "X", deprecation: { reason: "Why.", date: "2026-03-01" } }).success).toBe(false);
+    const old = buildSpec([
+      file("a.json", {
+        title: "A",
+        deprecation: { reason: "Folded away.", date: "2026-03-01" },
+        requirements: [{ id: "A-1", text: "x", deprecation: { reason: "Gone.", replacedBy: ["b"], date: "2026-03-01" } }],
+        stories: [{ id: "US-1", as: "a", want: "b", deprecation: { reason: "Nobody.", date: "2026-03-01" } }],
+        values: [{ id: "v", type: "text", value: "x", deprecation: { reason: "Unused.", date: "2026-03-01" } }],
+      }),
+      file("b.json", { title: "B" }),
+    ]);
+    expect(old.nodes.get("a")?.item).toEqual({
+      title: "A",
+      deprecation: { reason: "Folded away." },
+      requirements: [{ id: "A-1", text: "x", deprecation: { reason: "Gone.", replacedBy: ["b"] } }],
+      stories: [{ id: "US-1", as: "a", want: "b", deprecation: { reason: "Nobody." } }],
+      values: [{ id: "v", type: "text", value: "x", deprecation: { reason: "Unused." } }],
+    });
+    expect(old.problems).toEqual([
+      { file: ".spec/a.json", message: "`date` is no longer part of a `deprecation`: when it was deprecated is in git, in the commit that added it. Remove it." },
+    ]);
   });
 
   it("keeps a requirement's earlier versions, each with why it changed", () => {

@@ -64,10 +64,10 @@ describe("editing a requirement", () => {
   });
 
   it("deprecates with the reason, keeping what it said", () => {
-    expect(deprecateRequirement(requirement("RET-1"), "Nobody retries.", ["#RET-2"], "2026-11-20")).toEqual({
+    expect(deprecateRequirement(requirement("RET-1"), "Nobody retries.", ["#RET-2"])).toEqual({
       id: "RET-1",
       text: "Retried five times.",
-      deprecation: { reason: "Nobody retries.", replacedBy: ["#RET-2"], date: "2026-11-20" },
+      deprecation: { reason: "Nobody retries.", replacedBy: ["#RET-2"] },
     });
   });
 
@@ -80,12 +80,12 @@ describe("editing a requirement", () => {
   });
 
   it("edits an item's own fields, and deprecates it with a reason", () => {
-    const edited = withFields(item, { title: "Retrying", summary: "Trying again.", description: "", deprecated: true, deprecationReason: "Uploads resume now." }, "2026-11-20");
+    const edited = withFields(item, { title: "Retrying", summary: "Trying again.", description: "", deprecated: true, deprecationReason: "Uploads resume now." });
     expect([edited.title, edited.summary, edited.description, edited.deprecation]).toEqual([
       "Retrying",
       "Trying again.",
       undefined,
-      { reason: "Uploads resume now.", date: "2026-11-20" },
+      { reason: "Uploads resume now." },
     ]);
     // Wanted again, the record goes.
     expect(withFields(edited, { title: "Retrying", summary: "", description: "", deprecated: false, deprecationReason: "" }).deprecation).toBeUndefined();
@@ -116,7 +116,7 @@ describe("a draft over a spec", () => {
     active: true,
     note: "Keep the old constant around for the migration.",
     items: {
-      "uploads/retries": withNewRequirement(withRequirement(revised, "RET-2", deprecateRequirement(requirement("RET-2"), "Never mattered.", [], "2026-11-20")), {
+      "uploads/retries": withNewRequirement(withRequirement(revised, "RET-2", deprecateRequirement(requirement("RET-2"), "Never mattered.", [])), {
         id: "RET-4",
         text: "Gives up after a minute.",
         level: "must",
@@ -195,7 +195,7 @@ describe("reworking a named value", () => {
   it("keeps a color's dark value in the record, and deprecates with why", () => {
     const color: SpecValue = { id: "c", type: "color", value: "#000000", dark: "#ffffff" };
     expect(reviseValue(color, { id: "c", type: "color", value: "#111111" }, "Softer.", "2026-11-20").history).toEqual([{ value: "#000000", dark: "#ffffff", reason: "Softer.", date: "2026-11-20" }]);
-    expect(deprecateValue(original, "Unlimited now.", "2026-11-20")).toMatchObject({  deprecation: { reason: "Unlimited now.", date: "2026-11-20" } });
+    expect(deprecateValue(original, "Unlimited now.")).toMatchObject({  deprecation: { reason: "Unlimited now." } });
   });
 
   it("puts a value into an item, replaces it, and takes a new one out again", () => {

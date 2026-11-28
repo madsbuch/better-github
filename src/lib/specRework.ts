@@ -68,8 +68,8 @@ export function reviseRequirement(original: SpecRequirement, revision: Revision,
 }
 
 /** A requirement as deprecated: it stays, with why. */
-export function deprecateRequirement(original: SpecRequirement, reason: string, replacedBy: string[], date = today()): SpecRequirement {
-  return { ...original, deprecation: { reason, ...(replacedBy.length > 0 ? { replacedBy } : {}), date } };
+export function deprecateRequirement(original: SpecRequirement, reason: string, replacedBy: string[]): SpecRequirement {
+  return { ...original, deprecation: { reason, ...(replacedBy.length > 0 ? { replacedBy } : {}) } };
 }
 
 /** `item` with one requirement replaced (or, with null, taken out again: only for ones the draft added). */
@@ -99,8 +99,8 @@ export function withStory(item: SpecItem, id: string, story: SpecStory | null): 
 }
 
 /** A user story as deprecated: it stays, with why. */
-export function deprecateStory(original: SpecStory, reason: string, date = today()): SpecStory {
-  return { ...original, deprecation: { reason, date } };
+export function deprecateStory(original: SpecStory, reason: string): SpecStory {
+  return { ...original, deprecation: { reason } };
 }
 
 /** An id for a new user story that nothing in the spec has: "US-1", "US-2", continuing the highest in use. */
@@ -139,8 +139,8 @@ export function reviseValue(original: SpecValue, next: SpecValue, reason: string
 }
 
 /** A named value as deprecated: it stays, with why. */
-export function deprecateValue(original: SpecValue, reason: string, date = today()): SpecValue {
-  return { ...original, deprecation: { reason, date } };
+export function deprecateValue(original: SpecValue, reason: string): SpecValue {
+  return { ...original, deprecation: { reason } };
 }
 
 /** What was typed as related ("ACQ-1, practice") as pointers, and what of it isn't in the spec. */
@@ -175,7 +175,7 @@ export interface ItemFields {
 }
 
 /** `item` with its own fields edited. Empty text removes the field. */
-export function withFields(item: SpecItem, fields: ItemFields, date = today()): SpecItem {
+export function withFields(item: SpecItem, fields: ItemFields): SpecItem {
   const { summary: _summary, description: _description, deprecation, ...rest } = item;
   return {
     ...rest,
@@ -183,7 +183,7 @@ export function withFields(item: SpecItem, fields: ItemFields, date = today()): 
     ...(fields.summary !== "" ? { summary: fields.summary } : {}),
     // The record of an earlier deprecation is kept as it is unless its reason changes.
     ...(fields.deprecated
-      ? { deprecation: deprecation?.reason === fields.deprecationReason ? deprecation : { reason: fields.deprecationReason, date } }
+      ? { deprecation: deprecation?.reason === fields.deprecationReason ? deprecation : { reason: fields.deprecationReason } }
       : {}),
     ...(fields.description !== "" ? { description: fields.description } : {}),
   };

@@ -98,8 +98,7 @@
         "reason": "Items no longer list code files. A spec says what the product does and isn't tied to any code base, so the format has no field that points into one.",
         "replacedBy": [
           "#S22"
-        ],
-        "date": "2026-11-20"
+        ]
       }
     },
     {
@@ -143,16 +142,21 @@
     },
     {
       "id": "S16",
-      "text": "A requirement, story, value or item that is no longer wanted is kept, with a `deprecation` giving the reason and optionally what replaced it and when. Deprecated means deleted: it no longer holds, and it stays only so that it is known why it went and doesn't come back unnoticed.",
+      "text": "A requirement, story, value or item that is no longer wanted is kept, with a `deprecation` giving the reason and optionally what replaced it. A deprecation has no date: when it was made is in git. Deprecated means deleted: it no longer holds, and it stays only so that it is known why it went and doesn't come back unnoticed.",
       "history": [
         {
           "version": 1,
           "text": "A requirement or item that is no longer wanted is kept, with the status `deprecated` and a `deprecation` giving the reason and optionally what replaced it and when. The status without the record, or the record without the status, is listed as a problem.",
           "reason": "The format no longer has statuses: the deprecation record alone marks what was dropped.",
           "date": "2026-11-20"
+        },
+        {
+          "version": 2,
+          "text": "A requirement, story, value or item that is no longer wanted is kept, with a `deprecation` giving the reason and optionally what replaced it and when. Deprecated means deleted: it no longer holds, and it stays only so that it is known why it went and doesn't come back unnoticed.",
+          "reason": "The day something was deprecated is in git, in the commit that added the record. Writing it in the spec as well only gives it a chance to be wrong."
         }
       ],
-      "version": 2
+      "version": 3
     },
     {
       "id": "S17",
@@ -228,8 +232,7 @@
       "id": "S32",
       "text": "A requirement shows, on request, the files that cite it: those with a comment `Spec:` followed by its id as an id of its own. They are found by searching the repository's code on its default branch, not stored in the spec. A deprecated requirement that is still cited says so.",
       "deprecation": {
-        "reason": "The spec is read as a thing of its own. Showing where code cites a requirement put the code base into the spec browser.",
-        "date": "2026-11-22"
+        "reason": "The spec is read as a thing of its own. Showing where code cites a requirement put the code base into the spec browser."
       }
     },
     {

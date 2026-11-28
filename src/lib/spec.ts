@@ -59,11 +59,6 @@ export const SpecDeprecation = z
       .array(z.string().min(1))
       .optional()
       .describe('What takes its place, if anything: requirements ("#RET-7") or items ("uploads/resume").'),
-    date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional()
-      .describe("When it was deprecated, as YYYY-MM-DD."),
   })
   .describe(
     'Marks what was dropped from the spec. A requirement, story, value or item that is no longer wanted is not deleted from its file: it stays, with this record, so it stays known that it existed, that it was dropped, and why. It is never deleted, and its id is never used again.',
@@ -414,6 +409,12 @@ const LEGACY_QUESTIONS = "`questions` is no longer part of the format: open ques
  */
 const LEGACY_STATUS = "`status` is no longer part of the format: what is in a spec is what the product is to do, and what was dropped has a `deprecation`. Remove it.";
 
+/**
+ * A deprecation used to carry the day it was made. Git has that, from the
+ * commit that added it. A file that still has one is read without it, and says so.
+ */
+const LEGACY_DEPRECATION_DATE = "`date` is no longer part of a `deprecation`: when it was deprecated is in git, in the commit that added it. Remove it.";
+
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const ENTRY_LISTS = ["requirements", "stories", "values"] as const;
 
@@ -453,12 +454,22 @@ function parseItem(file: SpecFile): ReadItem {
   const dropped: string[] = [];
   if (isRecord(value)) {
     // Statuses go; one that said "deprecated" without the record is pointed out, since nothing says so now.
-    const seen = { status: false };
+    // Dates on deprecations go too: git has them.
+    const seen = { status: false, date: false };
     const strip = (entry: unknown, what: string): unknown => {
-      if (!isRecord(entry) || !("status" in entry)) return entry;
-      seen.status = true;
-      const { status, ...rest } = entry;
-      if (status === "deprecated" && rest.deprecation === undefined) dropped.push(what);
+      if (!isRecord(entry)) return entry;
+      let rest: Record<string, unknown> = entry;
+      if ("status" in rest) {
+        seen.status = true;
+        const { status, ...others } = rest;
+        if (status === "deprecated" && others.deprecation === undefined) dropped.push(what);
+        rest = others;
+      }
+      if (isRecord(rest.deprecation) && "date" in rest.deprecation) {
+        seen.date = true;
+        const { date: _date, ...deprecation } = rest.deprecation;
+        rest = { ...rest, deprecation };
+      }
       return rest;
     };
     const own = strip(value, "The item");
@@ -471,6 +482,7 @@ function parseItem(file: SpecFile): ReadItem {
     }
     value = next;
     if (seen.status) notes.push(LEGACY_STATUS);
+    if (seen.date) notes.push(LEGACY_DEPRECATION_DATE);
     for (const what of dropped) notes.push(`${what} was marked deprecated without saying why. Add "deprecation": { "reason": "..." }.`);
   }
   const result = SpecItem.safeParse(value);

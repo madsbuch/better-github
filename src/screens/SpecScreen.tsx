@@ -865,38 +865,35 @@ function Story({
   );
 }
 
-/** Why something was deprecated, when, and what took its place. */
+/** Why something was deprecated, and what took its place. */
 function Deprecation({ spec, place, deprecation }: { spec: Spec; place: Place; deprecation: SpecDeprecation | undefined }) {
   if (deprecation === undefined) return <div className="small muted">No reason is given.</div>;
   const replacedBy = deprecation.replacedBy ?? [];
   return (
     <div className="spec-deprecation-why">
       <SpecText text={deprecation.reason} />
-      {(replacedBy.length > 0 || deprecation.date !== undefined) && (
+      {replacedBy.length > 0 && (
         <div className="small muted">
-          {deprecation.date !== undefined && <span>Since {deprecation.date}. </span>}
-          {replacedBy.length > 0 && (
-            <span>
-              Replaced by{" "}
-              {replacedBy.map((ref, i) => {
-                const target = resolveSpecRef(spec, ref);
-                const label = target?.requirement?.id ?? target?.node.title ?? ref;
-                return (
-                  <span key={ref}>
-                    {i > 0 && ", "}
-                    {target ? (
-                      <Link {...to.spec(place.owner, place.repo, place.gitRef, specTarget(target))}>
-                        {label}
-                      </Link>
-                    ) : (
-                      <span className="mono">{ref}</span>
-                    )}
-                  </span>
-                );
-              })}
-              .
-            </span>
-          )}
+          <span>
+            Replaced by{" "}
+            {replacedBy.map((ref, i) => {
+              const target = resolveSpecRef(spec, ref);
+              const label = target?.requirement?.id ?? target?.node.title ?? ref;
+              return (
+                <span key={ref}>
+                  {i > 0 && ", "}
+                  {target ? (
+                    <Link {...to.spec(place.owner, place.repo, place.gitRef, specTarget(target))}>
+                      {label}
+                    </Link>
+                  ) : (
+                    <span className="mono">{ref}</span>
+                  )}
+                </span>
+              );
+            })}
+            .
+          </span>
         </div>
       )}
     </div>

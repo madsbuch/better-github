@@ -82,7 +82,8 @@ test("deprecated requirements are kept, folded away, with why they went", async 
   await expect(e3.locator(".spec-req-head")).toHaveText("E3mustDeprecated");
   await expect(e3.locator(".spec-req-text")).toHaveText("A failed upload writes the server's reply to a log file.");
   await expect(e3.locator(".spec-deprecation-why")).toContainText("The reply could hold the upload token.");
-  await expect(e3.locator(".spec-deprecation-why")).toContainText("Since 2026-09-14. Replaced by E1.");
+  await expect(e3.locator(".spec-deprecation-why")).toContainText("Replaced by E1.");
+  await expect(e3.locator(".spec-deprecation-why")).not.toContainText("Since");
   // What replaced it is a link to the requirement.
   await e3.getByRole("link", { name: "E1" }).click();
   await expect(requirements(page).nth(0)).toHaveAttribute("data-current", "true");

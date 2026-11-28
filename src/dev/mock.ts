@@ -242,7 +242,7 @@ const ROCKET_SPEC: Record<string, unknown> = {
       {
         id: "E3",
         text: "A failed upload writes the server's reply to a log file.",
-        deprecation: { reason: "The reply could hold the upload token. `E1` hands the message to the caller instead.", replacedBy: ["#E1"], date: "2026-09-14" },
+        deprecation: { reason: "The reply could hold the upload token. `E1` hands the message to the caller instead.", replacedBy: ["#E1"] },
       },
     ],
   },

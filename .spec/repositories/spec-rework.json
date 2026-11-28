@@ -56,8 +56,7 @@
         "reason": "The spec no longer says what is built: there is no implemented status to step back from. Whether the product meets a requirement is found out by comparing the two.",
         "replacedBy": [
           "#S23"
-        ],
-        "date": "2026-11-20"
+        ]
       }
     },
     {
