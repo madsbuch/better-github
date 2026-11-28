@@ -846,6 +846,8 @@ export type CheckAnnotation = z.infer<typeof CheckAnnotation>;
 // The Apps section (src/queries/apps.ts): the viewer's repositories whose
 // latest release has files, and the build files that name a repository's
 // Android app.
+const AssetNames = z.object({ nodes: nodes(z.object({ name: z.string() })) });
+
 export const AppReposResult = z.object({
   viewer: z.object({
     repositories: z.object({
@@ -855,7 +857,8 @@ export const AppReposResult = z.object({
           id: z.string(),
           name: z.string(),
           owner: z.object({ login: z.string() }),
-          latestRelease: z.object({ releaseAssets: z.object({ nodes: nodes(z.object({ name: z.string() })) }) }).nullable(),
+          latestRelease: z.object({ tagName: z.string(), releaseAssets: AssetNames }).nullable(),
+          releases: z.object({ nodes: nodes(z.object({ tagName: z.string(), isDraft: z.boolean(), isPrerelease: z.boolean(), releaseAssets: AssetNames })) }),
         }),
       ),
     }),

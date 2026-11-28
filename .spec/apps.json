@@ -18,7 +18,7 @@
     },
     {
       "id": "APP-2",
-      "text": "It lists the installed apps that come from a repository the user can see whose latest release has an APK. An app is matched by the package name its repository's build files declare (Tauri's identifier, Gradle's applicationId, Expo's package, Capacitor's appId), or because it was installed from one of the repository's releases in Better GitHub. No other installed app is ever shown."
+      "text": "It lists the installed apps that come from a repository the user can see that publishes an APK: on its latest release, or else on its newest release with one, prereleases included (rolling builds are often a prerelease, which GitHub never calls latest). Drafts never count. An app is matched by the package name its repository's build files declare (Tauri's identifier, Gradle's applicationId, Expo's package, Capacitor's appId), or because it was installed from one of the repository's releases in Better GitHub. No other installed app is ever shown."
     },
     {
       "id": "APP-3",
@@ -26,7 +26,7 @@
     },
     {
       "id": "APP-4",
-      "text": "A newer build is an APK on the latest release that was uploaded after the app was last installed or updated on the phone, so rolling releases that replace one APK work as well as versioned ones. The APK last installed through Better GitHub counts as up to date until the release has another one or the app changes some other way."
+      "text": "A newer build is an APK on that release that was uploaded after the app was last installed or updated on the phone, so rolling releases that replace one APK work as well as versioned ones. The APK last installed through Better GitHub counts as up to date until the release has another one or the app changes some other way."
     },
     {
       "id": "APP-5",
@@ -38,7 +38,7 @@
     },
     {
       "id": "APP-7",
-      "text": "An app opens its repository's latest release. An app that's up to date has an Open button that launches it."
+      "text": "An app opens that release. An app that's up to date has an Open button that launches it."
     },
     {
       "id": "APP-8",

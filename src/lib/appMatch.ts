@@ -36,6 +36,23 @@ export function isApk(name: string): boolean {
   return /\.apk$/i.test(name);
 }
 
+interface ReleaseFiles {
+  tagName: string;
+  isDraft?: boolean;
+  releaseAssets: { nodes: readonly { name: string }[] };
+}
+
+/**
+ * The tag of the release an app is installed from: GitHub's latest release when it has an APK,
+ * otherwise the newest release that has one, prereleases included (rolling builds are often
+ * published as one, and GitHub never calls a prerelease "latest"). Never a draft.
+ */
+export function appReleaseTag(latest: ReleaseFiles | null, newest: readonly ReleaseFiles[]): string | undefined {
+  const hasApk = (release: ReleaseFiles) => release.isDraft !== true && release.releaseAssets.nodes.some((asset) => isApk(asset.name));
+  if (latest !== null && hasApk(latest)) return latest.tagName;
+  return newest.find(hasApk)?.tagName;
+}
+
 /**
  * The APK to install from a release's assets: the one installed before when it's still there,
  * otherwise the likeliest universal build (not a debug build, preferably named after the repository).
@@ -88,6 +105,8 @@ export interface AppMatch<A> {
   app: A;
   owner: string;
   repo: string;
+  /** The release to install from, when the repository was searched; otherwise its latest release. */
+  tag: string | undefined;
 }
 
 /**
@@ -98,21 +117,24 @@ export interface AppMatch<A> {
 export function matchApps<A extends { packageName: string }>(
   apps: readonly A[],
   links: Readonly<Record<string, { owner: string; repo: string } | undefined>>,
-  repos: readonly { owner: string; name: string; packageIds: readonly string[] }[],
+  repos: readonly { owner: string; name: string; tag?: string | undefined; packageIds: readonly string[] }[],
 ): AppMatch<A>[] {
   const declared = new Map<string, { owner: string; name: string }>();
+  const tags = new Map<string, string>();
+  const repoKey = (owner: string, name: string) => `${owner}/${name}`.toLowerCase();
   for (const repo of repos) {
     for (const id of repo.packageIds) if (!declared.has(id)) declared.set(id, repo);
+    if (repo.tag !== undefined) tags.set(repoKey(repo.owner, repo.name), repo.tag);
   }
   const matches: AppMatch<A>[] = [];
   for (const app of apps) {
     const link = links[app.packageName];
     if (link !== undefined) {
-      matches.push({ app, owner: link.owner, repo: link.repo });
+      matches.push({ app, owner: link.owner, repo: link.repo, tag: tags.get(repoKey(link.owner, link.repo)) });
       continue;
     }
     const repo = declared.get(app.packageName);
-    if (repo !== undefined) matches.push({ app, owner: repo.owner, repo: repo.name });
+    if (repo !== undefined) matches.push({ app, owner: repo.owner, repo: repo.name, tag: tags.get(repoKey(repo.owner, repo.name)) });
   }
   return matches;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findPublisher, hasUpdate, latestBuild, matchApps, packageIdsFromFiles, pickApk, type BuildRun } from "./appMatch";
+import { appReleaseTag, findPublisher, hasUpdate, latestBuild, matchApps, packageIdsFromFiles, pickApk, type BuildRun } from "./appMatch";
 import { APP_BUILD_FILES, APP_IDS } from "./queries";
 
 describe("packageIdsFromFiles", () => {
@@ -120,5 +120,20 @@ describe("builds", () => {
     expect(latestBuild([failed, run(3, 2, "Mobile", 121)], publisher)).toEqual({ state: "failed", run: failed });
     expect(latestBuild([run(5, 2, "Mobile", 30, { conclusion: "cancelled" })], publisher)).toBeUndefined();
     expect(latestBuild([going], undefined)).toBeUndefined();
+  });
+});
+
+describe("appReleaseTag", () => {
+  const release = (tagName: string, files: string[], isDraft = false) => ({ tagName, isDraft, releaseAssets: { nodes: files.map((name) => ({ name })) } });
+
+  it("takes GitHub's latest release when it has an APK", () => {
+    expect(appReleaseTag(release("v2", ["app.apk"]), [release("latest", ["app.apk"])])).toBe("v2");
+  });
+
+  it("otherwise the newest release with one: a rolling prerelease, never a draft", () => {
+    expect(appReleaseTag(null, [release("latest", ["app.apk", "app.dmg"])])).toBe("latest");
+    expect(appReleaseTag(release("v1", ["site.zip"]), [release("next", ["app.apk"], true), release("nightly", ["app.apk"])])).toBe("nightly");
+    expect(appReleaseTag(release("v1", ["site.zip"]), [release("next", ["app.apk"], true)])).toBeUndefined();
+    expect(appReleaseTag(null, [])).toBeUndefined();
   });
 });

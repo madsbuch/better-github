@@ -1123,14 +1123,34 @@ const NOT_FOUND = Symbol("not found");
 //
 // The Apps section: acme/rocket names its app in android/app/build.gradle,
 // octocat/notes in tauri.conf.json and publishes it on a rolling "latest"
-// release; acme/website's latest release has no APK and octocat/dotfiles has
+// prerelease; acme/website has an APK only on a draft and octocat/dotfiles has
 // no release. e2e/apps.spec.ts fakes the phone (GhCommanderApps).
 
+const assetNames = (...names: string[]) => ({ nodes: names.map((name) => ({ name })) });
 const APP_REPOS = [
-  { id: "R_rocket", name: "rocket", owner: { login: "acme" }, latestRelease: { releaseAssets: { nodes: [{ name: "rocket-v2.0.0.apk" }, { name: "checksums.txt" }] } } },
-  { id: "R_notes", name: "notes", owner: { login: "octocat" }, latestRelease: { releaseAssets: { nodes: [{ name: "notes.apk" }] } } },
-  { id: "R_website", name: "website", owner: { login: "acme" }, latestRelease: { releaseAssets: { nodes: [{ name: "site.zip" }] } } },
-  { id: "R_dotfiles", name: "dotfiles", owner: { login: "octocat" }, latestRelease: null },
+  {
+    id: "R_rocket",
+    name: "rocket",
+    owner: { login: "acme" },
+    latestRelease: { tagName: "v2.0.0", releaseAssets: assetNames("rocket-v2.0.0.apk", "checksums.txt") },
+    releases: { nodes: [{ tagName: "v2.0.0", isDraft: false, isPrerelease: false, releaseAssets: assetNames("rocket-v2.0.0.apk", "checksums.txt") }] },
+  },
+  {
+    // Its rolling "latest" release is a prerelease, so GitHub reports no latest release.
+    id: "R_notes",
+    name: "notes",
+    owner: { login: "octocat" },
+    latestRelease: null,
+    releases: { nodes: [{ tagName: "latest", isDraft: false, isPrerelease: true, releaseAssets: assetNames("notes.apk") }] },
+  },
+  {
+    id: "R_website",
+    name: "website",
+    owner: { login: "acme" },
+    latestRelease: { tagName: "v3", releaseAssets: assetNames("site.zip") },
+    releases: { nodes: [{ tagName: "next", isDraft: true, isPrerelease: false, releaseAssets: assetNames("website.apk") }] },
+  },
+  { id: "R_dotfiles", name: "dotfiles", owner: { login: "octocat" }, latestRelease: null, releases: { nodes: [] } },
 ];
 
 const APP_BUILD_FILE_TEXT: Record<string, Record<string, string>> = {
@@ -1151,7 +1171,7 @@ function appIdsData(variables: Record<string, unknown>): unknown {
 
 /** octocat/notes: one APK, replaced by every build on the "latest" release. */
 const NOTES_RELEASE = {
-  ...release(9, "latest", "Latest build", 120),
+  ...release(9, "latest", "Latest build", 120, { prerelease: true }),
   html_url: "https://github.com/octocat/notes/releases/tag/latest",
   body_html: "<p>Build 214 of <code>main</code>.</p>",
   assets: [
@@ -1171,7 +1191,11 @@ const NOTES_RELEASE = {
 };
 
 function releasesBody(path: string): unknown {
-  if (path.startsWith("/repos/octocat/notes/releases")) return path.endsWith("/releases") ? [NOTES_RELEASE] : NOTES_RELEASE;
+  if (path.startsWith("/repos/octocat/notes/releases")) {
+    // A prerelease is never the latest release.
+    if (path.endsWith("/releases/latest")) return NOT_FOUND;
+    return path.endsWith("/releases") ? [NOTES_RELEASE] : NOTES_RELEASE;
+  }
   if (path.startsWith("/repos/acme/website/releases") || path.startsWith("/repos/octocat/dotfiles/releases")) return NOT_FOUND;
   if (path.endsWith("/releases")) return RELEASES;
   if (path.endsWith("/releases/latest")) return at(RELEASES, 0);

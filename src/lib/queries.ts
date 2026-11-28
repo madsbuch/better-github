@@ -1110,7 +1110,10 @@ export const ASSIGNABLE_USERS = gql(
 `,
 );
 
-/** The viewer's repositories, recently pushed first, with the files of their latest release (Apps). */
+/**
+ * The viewer's repositories, recently pushed first, with the files of their latest release and of
+ * their newest releases: rolling builds are often published as a prerelease, which is never "latest" (Apps).
+ */
 export const APP_REPOS = gql(
   AppReposResult,
   /* GraphQL */ `
@@ -1127,7 +1130,10 @@ export const APP_REPOS = gql(
           id
           name
           owner { login }
-          latestRelease { releaseAssets(first: 20) { nodes { name } } }
+          latestRelease { tagName releaseAssets(first: 20) { nodes { name } } }
+          releases(first: 5, orderBy: { field: CREATED_AT, direction: DESC }) {
+            nodes { tagName isDraft isPrerelease releaseAssets(first: 20) { nodes { name } } }
+          }
         }
       }
     }

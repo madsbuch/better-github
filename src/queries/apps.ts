@@ -1,14 +1,15 @@
 import { queryOptions } from "@tanstack/react-query";
 import { graphql } from "../lib/api";
-import { isApk, packageIdsFromFiles } from "../lib/appMatch";
+import { appReleaseTag, packageIdsFromFiles } from "../lib/appMatch";
 import { APP_IDS, APP_IDS_BATCH, APP_REPOS } from "../lib/queries";
 import type { AppReposResult } from "../lib/types";
 import { keys } from "./keys";
 
-/** A repository whose latest release has an APK, and the package names its build files declare. */
+/** A repository that publishes an APK, the release it's on, and the package names its build files declare. */
 export interface AppRepo {
   owner: string;
   name: string;
+  tag: string;
   packageIds: string[];
 }
 
@@ -16,15 +17,14 @@ export interface AppRepo {
 const MAX_PAGES = 10;
 
 async function appRepos(): Promise<AppRepo[]> {
-  const candidates: { id: string; owner: string; name: string }[] = [];
+  const candidates: { id: string; owner: string; name: string; tag: string }[] = [];
   let after: string | null = null;
   for (let page = 0; page < MAX_PAGES; page++) {
     const data: AppReposResult = await graphql(APP_REPOS, { after });
     const { repositories } = data.viewer;
     for (const repo of repositories.nodes) {
-      if (repo.latestRelease?.releaseAssets.nodes.some((asset) => isApk(asset.name)) === true) {
-        candidates.push({ id: repo.id, owner: repo.owner.login, name: repo.name });
-      }
+      const tag = appReleaseTag(repo.latestRelease, repo.releases.nodes);
+      if (tag !== undefined) candidates.push({ id: repo.id, owner: repo.owner.login, name: repo.name, tag });
     }
     if (!repositories.pageInfo.hasNextPage || repositories.pageInfo.endCursor === null) break;
     after = repositories.pageInfo.endCursor;
@@ -41,7 +41,7 @@ async function appRepos(): Promise<AppRepo[]> {
       ids.set(node.id, packageIdsFromFiles(texts));
     }
   }
-  return candidates.map((repo) => ({ owner: repo.owner, name: repo.name, packageIds: ids.get(repo.id) ?? [] }));
+  return candidates.map((repo) => ({ owner: repo.owner, name: repo.name, tag: repo.tag, packageIds: ids.get(repo.id) ?? [] }));
 }
 
 export const appQueries = {

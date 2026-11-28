@@ -38,7 +38,9 @@ export function AppsScreen() {
   const links = useAppLinks();
   const repos = useQuery({ ...appQueries.repos(), enabled: supported && !guest });
   const matches = useMemo(() => matchApps(installed, links, repos.data ?? []), [installed, links, repos.data]);
-  const releases = useQueries({ queries: matches.map((match) => releaseQueries.one(match.owner, match.repo, "latest")) });
+  const releases = useQueries({
+    queries: matches.map((match) => releaseQueries.one(match.owner, match.repo, match.tag === undefined ? "latest" : { tag: match.tag })),
+  });
   const runs = useQueries({ queries: matches.map((match) => actionsQueries.recentRuns(match.owner, match.repo)) });
   // Tapping "Update all" bumps this; every row with an update starts it.
   const [updateAll, setUpdateAll] = useState(0);
@@ -168,7 +170,7 @@ function AppEntryView({ entry, children }: { entry: AppEntry; children: ReactNod
 function AppsHint() {
   return (
     <>
-      An app shows up here when its repository's latest release has an APK, and the repository's build files name the app or you installed it from a
+      An app shows up here when its repository publishes an APK in a release, and the repository's build files name the app or you installed it from a
       release in Better GitHub.
     </>
   );
@@ -185,9 +187,9 @@ function AppIcon({ packageName }: { packageName: string }) {
 
 /** The app's name, where it comes from and how it's doing; opens the latest release. */
 function AppSummary({ entry, status }: { entry: AppEntry; status: ReactNode }) {
-  const { app, owner, repo } = entry;
+  const { app, owner, repo, tag } = entry;
   return (
-    <Link {...to.latestRelease(owner, repo)} className="row app-row" preload="viewport">
+    <Link {...(tag === undefined ? to.latestRelease(owner, repo) : to.release(owner, repo, tag))} className="row app-row" preload="viewport">
       <AppIcon packageName={app.packageName} />
       <span className="row-body">
         <span className="row-title" style={{ display: "block" }}>
