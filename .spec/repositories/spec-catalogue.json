@@ -99,6 +99,15 @@
         "#SC6",
         "#SC7"
       ]
+    },
+    {
+      "id": "SC10",
+      "text": "The description of a pull request that updates a shared part lists, for a coding agent, how the part's groundwork changed since the copy it replaces: each item that is new, with its known ways, each whose known ways changed, and each the part no longer lists; or it says the groundwork is the same.",
+      "related": [
+        "#S46",
+        "#SC8",
+        "#D17"
+      ]
     }
   ],
   "related": [

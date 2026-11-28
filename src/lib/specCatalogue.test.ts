@@ -1,4 +1,4 @@
-// Spec: SC1, SC2, SC4, SC5, SC7, SC8
+// Spec: SC1, SC2, SC4, SC5, SC7, SC8, SC10
 
 import { describe, expect, it } from "vitest";
 import { buildSpec, type SpecFile } from "./spec";
@@ -82,6 +82,29 @@ describe("planImport", () => {
     expect(plan.body).toContain("never a reason to decline the part or to stop");
     expect(plan.body).toContain("2. **Cite**");
     expect(plan.body).toContain("9. **Report** the groundwork found and how each item was made true");
+  });
+
+  it("lists, in an update, the groundwork that is new or changed since the copy it replaces", () => {
+    const chat = (groundwork: unknown[]) => file("chat/index.json", { title: "Chat", shared: { id: "chat" }, groundwork });
+    const files = [file("index.json", { title: "Shared specs" }), chat(["The app has settings the user can open.", { text: "The app has a place for a chat beside the screen.", ways: ["a side panel", "a window of its own"] }])];
+    const part = buildSpec(files).nodes.get("chat");
+    if (part === undefined) throw new Error("fixture");
+    const copied = (groundwork: unknown[]) => [file("index.json", { title: "App", imports: [imported({ id: "chat", at: "chat" })] }), chat(groundwork)];
+    const plan = planImport({ ...source, part, files }, target(copied(["The app has settings the user can open.", { text: "The app has a place for a chat beside the screen.", ways: ["a side panel"] }, "The app has a menu."])));
+    if (plan.kind !== "ready") throw new Error(JSON.stringify(plan));
+    expect(plan.body).toContain(
+      [
+        "The part's groundwork changed since aaaaaaa. Groundwork that is new or changed is checked as in step 1, first:",
+        "",
+        '- Groundwork "The app has a place for a chat beside the screen.": its known ways were "a side panel", now "a side panel", "a window of its own".',
+        '- Groundwork no longer listed: "The app has a menu."',
+      ].join("\n"),
+    );
+    // Groundwork that is as it was is said to be.
+    const same = planImport({ ...source, part, files }, target(copied(["The app has settings the user can open.", { text: "The app has a place for a chat beside the screen.", ways: ["a side panel", "a window of its own"] }])));
+    if (same.kind !== "ready") throw new Error(JSON.stringify(same));
+    expect(same.body).toContain("The part's groundwork is the same as at aaaaaaa.");
+    expect(same.body).not.toContain("New groundwork");
   });
 
   it("starts a spec for a repository that has none", () => {

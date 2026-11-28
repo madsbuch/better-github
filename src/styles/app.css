@@ -2468,6 +2468,47 @@ a.spec-link:active {
   padding-top: 8px;
 }
 
+/* A groundwork item in a spec change: it has no id, so its text heads it, tinted when it is new or gone. */
+.spec-groundwork-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+
+.spec-groundwork-head[data-kind="added"] {
+  background: var(--diff-add-bg);
+}
+.spec-groundwork-head[data-kind="removed"] {
+  background: var(--diff-del-bg);
+}
+
+.spec-groundwork-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.spec-diff-groundwork .spec-groundwork-ways {
+  margin: 0;
+  padding: 0 12px 8px;
+}
+
+.spec-diff-groundwork .spec-groundwork-ways ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+.spec-diff-groundwork .spec-groundwork-ways li + li {
+  margin-top: 2px;
+}
+
+.spec-diff-groundwork .spec-groundwork-ways .spec-diff-line {
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .spec-diff-pictures {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));

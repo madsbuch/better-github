@@ -3,7 +3,7 @@
 // review of its spec files: there each card is one file, with its viewed
 // state, and the comments on the file's lines shown at the requirement or
 // field those lines belong to.
-// Spec: SR1, SR3, SR5, SR11, SR13, SR15, SR17, D12
+// Spec: SR1, SR3, SR5, SR11, SR13, SR15, SR17, SR19, D12
 
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ArrowRightIcon, ColumnsIcon, CommentIcon, KebabHorizontalIcon, LinkExternalIcon, RowsIcon } from "@primer/octicons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { to } from "../lib/nav";
 import { setPref, useMediaQuery, usePrefs } from "../lib/prefs";
 import { SPEC_DIR, specTrail, storySentence, type Spec, type SpecFigure, type SpecRequirement, type SpecStory, type SpecValue } from "../lib/spec";
 import { VALUE_TYPE_LABEL } from "../lib/specValues";
-import type { ChangeKind, FieldChange, FigureChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange, ValueChange } from "../lib/specDiff";
+import type { ChangeKind, FieldChange, FigureChange, GroundworkChange, ItemChange, ItemKind, ListChange, RequirementChange, SpecDiff, StoryChange, ValueChange } from "../lib/specDiff";
 import { toReconcile, type ToReconcile } from "../lib/specReconcile";
 import { commentLine, entrySpan, jsonLines, requirementSpan, type CommentLine, type LineSpan } from "../lib/specLines";
 import { foldUnchanged, proseDiff, proseUnits, sideParts, type ProseBlock } from "../lib/specProse";
@@ -312,6 +312,7 @@ function CardBody({ change, sides, review }: CardProps) {
   const placed = useMemo(() => {
     const parts: { key: string; spans: Spans }[] = [
       ...change.fields.map((field) => ({ key: `field:${field.field}`, spans: lines.field(field.field) })),
+      { key: "groundwork", spans: lines.field("groundwork") },
       ...change.stories.map((story) => ({ key: `story:${story.id}`, spans: lines.story(story.id) })),
       ...[...change.requirements.map((r) => r.id), ...change.unchanged.map((r) => r.id)].map((id) => ({ key: `requirement:${id}`, spans: lines.requirement(id) })),
       ...change.values.map((value) => ({ key: `value:${value.id}`, spans: lines.value(value.id) })),
@@ -354,13 +355,14 @@ function CardBody({ change, sides, review }: CardProps) {
   const fields = change.fields.filter((field) => field.field !== "title" || (change.before !== null && change.after !== null));
   const whole = change.kind === "added" || change.kind === "removed";
   const figures = discuss("figures", lines.field("figures"), "the figures");
+  const groundwork = discuss("groundwork", lines.field("groundwork"), "the groundwork");
 
   return (
     <div className="spec-change-body">
       {change.movedFrom !== null && (
         <p className="spec-diff-note">
           Moved from <span className="mono small">{change.movedFrom}</span>
-          {change.fields.length + change.stories.length + change.requirements.length + change.values.length + change.figures.length + change.lists.length === 0 && ", otherwise unchanged"}.
+          {change.fields.length + change.stories.length + change.requirements.length + change.values.length + change.figures.length + change.groundwork.length + change.lists.length === 0 && ", otherwise unchanged"}.
         </p>
       )}
       {change.weakened !== null && (
@@ -384,6 +386,15 @@ function CardBody({ change, sides, review }: CardProps) {
               </div>
             );
           })}
+          {change.groundwork.length > 0 && (
+            // Where the part's page has it: after what the part is, before what it must do.
+            <Section title="Groundwork" action={groundwork.button}>
+              {change.groundwork.map((entry) => (
+                <Groundwork key={`${entry.kind}:${entry.text}`} change={entry} />
+              ))}
+              {groundwork.comments}
+            </Section>
+          )}
           {change.stories.length > 0 && (
             <Section title="User stories">
               {change.stories.map((story) => {
@@ -993,6 +1004,65 @@ function Figure({ change, sides }: { change: FigureChange; sides: Sides }) {
       )}
       {before !== null && after !== null && before.caption !== after.caption && <TextChange before={before.caption} after={after.caption} />}
       {before !== null && after !== null && before.alt !== after.alt && <TextChange before={before.alt} after={after.alt} />}
+    </div>
+  );
+}
+
+/** Ways known on both sides of a change, and those only on one, in the newer order with the dropped ones after. */
+function wayRows(before: string[], after: string[]): { way: string; kind: "same" | "added" | "removed" }[] {
+  return [
+    ...after.map((way) => ({ way, kind: before.includes(way) ? ("same" as const) : ("added" as const) })),
+    ...before.filter((way) => !after.includes(way)).map((way) => ({ way, kind: "removed" as const })),
+  ];
+}
+
+/** A groundwork item that was added, removed, or kept with other known ways. It has no id: its text says which it is. */
+// Spec: SR19
+function Groundwork({ change }: { change: GroundworkChange }) {
+  const whole = useContext(WholeContext);
+  const { kind, before, after } = change;
+  // Only an item on both sides has ways to compare; otherwise its ways are simply read.
+  const rows = kind === "changed" ? wayRows(before ?? [], after ?? []) : (after ?? before ?? []).map((way) => ({ way, kind: "same" as const }));
+  return (
+    <div className="spec-diff-req spec-diff-groundwork" data-kind={kind}>
+      {/* In a part that is new or gone as a whole, every item is: no need to say so on each. */}
+      <div className="spec-groundwork-head" data-kind={whole ? undefined : kind}>
+        <span className="spec-groundwork-text">
+          <CheckText text={change.text} />
+        </span>
+        {!whole && (
+          <span className="spec-diff-kind" data-kind={kind}>
+            {kind === "changed" ? "Ways changed" : REQUIREMENT_KIND[kind]}
+          </span>
+        )}
+      </div>
+      {rows.length > 0 && (
+        <div className="spec-groundwork-ways">
+          <div className="spec-groundwork-ways-label">Known ways</div>
+          {kind === "changed" ? (
+            rows.map((row) =>
+              row.kind === "same" ? (
+                <div key={`=${row.way}`} className="spec-diff-line" data-kind="same">
+                  <span className="spec-diff-sign" aria-hidden />
+                  <span className="spec-diff-text">
+                    <CheckText text={row.way} />
+                  </span>
+                </div>
+              ) : (
+                <Line key={`${row.kind}:${row.way}`} kind={row.kind} text={row.way} />
+              ),
+            )
+          ) : (
+            <ul>
+              {rows.map((row) => (
+                <li key={row.way}>
+                  <CheckText text={row.way} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

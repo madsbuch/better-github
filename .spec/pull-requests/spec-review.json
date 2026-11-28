@@ -93,6 +93,15 @@
     {
       "id": "SR18",
       "text": "A comparison of two specs lists what is related to something that changed and wasn't changed itself, with what it says now and what it is related to, so that it can be checked. What was dropped isn't listed. A changed `related` list shows what it pointed at before and after."
+    },
+    {
+      "id": "SR19",
+      "text": "A changed shared part shows what changed in its groundwork in a section of its own, where the part's page has it: after its description, before its user stories and requirements. Each item is shown added, removed, or with its known ways changed, the ways that came and went marked. The section takes comments like figures.",
+      "related": [
+        "#S47",
+        "#D17",
+        "#SR5"
+      ]
     }
   ],
   "values": [

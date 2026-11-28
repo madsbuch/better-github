@@ -3,12 +3,13 @@
 // spec-llms.txt). The app lists their parts, and pulls one into a repository
 // as a pull request that copies the part's files and records the copy in the
 // repository's root item.
-// Spec: SC1, SC2, SC4, SC5, SC6, SC7
+// Spec: SC1, SC2, SC4, SC5, SC6, SC7, SC10
 
 import { useSyncExternalStore } from "react";
 import { z } from "zod";
 import { parseJson } from "./schema";
 import { SPEC_DIR, SPEC_SCHEMA_URL, type Spec, type SpecFile, type SpecImport, type SpecItem, type SpecNode } from "./spec";
+import { diffGroundwork, groundworkLine, type GroundworkChange } from "./specDiff";
 import { specItemText } from "./specRework";
 
 // ------------------------------------------------------------- catalogues
@@ -190,6 +191,9 @@ export function planImport(source: ImportSource, target: ImportTarget): ImportPl
 
   const title = existing !== undefined ? `Spec: update the shared part "${source.part.title}" to ${source.commit.slice(0, 7)}` : `Spec: use the shared part "${source.part.title}" from ${source.from}`;
   const updates = existing?.commit ?? null;
+  // What the part asks of a product first, compared with the copy this replaces; unknown while that copy isn't read.
+  const copy = existing !== undefined ? target.spec?.nodes.get(existing.at) : undefined;
+  const groundwork = copy === undefined || !copy.loaded || copy.item === null ? null : diffGroundwork(copy.item.groundwork ?? [], source.part.item?.groundwork ?? []);
   return {
     kind: "ready",
     updates,
@@ -198,7 +202,7 @@ export function planImport(source: ImportSource, target: ImportTarget): ImportPl
     deletes,
     root: { path: `${SPEC_DIR}/index.json`, text },
     title,
-    body: importPullBody(source, shared.id, updates, movesFrom, copies.length, deletes.length),
+    body: importPullBody(source, shared.id, updates, movesFrom, copies.length, deletes.length, groundwork),
   };
 }
 
@@ -209,8 +213,9 @@ function descendants(node: SpecNode): SpecNode[] {
 /** The spec format for coding agents, with "Adopting a shared part". */
 export const SPEC_LLMS_URL = SPEC_SCHEMA_URL.replace("schema/spec.schema.json", "spec-llms.txt");
 
-// Spec: SC8
-function importPullBody(source: ImportSource, id: string, updates: string | null, movesFrom: string | null, copies: number, deletes: number): string {
+/** `changed`: how the part's groundwork differs from the copy an update replaces, when that is known. */
+// Spec: SC8, SC10
+function importPullBody(source: ImportSource, id: string, updates: string | null, movesFrom: string | null, copies: number, deletes: number, changed: GroundworkChange[] | null): string {
   const at = `${SPEC_DIR}/${source.part.id}`;
   const files = `${copies} ${copies === 1 ? "file" : "files"}${deletes > 0 ? `, ${deletes} removed` : ""}`;
   const what =
@@ -224,7 +229,14 @@ function importPullBody(source: ImportSource, id: string, updates: string | null
       ? []
       : [
           "This is an update: what changed in the part is what to adopt. The spec comparison of this pull request shows it requirement by requirement, and the changed ids, searched for in the code, show what to change. Check that the import's `values` and `waived` still name things the part has.",
-          ...(groundwork > 0 ? ["Groundwork that is new or changed is checked as in step 1, first."] : []),
+          // An update is adopted for what changed, and new groundwork is what to check first.
+          ...(changed !== null && changed.length > 0
+            ? [`The part's groundwork changed since ${updates.slice(0, 7)}. Groundwork that is new or changed is checked as in step 1, first:\n\n${changed.map(groundworkLine).join("\n")}`]
+            : changed !== null && groundwork > 0
+              ? [`The part's groundwork is the same as at ${updates.slice(0, 7)}.`]
+              : groundwork > 0
+                ? ["Groundwork that is new or changed is checked as in step 1, first."]
+                : []),
         ];
   const steps = [
     ...(groundwork > 0

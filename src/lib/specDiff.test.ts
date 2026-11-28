@@ -1,8 +1,8 @@
-// Spec: D1, D2, D3, D8, D10, D11, D14, D15, D16
+// Spec: D1, D2, D3, D8, D10, D11, D14, D15, D16, D17
 
 import { describe, expect, it } from "vitest";
 import { buildSpec, type SpecFile } from "./spec";
-import { diffSpecs } from "./specDiff";
+import { diffSpecs, groundworkLine } from "./specDiff";
 
 const file = (path: string, value: unknown): SpecFile => ({ path, text: typeof value === "string" ? value : JSON.stringify(value), truncated: false });
 const picture = (path: string, oid: string): SpecFile => ({ path, text: null, truncated: false, oid });
@@ -314,5 +314,45 @@ describe("diffSpecs", () => {
     expect(changes.counts.values).toEqual({ added: 1, removed: 1, changed: 4 });
     expect(changes.counts.weakened).toBe(2);
   });
-});
 
+  it("matches a shared part's groundwork by its text: added, removed, with other ways, or the same", () => {
+    const part = (groundwork: unknown[]) =>
+      buildSpec([file("index.json", { title: "Shared" }), file("tandem/index.json", { title: "Tandem", shared: { id: "tandem" }, groundwork, requirements: [{ id: "tandem.SYN-1", text: "Devices sync." }] })]);
+    const old = part([
+      "The app keeps its data in SQLite.",
+      { text: "The app has settings the user can open.", ways: ["a section in its settings"] },
+      { text: "The app has a menu.", ways: ["a menu bar"] },
+      "The app runs on phones.",
+    ]);
+    const next = part([
+      // A sentence and an object without ways are the same item.
+      { text: "The app keeps its data in SQLite." },
+      { text: "The app has settings the user can open.", ways: ["a section in its settings", "a settings screen of its own"] },
+      // Reworded: one removed and one added.
+      { text: "The app has a menu or a toolbar.", ways: ["a menu bar"] },
+      "The app runs on phones.",
+      "The app can open a second window.",
+    ]);
+    const changes = diffSpecs(old, next);
+    expect(changes.items.map((item) => [item.id, item.kind])).toEqual([["tandem", "changed"]]);
+    expect(changes.items[0]?.groundwork).toEqual([
+      { text: "The app has settings the user can open.", kind: "changed", before: ["a section in its settings"], after: ["a section in its settings", "a settings screen of its own"] },
+      // The removed one stays where it was, next to what replaced it.
+      { text: "The app has a menu.", kind: "removed", before: ["a menu bar"], after: null },
+      { text: "The app has a menu or a toolbar.", kind: "added", before: null, after: ["a menu bar"] },
+      { text: "The app can open a second window.", kind: "added", before: null, after: [] },
+    ]);
+    // An item whose groundwork changed is a changed item, and nothing else is counted for it.
+    expect(changes.counts.items).toEqual({ added: 0, removed: 0, changed: 1, moved: 0 });
+    expect(changes.counts.weakened).toBe(0);
+    // The same groundwork, written either way, is no change.
+    expect(diffSpecs(old, part(["The app keeps its data in SQLite.", { text: "The app has settings the user can open.", ways: ["a section in its settings"] }, { text: "The app has a menu.", ways: ["a menu bar"] }, { text: "The app runs on phones." }])).items).toEqual([]);
+    // As a coding agent reads it.
+    expect(changes.items[0]?.groundwork.map(groundworkLine)).toEqual([
+      '- Groundwork "The app has settings the user can open.": its known ways were "a section in its settings", now "a section in its settings", "a settings screen of its own".',
+      '- Groundwork no longer listed: "The app has a menu."',
+      '- New groundwork: "The app has a menu or a toolbar." Known ways: "a menu bar".',
+      '- New groundwork: "The app can open a second window."',
+    ]);
+  });
+});

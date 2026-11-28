@@ -4,9 +4,9 @@
 // which requirements. Items are matched by id, requirements by their id within
 // the item, so rewording a requirement is a change and renumbering it is a
 // removal and an addition.
-// Spec: D1, D2, D3, D4, D5, D8, D10, D11, D14, D15, D16
+// Spec: D1, D2, D3, D4, D5, D8, D10, D11, D14, D15, D16, D17
 
-import { requirementVersion, specStatus, type Spec, type SpecFigure, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue } from "./spec";
+import { requirementVersion, specStatus, type Spec, type SpecFigure, type SpecGroundwork, type SpecItem, type SpecNode, type SpecRequirement, type SpecStatus, type SpecStory, type SpecValue } from "./spec";
 
 export type ChangeKind = "added" | "removed" | "changed";
 
@@ -72,6 +72,20 @@ export interface FigureChange {
   picture: boolean;
 }
 
+/**
+ * A shared part's groundwork item that was added, removed, or kept with other
+ * known ways. Groundwork has no id, so it is matched by its text: a reworded
+ * item is one removed and one added.
+ */
+export interface GroundworkChange {
+  /** What it says, the same on both sides of a change. */
+  text: string;
+  kind: ChangeKind;
+  /** Its known ways on each side, empty when it lists none; null on the side that doesn't have it. */
+  before: string[] | null;
+  after: string[] | null;
+}
+
 /** Entries of a list of strings that are only on one side. */
 export interface ListChange {
   field: "related";
@@ -101,6 +115,8 @@ export interface ItemChange {
   requirements: RequirementChange[];
   values: ValueChange[];
   figures: FigureChange[];
+  /** A shared part's groundwork, by text. */
+  groundwork: GroundworkChange[];
   lists: ListChange[];
   /** It can be read on one side only: why it can't on the other. */
   unreadable: { side: "before" | "after"; error: string } | null;
@@ -310,6 +326,52 @@ function diffFigures(before: SpecFigure[], after: SpecFigure[], oids: { before: 
   return changes;
 }
 
+/** A groundwork item as its text and known ways, whether it was written as a sentence or an object. */
+export function groundworkEntry(entry: SpecGroundwork): { text: string; ways: string[] } {
+  return typeof entry === "string" ? { text: entry, ways: [] } : { text: entry.text, ways: entry.ways ?? [] };
+}
+
+/**
+ * Groundwork matched by text, as it has no id: one on both sides is the same,
+ * or "changed" when its known ways differ. In the newer order, each removed
+ * item after the one it used to follow, so a reworded one reads as a pair.
+ */
+// Spec: D17
+export function diffGroundwork(before: SpecGroundwork[], after: SpecGroundwork[]): GroundworkChange[] {
+  const [olds, currents] = [before.map(groundworkEntry), after.map(groundworkEntry)];
+  const byText = new Map(olds.map((entry) => [entry.text, entry]));
+  const current = new Set(currents.map((entry) => entry.text));
+  const removedAfter = new Map<string | null, GroundworkChange[]>();
+  let anchor: string | null = null;
+  for (const entry of olds) {
+    if (current.has(entry.text)) anchor = entry.text;
+    else removedAfter.set(anchor, [...(removedAfter.get(anchor) ?? []), { text: entry.text, kind: "removed", before: entry.ways, after: null }]);
+  }
+  const changes: GroundworkChange[] = [...(removedAfter.get(null) ?? [])];
+  for (const entry of currents) {
+    const old = byText.get(entry.text);
+    if (old === undefined) changes.push({ text: entry.text, kind: "added", before: null, after: entry.ways });
+    else if (JSON.stringify(old.ways) !== JSON.stringify(entry.ways)) changes.push({ text: entry.text, kind: "changed", before: old.ways, after: entry.ways });
+    changes.push(...(removedAfter.get(entry.text) ?? []));
+    // A text listed twice is still one item.
+    removedAfter.delete(entry.text);
+  }
+  return changes;
+}
+
+/**
+ * A groundwork change as a line of a list for a coding agent: what is new to
+ * check first, with its known ways, what changed in its ways, and what the
+ * part no longer asks for.
+ */
+// Spec: SC10, RW10
+export function groundworkLine(change: GroundworkChange): string {
+  const ways = (list: string[] | null) => ((list ?? []).length > 0 ? (list ?? []).map((way) => `"${way}"`).join(", ") : "none");
+  if (change.kind === "added") return `- New groundwork: "${change.text}"${(change.after ?? []).length > 0 ? ` Known ways: ${ways(change.after)}.` : ""}`;
+  if (change.kind === "removed") return `- Groundwork no longer listed: "${change.text}"`;
+  return `- Groundwork "${change.text}": its known ways were ${ways(change.before)}, now ${ways(change.after)}.`;
+}
+
 function diffList(field: ListChange["field"], before: string[], after: string[]): ListChange | null {
   const added = after.filter((entry) => !before.includes(entry));
   const removed = before.filter((entry) => !after.includes(entry));
@@ -336,7 +398,7 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
   const both = old !== null && current !== null;
   const base = { id, kind, movedFrom, before: old, after: current };
   if (old?.loaded === false || current?.loaded === false) {
-    return { ...base, pending: true, weakened: null, unchanged: [], fields: [], stories: [], requirements: [], values: [], figures: [], lists: [], unreadable: null };
+    return { ...base, pending: true, weakened: null, unchanged: [], fields: [], stories: [], requirements: [], values: [], figures: [], groundwork: [], lists: [], unreadable: null };
   }
 
   const fields: FieldChange[] = [];
@@ -376,10 +438,11 @@ function diffItem(id: string, before: SpecNode | null, after: SpecNode | null, o
     requirements,
     values: diffValues(a?.values ?? [], b?.values ?? [], specStatus(a), specStatus(b)),
     figures: diffFigures(a?.figures ?? [], b?.figures ?? [], oids),
+    groundwork: diffGroundwork(a?.groundwork ?? [], b?.groundwork ?? []),
     lists,
     unreadable,
   };
-  const empty = fields.length === 0 && change.stories.length === 0 && requirements.length === 0 && change.values.length === 0 && change.figures.length === 0 && lists.length === 0 && unreadable === null;
+  const empty = fields.length === 0 && change.stories.length === 0 && requirements.length === 0 && change.values.length === 0 && change.figures.length === 0 && change.groundwork.length === 0 && lists.length === 0 && unreadable === null;
   return kind === "changed" && empty ? null : change;
 }
 

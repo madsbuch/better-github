@@ -25,8 +25,8 @@ export interface ToReconcile {
 function changed(diff: SpecDiff): Map<string, string> {
   const keys = new Map<string, string>();
   for (const item of diff.items) {
-    // A part changed when something of its own did: its text, its pictures, or that it is there at all.
-    if (item.kind !== "changed" || item.fields.length > 0 || item.figures.length > 0) keys.set(item.id, (item.after ?? item.before)?.title ?? item.id);
+    // A part changed when something of its own did: its text, its pictures, its groundwork, or that it is there at all.
+    if (item.kind !== "changed" || item.fields.length > 0 || item.figures.length > 0 || item.groundwork.length > 0) keys.set(item.id, (item.after ?? item.before)?.title ?? item.id);
     for (const entry of [...item.stories, ...item.requirements, ...item.values]) keys.set(`#${entry.id}`, entry.id);
   }
   return keys;

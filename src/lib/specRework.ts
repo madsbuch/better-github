@@ -31,7 +31,7 @@ import {
   type SpecValue,
   valueText,
 } from "./spec.ts";
-import type { ItemChange, RequirementChange, SpecDiff } from "./specDiff";
+import { groundworkLine, type ItemChange, type RequirementChange, type SpecDiff } from "./specDiff";
 
 // -------------------------------------------------------------------- edits
 
@@ -410,6 +410,8 @@ function itemSection(change: ItemChange, path: string): string {
         ? null
         : `- ${field.field}: ${field.before !== undefined ? quote(field.before) : "none"} to ${field.after !== undefined ? quote(field.after) : "none"}.`,
     ),
+    // What a product has to be like first, before what the part must do.
+    ...change.groundwork.map(groundworkLine),
     ...change.stories.map(storyLine),
     ...change.requirements.map(requirementLine),
     ...change.values.map(valueLine),

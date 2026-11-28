@@ -2,7 +2,7 @@
 
 import { deprecateValue, reviseValue, withValue } from "./specRework";
 import type { SpecValue } from "./spec";
-import { specPullBranch } from "./specRework";
+import { specPullBody, specPullBranch } from "./specRework";
 import { describe, expect, it } from "vitest";
 import { buildSpec, SpecItem, type SpecFile } from "./spec";
 import { diffSpecs } from "./specDiff";
@@ -160,6 +160,15 @@ describe("a draft over a spec", () => {
 });
 
 describe("a pull request for a rework", () => {
+  // Spec: RW10, D17
+  it("says what changed in a shared part's groundwork, so the agent checks that first", () => {
+    // Object ids are made from contents here: the two versions of the part differ.
+    const part = (groundwork: unknown[]): SpecFile[] => [file("index.json", { title: "Shared" }), { ...file("tandem/index.json", { title: "Tandem", shared: { id: "tandem" }, groundwork }), oid: JSON.stringify(groundwork) }];
+    const [old, next] = [part(["The app keeps its data in SQLite."]), part(["The app keeps its data in SQLite.", { text: "The app has settings.", ways: ["a settings screen"] }])];
+    const body = specPullBody({ diff: diffSpecs(buildSpec(old), buildSpec(next)), files: [{ path: ".spec/tandem/index.json", id: "tandem", text: "{}", isNew: false }], note: "" });
+    expect(body).toContain('### Tandem (`.spec/tandem/index.json`): changed\n\n- New groundwork: "The app has settings." Known ways: "a settings screen".');
+  });
+
   it("names its branch after the title, and stays a valid ref", () => {
     expect(specPullBranch("Spec: Retries & Errors!", "1a2b3c")).toBe("spec/retries-errors-1a2b3c");
     expect(specPullBranch("Spec: ", "1a2b3c")).toBe("spec/rework-1a2b3c");

@@ -145,6 +145,14 @@
     {
       "id": "D16",
       "text": "A history that was rewritten, shortened, or that doesn't record the version just left as it was, is flagged with what takes something away. So is a version that went back."
+    },
+    {
+      "id": "D17",
+      "text": "A shared part's groundwork is compared by its text, as it has no id: an item on both sides is the same, or changed when its known ways differ; one only on the newer side is added, one only on the older is removed. A reworded item is one removed and one added. A part whose groundwork changed counts as changed.",
+      "related": [
+        "#S46",
+        "#D1"
+      ]
     }
   ],
   "values": [
