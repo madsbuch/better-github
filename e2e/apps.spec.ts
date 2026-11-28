@@ -134,3 +134,19 @@ test("without the Android app there's no Apps section, and its page says why", a
   await expect(activeScreen(page)).toContainText("Apps live on your phone");
   await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("button")).toHaveText(["Repos", "Orgs", "You", "Settings"]);
 });
+
+// Spec: APP-9
+test("a build of an app on its way shows under it, and opens its run", async ({ page }) => {
+  const errors = trackErrors(page);
+  await fakePhone(page);
+  await open(page, "/apps");
+  const screen = activeScreen(page);
+  const builds = screen.locator(".app-build");
+  // Notes' Android workflow is building on main (not the run on another branch); Rocket has nothing on its way.
+  await expect(builds).toHaveCount(1);
+  await expect(builds).toHaveText(/^Building · Android · 4m/);
+  await expect(screen.locator(".app-entry").filter({ hasText: "Notes" }).locator(".app-build")).toHaveCount(1);
+  await builds.click();
+  await expect(screenTitle(page)).toHaveText("Sync notes offline");
+  expect(errors).toEqual([]);
+});

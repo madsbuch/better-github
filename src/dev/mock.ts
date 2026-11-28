@@ -864,7 +864,22 @@ const ANNOTATIONS = [
   { path: "src/client.rs", start_line: 5, end_line: 5, annotation_level: "failure", title: "clippy", message: "unused variable: `delay`" },
 ];
 
+/**
+ * octocat/notes (Apps): its Android workflow published notes.apk two hours ago and is
+ * building again on main; a run on another branch and CI don't publish.
+ */
+const NOTES_RUNS = [
+  workflowRun(9303, "Try a new editor", "in_progress", null, 2, { name: "Android", workflow_id: 21, path: ".github/workflows/android.yml", head_branch: "try-editor" }),
+  workflowRun(9301, "Sync notes offline", "in_progress", null, 4, { name: "Android", workflow_id: 21, path: ".github/workflows/android.yml" }),
+  workflowRun(9302, "Sync notes offline", "completed", "success", 4),
+  workflowRun(9300, "Faster search", "completed", "success", 125, { name: "Android", workflow_id: 21, path: ".github/workflows/android.yml", updated_at: iso(118) }),
+].map((run) => ({ ...run, html_url: `https://github.com/octocat/notes/actions/runs/${run.id.toString()}` }));
+
 function actionsBody(path: string): unknown {
+  if (path.startsWith("/repos/octocat/notes/actions/runs")) {
+    const byId = /\/runs\/(\d+)$/.exec(path);
+    return byId ? (NOTES_RUNS.find((run) => run.id === Number(group(byId))) ?? NOT_FOUND) : { total_count: NOTES_RUNS.length, workflow_runs: NOTES_RUNS };
+  }
   if (path.endsWith("/actions/workflows")) return { total_count: WORKFLOWS.length, workflows: WORKFLOWS };
   const byWorkflow = /\/actions\/workflows\/(\d+)\/runs$/.exec(path);
   if (byWorkflow) {

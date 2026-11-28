@@ -116,3 +116,67 @@ export function matchApps<A extends { packageName: string }>(
   }
   return matches;
 }
+
+/** The fields of a workflow run that tell which workflow builds an app, and how its latest build is doing. */
+export interface BuildRun {
+  id: number;
+  workflow_id: number;
+  name?: string | null | undefined;
+  path: string;
+  event: string;
+  status: string | null;
+  conclusion: string | null;
+  head_branch: string | null;
+  created_at: string;
+  updated_at: string;
+  run_started_at?: string | undefined;
+}
+
+/** The workflow that publishes an app's APK, and the branch it publishes from (null: any). */
+export interface Publisher {
+  workflowId: number;
+  branch: string | null;
+}
+
+const running = (run: BuildRun) => run.status !== "completed" && run.status !== null;
+/** Uploading the APK can come a little after the run's last recorded update. */
+const UPLOAD_SLACK = 2 * 60_000;
+
+/**
+ * Which workflow publishes the APK, from recent runs (newest first): the run that was going
+ * when the APK was uploaded, or else a workflow named for Android, APKs or releases.
+ * Pull request runs never publish. A tag-triggered publisher builds from any ref.
+ */
+export function findPublisher(runs: readonly BuildRun[], asset: { updated_at: string } | undefined, tag: string | undefined): Publisher | undefined {
+  const candidates = runs.filter((run) => run.event !== "pull_request");
+  const uploaded = asset === undefined ? Number.NaN : Date.parse(asset.updated_at);
+  if (Number.isFinite(uploaded)) {
+    const publishing = candidates.find((run) => {
+      const start = Date.parse(run.run_started_at ?? run.created_at);
+      return start <= uploaded && uploaded <= Date.parse(run.updated_at) + UPLOAD_SLACK;
+    });
+    if (publishing !== undefined) {
+      const fromTag = publishing.head_branch === null || publishing.head_branch === tag || publishing.event === "release";
+      return { workflowId: publishing.workflow_id, branch: fromTag ? null : publishing.head_branch };
+    }
+  }
+  for (const pattern of [/android|apk/i, /release|publish|deploy/i]) {
+    const named = candidates.find((run) => pattern.test(`${run.name ?? ""} ${run.path}`));
+    if (named !== undefined) return { workflowId: named.workflow_id, branch: null };
+  }
+  return undefined;
+}
+
+export type AppBuild = { state: "building"; run: BuildRun } | { state: "failed"; run: BuildRun };
+
+/** The publisher's latest run, when it's still going or it failed; nothing when it succeeded or was cancelled. */
+export function latestBuild(runs: readonly BuildRun[], publisher: Publisher | undefined): AppBuild | undefined {
+  if (publisher === undefined) return undefined;
+  const latest = runs.find(
+    (run) => run.workflow_id === publisher.workflowId && run.event !== "pull_request" && (publisher.branch === null || run.head_branch === publisher.branch),
+  );
+  if (latest === undefined) return undefined;
+  if (running(latest)) return { state: "building", run: latest };
+  if (latest.conclusion === "failure" || latest.conclusion === "timed_out" || latest.conclusion === "startup_failure") return { state: "failed", run: latest };
+  return undefined;
+}

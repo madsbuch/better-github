@@ -3079,6 +3079,30 @@ kbd {
   border-radius: 10px;
 }
 
+.app-entry {
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.app-entry > .download-row {
+  border-bottom: 0;
+}
+
+/* A build of the app on its way, under its name. */
+.app-build {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -6px;
+  padding: 0 16px 12px 68px;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.app-build:active {
+  color: var(--fg);
+}
+
 .apps-hint {
   margin: 0;
   padding-top: 16px;

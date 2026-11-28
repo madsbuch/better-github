@@ -128,6 +128,8 @@ export const keys = {
   actions: {
     all: actionsBase,
     workflows: (owner: string, repo: string) => [...actionsBase(owner, repo), "workflows"] as const,
+    /** The latest runs of every workflow, without pull requests' (Apps: is a new build coming?). */
+    recentRuns: (owner: string, repo: string) => [...actionsBase(owner, repo), "recent-runs"] as const,
     runs: (owner: string, repo: string, filter: RunFilter) =>
       [...actionsBase(owner, repo), "runs", { workflow: filter.workflow ?? null, status: filter.status ?? null, branch: filter.branch ?? null }] as const,
     run: runBase,

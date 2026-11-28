@@ -1,18 +1,21 @@
-import { AppsIcon, DeviceMobileIcon, LockIcon } from "@primer/octicons-react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { AppsIcon, ChevronRightIcon, DeviceMobileIcon, LockIcon } from "@primer/octicons-react";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ApiError } from "../lib/api";
-import { hasUpdate, matchApps, pickApk, type AppMatch } from "../lib/appMatch";
+import { findPublisher, hasUpdate, latestBuild, matchApps, pickApk, type AppBuild, type AppMatch } from "../lib/appMatch";
 import { appIcon, canManageApps, installedBuild, launchApp, useAppLinks, useInstalledApps, type AppLink, type InstalledApp } from "../lib/apps";
 import { useDownload } from "../lib/downloads";
 import { to } from "../lib/nav";
 import { useIsGuest } from "../lib/session";
 import { toast } from "../lib/toast";
+import { actionsQueries } from "../queries/actions";
 import { appQueries } from "../queries/apps";
+import { keys } from "../queries/keys";
 import { releaseQueries, type Release, type ReleaseAsset } from "../queries/releases";
 import { Screen } from "../components/Screen";
 import { EmptyState, ErrorView, SkeletonList, Spinner, Time } from "../components/ui";
+import { Elapsed, RunStatusIcon } from "./actions/status";
 
 interface AppEntry extends AppMatch<InstalledApp> {
   link: AppLink | undefined;
@@ -20,6 +23,8 @@ interface AppEntry extends AppMatch<InstalledApp> {
   releaseError: unknown;
   /** The APK to update to, when the latest release has a newer build. */
   update: ReleaseAsset | undefined;
+  /** A build of the app on its way, or the last one failing. */
+  build: AppBuild | undefined;
 }
 
 /**
@@ -34,6 +39,7 @@ export function AppsScreen() {
   const repos = useQuery({ ...appQueries.repos(), enabled: supported && !guest });
   const matches = useMemo(() => matchApps(installed, links, repos.data ?? []), [installed, links, repos.data]);
   const releases = useQueries({ queries: matches.map((match) => releaseQueries.one(match.owner, match.repo, "latest")) });
+  const runs = useQueries({ queries: matches.map((match) => actionsQueries.recentRuns(match.owner, match.repo)) });
   // Tapping "Update all" bumps this; every row with an update starts it.
   const [updateAll, setUpdateAll] = useState(0);
 
@@ -43,13 +49,16 @@ export function AppsScreen() {
     const release = result?.data;
     const asset = release === undefined ? undefined : pickApk(release.assets, match.repo, link?.assetName);
     const update = asset !== undefined && hasUpdate(match.app, asset, installedBuild(link)) ? asset : undefined;
-    return { ...match, link, release, releaseError: result?.error ?? null, update };
+    const recent = runs[index]?.data ?? [];
+    const build = latestBuild(recent, findPublisher(recent, asset, release?.tag_name));
+    return { ...match, link, release, releaseError: result?.error ?? null, update, build };
   });
+  useNewBuilds(entries);
   const byLabel = (a: AppEntry, b: AppEntry) => a.app.label.localeCompare(b.app.label);
   const updates = entries.filter((entry) => entry.update !== undefined).sort(byLabel);
   const current = entries.filter((entry) => entry.update === undefined).sort(byLabel);
 
-  const refresh = () => Promise.all([repos.refetch(), ...releases.map((result) => result.refetch())]);
+  const refresh = () => Promise.all([repos.refetch(), ...releases.map((result) => result.refetch()), ...runs.map((result) => result.refetch())]);
 
   return (
     <Screen title="Apps" onRefresh={supported && !guest ? refresh : undefined}>
@@ -83,12 +92,16 @@ export function AppsScreen() {
           )}
           {updates.map((entry) =>
             entry.update === undefined ? null : (
-              <UpdatableAppRow key={entry.app.packageName} entry={entry} asset={entry.update} updateAll={updateAll} />
+              <AppEntryView key={entry.app.packageName} entry={entry}>
+                <UpdatableAppRow entry={entry} asset={entry.update} updateAll={updateAll} />
+              </AppEntryView>
             ),
           )}
           {current.length > 0 && <div className="group-header">Installed · {current.length}</div>}
           {current.map((entry) => (
-            <InstalledAppRow key={entry.app.packageName} entry={entry} />
+            <AppEntryView key={entry.app.packageName} entry={entry}>
+              <InstalledAppRow entry={entry} />
+            </AppEntryView>
           ))}
           <p className="muted small pad apps-hint">
             <AppsHint />
@@ -96,6 +109,59 @@ export function AppsScreen() {
         </>
       )}
     </Screen>
+  );
+}
+
+/** When a build finishes, its APK is probably on the release by now: look again. */
+function useNewBuilds(entries: readonly AppEntry[]) {
+  const queryClient = useQueryClient();
+  // Builds seen going, by run, with the repository to look at once they're done.
+  const building = useRef(new Map<number, { owner: string; repo: string }>());
+  const going = entries.flatMap((entry) => (entry.build?.state === "building" ? [{ id: entry.build.run.id, owner: entry.owner, repo: entry.repo }] : []));
+  const latest = useRef(going);
+  latest.current = going;
+  const signature = going.map((build) => build.id.toString()).join(" ");
+  useEffect(() => {
+    const now = new Set(latest.current.map((build) => build.id));
+    for (const [id, { owner, repo }] of building.current) {
+      if (now.has(id)) continue;
+      building.current.delete(id);
+      void queryClient.invalidateQueries({ queryKey: keys.releases.all(owner, repo) });
+    }
+    for (const build of latest.current) building.current.set(build.id, { owner: build.owner, repo: build.repo });
+  }, [signature, queryClient]);
+}
+
+/** One app: its row, and how its next build is doing. */
+function AppEntryView({ entry, children }: { entry: AppEntry; children: ReactNode }) {
+  const build = entry.build;
+  return (
+    <div className="app-entry">
+      {children}
+      {build !== undefined && (
+        <Link {...to.run(entry.owner, entry.repo, build.run.id)} className="app-build" aria-label={`${build.state === "building" ? "Building" : "Build failed"}: ${entry.app.label}`}>
+          <RunStatusIcon status={build.run.status} conclusion={build.run.conclusion} size={14} />
+          <span className="row-body ellipsis">
+            {build.state === "building" ? (
+              <>
+                {build.run.status === "in_progress" ? "Building" : "Build queued"} · {build.run.name ?? "workflow"}
+                {build.run.status === "in_progress" && (
+                  <>
+                    {" "}
+                    · <Elapsed start={build.run.run_started_at ?? build.run.created_at} end={null} running />
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                Latest build failed · {build.run.name ?? "workflow"} · <Time iso={build.run.updated_at} />
+              </>
+            )}
+          </span>
+          <ChevronRightIcon size={14} />
+        </Link>
+      )}
+    </div>
   );
 }
 

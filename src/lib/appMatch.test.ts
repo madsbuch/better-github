@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasUpdate, matchApps, packageIdsFromFiles, pickApk } from "./appMatch";
+import { findPublisher, hasUpdate, latestBuild, matchApps, packageIdsFromFiles, pickApk, type BuildRun } from "./appMatch";
 import { APP_BUILD_FILES, APP_IDS } from "./queries";
 
 describe("packageIdsFromFiles", () => {
@@ -77,5 +77,48 @@ describe("AppIds", () => {
   it("reads every build file into one of the fields its schema has (f0 to f8)", () => {
     expect(APP_BUILD_FILES).toHaveLength(9);
     APP_BUILD_FILES.forEach((path, i) => expect(APP_IDS.source).toContain(`f${i.toString()}: object(expression: "HEAD:${path}")`));
+  });
+});
+
+describe("builds", () => {
+  const at = (minutesAgo: number) => new Date(Date.parse("2026-11-28T12:00:00Z") - minutesAgo * 60_000).toISOString();
+  const run = (id: number, workflow: number, name: string, startedAgo: number, extra: Partial<BuildRun> = {}): BuildRun => ({
+    id,
+    workflow_id: workflow,
+    name,
+    path: `.github/workflows/${name.toLowerCase()}.yml`,
+    event: "push",
+    status: "completed",
+    conclusion: "success",
+    head_branch: "main",
+    created_at: at(startedAgo),
+    run_started_at: at(startedAgo),
+    updated_at: at(startedAgo - 5),
+    ...extra,
+  });
+  const apk = { updated_at: at(118) };
+
+  it("knows the publishing workflow by the run that was going when the APK was uploaded", () => {
+    const runs = [run(4, 1, "CI", 10), run(3, 2, "Mobile", 121, { updated_at: at(119) }), run(2, 1, "CI", 121)];
+    expect(findPublisher(runs, apk, "latest")).toEqual({ workflowId: 2, branch: "main" });
+    // Released from a tag: the next build comes from another tag.
+    expect(findPublisher([run(3, 2, "Mobile", 121, { head_branch: "v1.2.0" })], apk, "v1.2.0")).toEqual({ workflowId: 2, branch: null });
+  });
+
+  it("falls back to a workflow named for Android, APKs or releases, never a pull request's", () => {
+    expect(findPublisher([run(9, 5, "Android", 1, { event: "pull_request" }), run(8, 3, "CI", 2), run(7, 4, "Release", 900)], apk, "latest")).toEqual({ workflowId: 4, branch: null });
+    expect(findPublisher([run(8, 3, "CI", 2)], undefined, undefined)).toBeUndefined();
+  });
+
+  it("is building while the publisher's latest run on its branch goes, and says when it failed", () => {
+    const publisher = { workflowId: 2, branch: "main" };
+    const going = run(5, 2, "Mobile", 3, { status: "in_progress", conclusion: null });
+    const elsewhere = run(6, 2, "Mobile", 1, { status: "in_progress", conclusion: null, head_branch: "try-this" });
+    expect(latestBuild([elsewhere, going, run(3, 2, "Mobile", 121)], publisher)).toEqual({ state: "building", run: going });
+    expect(latestBuild([elsewhere, run(3, 2, "Mobile", 121)], publisher)).toBeUndefined();
+    const failed = run(5, 2, "Mobile", 30, { conclusion: "failure" });
+    expect(latestBuild([failed, run(3, 2, "Mobile", 121)], publisher)).toEqual({ state: "failed", run: failed });
+    expect(latestBuild([run(5, 2, "Mobile", 30, { conclusion: "cancelled" })], publisher)).toBeUndefined();
+    expect(latestBuild([going], undefined)).toBeUndefined();
   });
 });

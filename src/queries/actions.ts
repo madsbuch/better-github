@@ -2,7 +2,7 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import { rest, restPage, restSend } from "../lib/api";
 import { backend } from "../lib/backend";
-import { CheckAnnotation, WorkflowJob, WorkflowJobsPage, WorkflowRun, WorkflowsPage } from "../lib/types";
+import { CheckAnnotation, WorkflowJob, WorkflowJobsPage, WorkflowRun, WorkflowRunsPage, WorkflowsPage } from "../lib/types";
 import { affects, keys, type RunFilter } from "./keys";
 import { useAppMutation } from "./mutation";
 
@@ -38,6 +38,17 @@ export const actionsQueries = {
       getNextPageParam: (last) => last.next ?? undefined,
       staleTime: 15_000,
       refetchInterval: (query) => (query.state.data?.pages[0]?.items.some((r) => isRunning(r.status)) === true ? 15_000 : false),
+    }),
+  /** The latest runs of every workflow, newest first: the Apps section tells from them whether a new build is coming. */
+  recentRuns: (owner: string, repo: string) =>
+    queryOptions({
+      queryKey: keys.actions.recentRuns(owner, repo),
+      queryFn: async () => (await rest(WorkflowRunsPage, `/repos/${owner}/${repo}/actions/runs`, { query: { per_page: 30 } })).workflow_runs,
+      staleTime: 15_000,
+      // Often while something runs; otherwise now and then, to notice a build starting.
+      refetchInterval: (query) => (query.state.data?.some((run) => isRunning(run.status)) === true ? 15_000 : 60_000),
+      // A run that was going when the app closed may be long done; don't show it from the device's cache.
+      meta: { persist: false },
     }),
   run: (owner: string, repo: string, runId: number) =>
     queryOptions({

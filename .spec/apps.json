@@ -44,6 +44,10 @@
       "id": "APP-8",
       "text": "Finding apps reads the repositories in a few batched requests and is kept for 30 minutes; pull to refresh looks again.",
       "level": "should"
+    },
+    {
+      "id": "APP-9",
+      "text": "Under an app, a build on its way shows with its workflow and how long it has run, or that the latest build failed, and opens that run. The building workflow is the one whose run was going when the release's APK was uploaded, on the same branch (or any ref when it publishes from tags); without such a run, a workflow named for Android, APKs or releases. Pull request runs never count. When the build finishes, the app looks at its latest release again."
     }
   ],
   "related": [
