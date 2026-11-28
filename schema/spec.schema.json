@@ -1219,6 +1219,44 @@
       ],
       "additionalProperties": false,
       "description": "Makes a folder's index.json a shared part: one that several products copy into their spec. The item's title is the part's name, and the folder is named after it; both can change, the id can't."
+    },
+    "groundwork": {
+      "description": "Only in a shared part's index.json: what a product must already be like before the part is implemented. What doesn't hold yet is the first work in adopting the part, never a reason to decline it.",
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the product must already be like, in plain words about the product, never about another part: \"The app has settings the user can open, and a part can add a section of its own to them.\" It can be checked by reading the product's spec and code."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What the product must already be like, in plain words about the product, never about another part: \"The app has settings the user can open, and a part can add a section of its own to them.\" It can be checked by reading the product's spec and code."
+              },
+              "ways": {
+                "description": "Known ways to make it true, as the part's author suggests them: \"a side panel the screens make room for\". They are a start, not a closed list.",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        ],
+        "description": "One thing a product must already be like before the part is implemented. It has no id, and nothing refers to it."
+      }
     }
   },
   "required": [

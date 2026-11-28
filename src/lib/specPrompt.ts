@@ -220,7 +220,7 @@ Whether a spec is consistent can't be proven, and nothing in the format records 
 5. Don't settle a contradiction. Report it with both ids, what each says, and what deciding either way would change.
 6. End with a plain statement: what you read (how many parts and entries), what you linked, what you fixed, what is left for a person to decide, and whether, apart from that, you found the spec to agree with itself. Say that this is a careful reading and not a proof.`,
 
-    // Spec: S39, S40, S41, S42, S43
+    // Spec: S39, S40, S41, S42, S43, S46
     `## Parts shared between products
 
 Products can share a part of their spec, such as how their devices sync. The part is written once, in a spec of its own in its own repository (a catalogue), and each product copies it into its spec.
@@ -236,6 +236,17 @@ Products can share a part of their spec, such as how their devices sync. The par
 - The permanent id never changes. The name and the folder can: a part that is renamed keeps its id, and the products that copied it follow it by that id.
 - Every story, requirement and value id in the part starts with the permanent id and a dot: \`tandem.SYN-1\`, \`tandem.pairing-lifetime\`. Ids from different shared parts never collide, and none of them is a product's. The code cites them like any other: \`// Spec: tandem.SYN-1\`.
 - A shared part names no product, and refers only to itself.
+- A shared part can list \`groundwork\` in its \`index.json\`: what a product must already be like before the part is implemented. Each item is a sentence, or an object with the sentence as \`text\` and \`ways\`: known ways to make it true, a start and not a closed list.
+
+      "groundwork": [
+        "The app keeps its data in a SQLite database that can be opened a second time, read-only.",
+        {
+          "text": "The app has a place for a chat that stays open beside the screen the user is on.",
+          "ways": ["a side panel the screens make room for", "a drawer that slides over the screen on narrow windows", "a window of its own"]
+        }
+      ]
+
+- Groundwork describes the app, never another part: "The app has settings the user can open, and a part can add a section of its own to them.", not "The app uses the settings part." Each item can be checked by reading a product's spec and code, uses the part's own neutral words, and has no id: nothing cites it or refers to it. List only what the part can't bring about itself; what it can, its requirements say. Groundwork is not a dependency between parts, and on any other item it is listed as a problem.
 - A product copies the folder whole, to the same path, and records the copy in \`imports\` in its root item: the part's permanent \`id\`, the folder (\`at\`), the repository it came from (\`from\`), the \`commit\` it was copied from, and git's id for the folder at that commit (\`tree\`):
 
       "imports": [
@@ -259,20 +270,27 @@ Products can share a part of their spec, such as how their devices sync. The par
     // Spec: SC8
     `## Adopting a shared part
 
-A pull request that copies a shared part into a product, or updates the copy, is finished in the product. A product takes a shared part to have all of it: every requirement of the part holds in the product once the pull request is done. What that takes is settled here; don't ask about it.
+A pull request that copies a shared part into a product, or updates the copy, is finished in the product. A product takes a shared part to have all of it: every requirement of the part holds in the product once the pull request is done. What that takes is settled here; don't ask about it. Groundwork is the one place where asking is expected: how to make the product ready for the part is the operator's choice (step 1).
 
-1. **Cite.** Where the product meets a requirement of the part, the code that meets it and the test that proves it cite it by its namespaced id: \`// Spec: tandem.SYN-5\`.
-2. **Meet all of it.** Where the product doesn't meet a requirement yet, implement it. Don't ask whether to, and don't propose waiving it: what the product did before, and why it was built that way, is what the shared part replaces. A requirement is waived only when the import's \`waived\` already says so, with the person's reason; leave those out. The one thing to stop for is a contradiction: a requirement of the part that can't hold together with one the product's own spec keeps. Report both and ask which wins (reconciling, above), and meet everything else meanwhile.
-3. **Values.** Constants in the product follow the part's named values, or the import's \`values\` where the product sets one differently. Each such constant gets a test that fails when it no longer matches the spec.
-4. **What the product had specified itself.** Where the product's own spec states what a shared requirement now states, deprecate the product's entry, with the reason and \`replacedBy\` the shared id; don't delete it. Point the product's \`related\` pointers and code citations at the shared id. Entries about the product's own content stay, linked to the shared entries they touch.
-5. **Link.** Reconcile (above): every entry of the product that touches an entry of the part gets a \`related\` pointer to it, at the product's end.
-6. **Check.** The product's spec checks know shared parts: the copy is unchanged (git's id for its folder is the import's \`tree\`), every id in it starts with its permanent id, and no code cites a deprecated or waived requirement.
-7. **Leave alone.**
+1. **Groundwork first.** Before any of the part's code, check each item of the part's \`groundwork\` against the product's spec and code. Groundwork that doesn't hold is never a reason to decline the part or to stop: it is the first work. For each item that doesn't hold, or holds only in part:
+   - Look into what the product has that comes closest.
+   - Work out two or three concrete ways to make it true in this product, starting from the item's \`ways\` where it has them, but not limited to them. Say for each what it costs and what it changes.
+   - Ask the operator which to take, or whether to waive what in the part depends on it instead.
+   - Write the chosen way into the product's own spec as a requirement of its own, and implement it before the part. A waiver goes into the import's \`waived\`, with the operator's reason.
+
+   While you wait for an answer, meet everything that doesn't depend on it, as for a contradiction (step 3).
+2. **Cite.** Where the product meets a requirement of the part, the code that meets it and the test that proves it cite it by its namespaced id: \`// Spec: tandem.SYN-5\`.
+3. **Meet all of it.** Where the product doesn't meet a requirement yet, implement it. Don't ask whether to, and don't propose waiving it: what the product did before, and why it was built that way, is what the shared part replaces. A requirement is waived only when the import's \`waived\` already says so, with the person's reason, or the operator waived it for groundwork in step 1; leave those out. The one thing to stop for is a contradiction: a requirement of the part that can't hold together with one the product's own spec keeps. Report both and ask which wins (reconciling, above), and meet everything else meanwhile.
+4. **Values.** Constants in the product follow the part's named values, or the import's \`values\` where the product sets one differently. Each such constant gets a test that fails when it no longer matches the spec.
+5. **What the product had specified itself.** Where the product's own spec states what a shared requirement now states, deprecate the product's entry, with the reason and \`replacedBy\` the shared id; don't delete it. Point the product's \`related\` pointers and code citations at the shared id. Entries about the product's own content stay, linked to the shared entries they touch.
+6. **Link.** Reconcile (above): every entry of the product that touches an entry of the part gets a \`related\` pointer to it, at the product's end.
+7. **Check.** The product's spec checks know shared parts: the copy is unchanged (git's id for its folder is the import's \`tree\`), every id in it starts with its permanent id, and no code cites a deprecated or waived requirement.
+8. **Leave alone.**
    - Words: the product keeps its own. The part's description says what its neutral terms mean, and the product's spec says what they are in the product ("the book is the collection"). Don't rename code to the part's words, and never change a name that other devices or versions depend on: wire formats, file names, ports.
    - Structure: a spec says what must hold, not how. Don't restructure the code to look like another product that uses the same part, or move it into a shared library. Those are decisions of their own, not part of adopting a part.
-8. **Report** what was cited, implemented, deprecated, linked and checked, and what you asked about.
+9. **Report** the groundwork you found and how each item was made true, or what was waived instead; what was cited, implemented, deprecated, linked and checked; and what you asked about.
 
-An update is adopted the same way, for what changed: the comparison of the two versions shows it, and the changed ids, searched for in the code, show what to change.`,
+An update is adopted the same way, for what changed: the comparison of the two versions shows it, and the changed ids, searched for in the code, show what to change. Groundwork that is new or changed is checked the same way, first.`,
 
 
     `## A good spec
@@ -290,7 +308,7 @@ An update is adopted the same way, for what changed: the comparison of the two v
   ];
 }
 
-const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists (on items and on their requirements, stories and values), every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every value that changed has what it was in its \`history\` with the reason, every deprecated story, requirement, value or item has a \`deprecation\` with its reason, no story, requirement or value id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing), and every part in the root item's \`imports\` is unchanged from the commit it was copied from`;
+const CHECKS = `every file is valid JSON and fits the schema above, every \`figures\` path exists in \`${SPEC_DIR}\`, every \`related\` and \`replacedBy\` id exists (on items and on their requirements, stories and values), every id in a story's \`requirements\` is a requirement, every requirement above version 1 has the \`history\` of all its earlier versions with their reasons, every value that changed has what it was in its \`history\` with the reason, every deprecated story, requirement, value or item has a \`deprecation\` with its reason, no story, requirement or value id is used twice anywhere in the spec (list them all, for example with \`grep -rhoE '"id": *"[^"]+"' ${SPEC_DIR} | sort | uniq -d\`, which must print nothing), only a shared part's \`index.json\` lists \`groundwork\`, and every part in the root item's \`imports\` is unchanged from the commit it was copied from`;
 
 /**
  * spec-llms.txt: the spec format for coding agents, to point one at when it

@@ -44,6 +44,7 @@ import {
   isCopyEdited,
   type SpecDeprecation,
   type SpecFigure,
+  type SpecGroundwork,
   type SpecNode,
   type SpecRequirement,
   type SpecStatus,
@@ -601,10 +602,45 @@ function ImportPanel({ spec, entry, place }: { spec: Spec; entry: SpecImport; pl
   );
 }
 
+/** A shared part's groundwork: what a product must be like before the part is built, each with the known ways to get there. */
+// Spec: S47
+function Groundwork({ groundwork }: { groundwork: SpecGroundwork[] }) {
+  return (
+    <section aria-label="Groundwork">
+      <h3>Groundwork</h3>
+      <p className="muted small">What a product must already be like before this part is built.</p>
+      {groundwork.map((entry, i) => {
+        const ways = typeof entry === "string" ? [] : (entry.ways ?? []);
+        return (
+          <div key={i} className="spec-req spec-groundwork">
+            <div className="spec-req-text">
+              <SpecText text={typeof entry === "string" ? entry : entry.text} />
+            </div>
+            {ways.length > 0 && (
+              <div className="spec-groundwork-ways">
+                <div className="spec-groundwork-ways-label">Known ways</div>
+                <ul>
+                  {ways.map((way, j) => (
+                    <li key={j}>
+                      <CheckText text={way} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; place: Place; current: string | undefined }) {
   const item = node.item;
   const requirements = item?.requirements ?? [];
   const figures = item?.figures ?? [];
+  // Only a shared part has groundwork; elsewhere it is a problem, listed with the others.
+  const groundwork = item?.shared !== undefined ? (item.groundwork ?? []) : [];
   const stories = item?.stories ?? [];
   // What the part points at, and what points at it: related holds from both ends.
   const own = item?.related ?? [];
@@ -677,6 +713,7 @@ function Item({ spec, node, place, current }: { spec: Spec; node: SpecNode; plac
       {figures.map((figure) => (
         <Figure key={figure.src} figure={figure} place={place} />
       ))}
+      {groundwork.length > 0 && <Groundwork groundwork={groundwork} />}
       {(stories.length > 0 || (reworking && item !== null)) && (
         // Who the part is for, before what it must do.
         <section aria-label="User stories">

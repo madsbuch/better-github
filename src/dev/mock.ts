@@ -375,6 +375,14 @@ const SHARED_SPECS: Record<string, unknown> = {
     title: "Tandem",
     summary: "Peer-to-peer sync between the devices of one collection.",
     shared: { id: "tandem", logo: "tandem/logo.png" },
+    // What a product must be like first: one item as a sentence, one with known ways to get there.
+    groundwork: [
+      "The app keeps a collection's data in a SQLite database that can be opened a second time, read-only.",
+      {
+        text: "The app has settings the user can open, and a part can add a section of its own to them.",
+        ways: ["a section in the settings screen the app already has", "a settings screen of its own, opened from the app's menu"],
+      },
+    ],
     requirements: [{ id: "tandem.SYN-1", text: "Two devices on the same local network sync with each other, without a server." }],
     values: [{ id: "tandem.pairing-lifetime", type: "duration", value: "10min" }],
   },

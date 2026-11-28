@@ -95,6 +95,21 @@ describe("spec-llms.txt", () => {
     expect(text).not.toContain("`questions`");
     expect(text).toContain("If it is longer than its requirements, it is too long.");
   });
+
+  // Spec: S46, SC8
+  it("makes a shared part's groundwork the first work in adopting it, and the one thing to ask about", () => {
+    const text = specLlmsText();
+    // The example of groundwork is one the app reads.
+    const example = /\n {6}"groundwork": (\[[\s\S]*?\n {6}\])\n/.exec(text)?.[1];
+    expect(example).toBeDefined();
+    const groundwork: unknown = JSON.parse(example ?? "null");
+    expect(SpecItem.safeParse({ title: "Chat", shared: { id: "chat" }, groundwork }).success).toBe(true);
+    const adopting = text.slice(text.indexOf("## Adopting a shared part"));
+    expect(adopting).toContain("Groundwork is the one place where asking is expected");
+    expect(adopting.indexOf("1. **Groundwork first.**")).toBeLessThan(adopting.indexOf("2. **Cite.**"));
+    expect(adopting).toContain("never a reason to decline the part or to stop");
+    expect(adopting).toContain("9. **Report** the groundwork you found");
+  });
 });
 
 // Spec: S37

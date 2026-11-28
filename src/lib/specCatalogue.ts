@@ -218,26 +218,33 @@ function importPullBody(source: ImportSource, id: string, updates: string | null
       ? `Copies the shared part "${source.part.title}" (\`${id}\`) into \`${at}\` (${files}) from ${source.from} at ${source.commit}, and records it in \`imports\` in \`${SPEC_DIR}/index.json\`.`
       : `Updates the shared part "${source.part.title}" (\`${id}\`) in \`${at}\` (${files}) from ${source.from} at ${updates} to ${source.commit}.`;
   const moved = movesFrom === null ? [] : [`The part was renamed: it moves from \`${SPEC_DIR}/${movesFrom}\` to \`${at}\`. Its ids stay the same; references in this spec to \`${movesFrom}/…\` paths change to \`${source.part.id}/…\`.`];
+  const groundwork = source.part.item?.groundwork?.length ?? 0;
   const update =
     updates === null
       ? []
       : [
           "This is an update: what changed in the part is what to adopt. The spec comparison of this pull request shows it requirement by requirement, and the changed ids, searched for in the code, show what to change. Check that the import's `values` and `waived` still name things the part has.",
+          ...(groundwork > 0 ? ["Groundwork that is new or changed is checked as in step 1, first."] : []),
         ];
   const steps = [
-    `1. **Cite** every requirement of the part the product meets, in the code and its test: \`// Spec: ${id}.<id>\`.`,
-    "2. **Meet all of it.** The product takes the part to have all of it: implement every requirement it doesn't meet yet, without asking whether to, and don't propose waivers. Only what the import's `waived` already lists is left out. Stop only for a contradiction with a requirement the product's own spec keeps: report both, ask which wins, and meet the rest meanwhile.",
-    "3. **Values:** constants follow the part's named values (or the import's `values`), each with a test that fails when it drifts.",
-    "4. **What the product had specified itself:** deprecate its own entries that the part now states, `replacedBy` the shared ids, and move `related` pointers and code citations to them. Entries about the product's own content stay, linked to the shared ones.",
-    "5. **Link** the product's entries to the shared entries they touch with `related`, at the product's end.",
-    "6. **Check:** the product's spec checks accept `shared` and `imports`, check that the copy is unchanged and its ids are in its namespace, and refuse citations of deprecated or waived requirements.",
-    "7. **Leave alone:** the product's own words (don't rename code to the part's neutral terms; never change wire formats, file names or ports), and its structure (don't reshape the code to match another product that uses the part, or move it into a shared library).",
-    "8. **Report** what was cited, implemented, deprecated, linked and checked, and what you asked about.",
-  ];
+    ...(groundwork > 0
+      ? [
+          `**Groundwork first.** Before any of the part's code, check the ${groundwork === 1 ? "item" : `${groundwork} items`} of \`groundwork\` in \`${at}/index.json\` against the product's spec and code. What doesn't hold is the first work, never a reason to decline the part or to stop: look at what the product has that comes closest, work out two or three ways to make it true (from the item's \`ways\`, but not only those) with what each costs and changes, and ask the operator which to take, or whether to waive what depends on it. Write the chosen way into the product's own spec as a requirement of its own, and implement it before the part. Meet everything else meanwhile.`,
+        ]
+      : []),
+    `**Cite** every requirement of the part the product meets, in the code and its test: \`// Spec: ${id}.<id>\`.`,
+    `**Meet all of it.** The product takes the part to have all of it: implement every requirement it doesn't meet yet, without asking whether to, and don't propose waivers. Only what the import's \`waived\` already lists${groundwork > 0 ? ", or the operator waives for groundwork," : ""} is left out. Stop only for a contradiction with a requirement the product's own spec keeps: report both, ask which wins, and meet the rest meanwhile.`,
+    "**Values:** constants follow the part's named values (or the import's `values`), each with a test that fails when it drifts.",
+    "**What the product had specified itself:** deprecate its own entries that the part now states, `replacedBy` the shared ids, and move `related` pointers and code citations to them. Entries about the product's own content stay, linked to the shared ones.",
+    "**Link** the product's entries to the shared entries they touch with `related`, at the product's end.",
+    "**Check:** the product's spec checks accept `shared` and `imports`, check that the copy is unchanged and its ids are in its namespace, and refuse citations of deprecated or waived requirements.",
+    "**Leave alone:** the product's own words (don't rename code to the part's neutral terms; never change wire formats, file names or ports), and its structure (don't reshape the code to match another product that uses the part, or move it into a shared library).",
+    `**Report** ${groundwork > 0 ? "the groundwork found and how each item was made true, and " : ""}what was cited, implemented, deprecated, linked and checked, and what you asked about.`,
+  ].map((step, index) => `${index + 1}. ${step}`);
   return [
     what,
     ...moved,
     `Don't edit the copy: change the part in ${source.from} and import it again. A copy that differs from what was copied is listed as a problem.`,
-    `## For a coding agent\n\nFinish this pull request in the product, as **Adopting a shared part** in the spec format says: ${SPEC_LLMS_URL}. It settles what to do; in short:\n\n${steps.join("\n")}${update.length > 0 ? `\n\n${update.join("\n\n")}` : ""}`,
+    `## For a coding agent\n\nFinish this pull request in the product, as **Adopting a shared part** in the spec format says: ${SPEC_LLMS_URL}. It settles what to do${groundwork > 0 ? ", apart from how to make the groundwork true, which is the operator's choice" : ""}; in short:\n\n${steps.join("\n")}${update.length > 0 ? `\n\n${update.join("\n\n")}` : ""}`,
   ].join("\n\n");
 }

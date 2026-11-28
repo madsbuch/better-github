@@ -72,7 +72,7 @@
     },
     {
       "id": "SC8",
-      "text": "`spec-llms.txt` says what adopting a shared part takes in a product, so that a coding agent doesn't have to ask: cite the part's requirements; meet all of them, without asking and without proposing waivers (only what the import already waives is left out, and only a contradiction with the product's own spec is asked about); make constants follow its values with a test; deprecate what the product had specified itself in favour of the shared ids; link; check; and leave the product's words and structure alone. The description of an import's pull request points to it and sums it up.",
+      "text": "`spec-llms.txt` says what adopting a shared part takes in a product, so that a coding agent doesn't have to ask: first make the part's groundwork true, never declining the part for it, and asking the operator how wherever it doesn't hold yet; cite the part's requirements; meet all of them, without asking and without proposing waivers (only what the import already waives, or the operator waives for groundwork, is left out, and only a contradiction with the product's own spec is asked about); make constants follow its values with a test; deprecate what the product had specified itself in favour of the shared ids; link; check; leave the product's words and structure alone; and report how each item of groundwork was made true. The description of an import's pull request points to it and sums it up, starting with the groundwork when the part has some.",
       "related": [
         "#S18"
       ],
@@ -82,9 +82,15 @@
           "text": "`spec-llms.txt` says what adopting a shared part takes in a product, so that a coding agent doesn't have to ask: cite the part's requirements, meet them or ask whether to waive one, make constants follow its values with a test, deprecate what the product had specified itself in favour of the shared ids, link, check, and leave the product's words and structure alone. The description of an import's pull request points to it and sums it up.",
           "reason": "Agents asked whether to implement or waive each requirement the product didn't meet. A product takes a shared part to have all of it: meeting it isn't a question, and waivers are the person's decision, made beforehand.",
           "date": "2026-11-23"
+        },
+        {
+          "version": 2,
+          "text": "`spec-llms.txt` says what adopting a shared part takes in a product, so that a coding agent doesn't have to ask: cite the part's requirements; meet all of them, without asking and without proposing waivers (only what the import already waives is left out, and only a contradiction with the product's own spec is asked about); make constants follow its values with a test; deprecate what the product had specified itself in favour of the shared ids; link; check; and leave the product's words and structure alone. The description of an import's pull request points to it and sums it up.",
+          "reason": "Shared parts can list groundwork: what a product must already be like before the part is implemented. Making it true is the first work in adopting the part, never a reason to decline it, and how to make it true is the operator's choice, so it is the one place where the agent asks.",
+          "date": "2026-11-28"
         }
       ],
-      "version": 2
+      "version": 3
     },
     {
       "id": "SC9",

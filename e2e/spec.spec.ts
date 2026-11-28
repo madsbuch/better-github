@@ -317,3 +317,33 @@ test("the spec offers a prompt for an agent to check that it agrees with itself"
   expect(copied[0] ?? "").toContain("a careful reading and not a proof");
 });
 
+
+// Spec: S47
+test("a shared part shows its groundwork before its stories and requirements, with known ways under an item", async ({ page }) => {
+  const errors = trackErrors(page);
+  // In its catalogue (acme/shared-specs, src/dev/mock.ts), Tandem lists one item as a sentence and one with ways.
+  await open(page, "/acme/shared-specs/spec?id=tandem");
+  const groundwork = activeScreen(page).getByRole("region", { name: "Groundwork" });
+  await expect(groundwork.locator("h3")).toHaveText("Groundwork");
+  await expect(groundwork).toContainText("What a product must already be like before this part is built.");
+  const items = groundwork.locator(".spec-groundwork");
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toHaveText("The app keeps a collection's data in a SQLite database that can be opened a second time, read-only.");
+  await expect(items.nth(0).locator(".spec-groundwork-ways")).toHaveCount(0);
+  await expect(items.nth(1).locator(".spec-req-text")).toHaveText("The app has settings the user can open, and a part can add a section of its own to them.");
+  await expect(items.nth(1).locator(".spec-groundwork-ways")).toContainText("Known ways");
+  await expect(items.nth(1).locator(".spec-groundwork-ways li")).toHaveText(["a section in the settings screen the app already has", "a settings screen of its own, opened from the app's menu"]);
+  // After what the part is, before what it must do.
+  const sections = await activeScreen(page).locator(".spec-item section[aria-label]").evaluateAll((all) => all.map((section) => section.getAttribute("aria-label")));
+  expect(sections.slice(0, 3)).toEqual(["Groundwork", "Requirements", "Values"]);
+  // It fits a phone's width.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // A product that copied the part shows it the same way; a part that isn't shared has none.
+  await open(page, "/acme/rocket/spec?ref=with-sync&id=tandem");
+  await expect(activeScreen(page).getByRole("region", { name: "Groundwork" }).locator(".spec-groundwork")).toHaveCount(2);
+  await open(page, "/acme/shared-specs/spec?id=tandem/pairing");
+  await expect(activeScreen(page).locator(".spec-item h2")).toHaveText("Pairing");
+  await expect(activeScreen(page).getByRole("region", { name: "Groundwork" })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

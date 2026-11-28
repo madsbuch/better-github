@@ -457,4 +457,30 @@ describe("parts imported from a shared spec", () => {
     ]);
     expect(SpecItem.safeParse({ title: "x", shared: { id: "Tandem" } }).success).toBe(false);
   });
+
+  // Spec: S46
+  it("lets a shared part list its groundwork, and only a shared part", () => {
+    const groundwork = [
+      "The app keeps its data in a SQLite database that can be opened a second time, read-only.",
+      { text: "The app has a place for a chat that stays open beside the screen the user is on.", ways: ["a side panel the screens make room for", "a window of its own"] },
+    ];
+    const spec = buildSpec([
+      file("index.json", { title: "Catalogue", groundwork }),
+      file("tandem/index.json", { title: "Tandem", shared: { id: "tandem" }, groundwork }),
+      file("tandem/pairing.json", { title: "Pairing", groundwork: ["The app has settings the user can open."] }),
+    ]);
+    expect(spec.problems).toEqual([
+      { file: ".spec/index.json", message: "Only a shared part's index.json lists groundwork. This item isn't a shared part." },
+      { file: ".spec/tandem/pairing.json", message: "Only a shared part's index.json lists groundwork. This item isn't a shared part." },
+    ]);
+    expect(spec.nodes.get("tandem")?.item?.groundwork).toEqual(groundwork);
+    const valid = (value: unknown) => SpecItem.safeParse({ title: "x", shared: { id: "tandem" }, groundwork: value }).success;
+    expect(valid([])).toBe(false);
+    expect(valid([""])).toBe(false);
+    expect(valid([{ text: "" }])).toBe(false);
+    expect(valid([{ text: "The app has settings.", ways: [] }])).toBe(false);
+    expect(valid([{ text: "The app has settings.", ways: [""] }])).toBe(false);
+    expect(valid([{ text: "The app has settings.", id: "G1" }])).toBe(false);
+    expect(valid([{ text: "The app has settings." }])).toBe(true);
+  });
 });

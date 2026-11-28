@@ -29,7 +29,9 @@
         "#S42",
         "#S43",
         "#S44",
-        "#S45"
+        "#S45",
+        "#S46",
+        "#S47"
       ]
     }
   ],
@@ -299,6 +301,21 @@
       "text": "The outline lists the parts copied from shared specs first, under Shared parts, and the repository's own after them, under Own parts. No `order` decides this; within each, the import's `order` and the parts' own `order` do.",
       "related": [
         "#S39"
+      ]
+    },
+    {
+      "id": "S46",
+      "text": "A shared part's index.json can list `groundwork`: what a product must already be like before the part is implemented, each a plain sentence about the product, optionally with known `ways` to make it true. It has no id and nothing refers to it. `groundwork` on an item that isn't a shared part is listed as a problem.",
+      "related": [
+        "#S42",
+        "#SC8"
+      ]
+    },
+    {
+      "id": "S47",
+      "text": "A shared part's page shows its groundwork in a section of its own, after the part's description and before its stories and requirements: a line saying what groundwork is, then each item, with its known ways in a quieter list under it. That is so in its catalogue and in every product that copied it.",
+      "related": [
+        "#S46"
       ]
     }
   ],

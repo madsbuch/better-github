@@ -63,6 +63,25 @@ describe("planImport", () => {
     expect(plan.body).toContain("implement every requirement it doesn't meet yet, without asking whether to");
     // What it writes reads back without problems.
     expect(buildSpec([APP[1] ?? file("x.json", {}), file("index.json", root), ...tandem("tandem")]).problems).toEqual([]);
+    // A part without groundwork has nothing to ask about.
+    expect(plan.body).not.toContain("Groundwork");
+    expect(plan.body).toContain("1. **Cite**");
+  });
+
+  it("makes the part's groundwork the first step, and the one thing to ask the operator about", () => {
+    const files = [
+      file("index.json", { title: "Shared specs" }),
+      file("chat/index.json", { title: "Chat", shared: { id: "chat" }, groundwork: ["The app has settings the user can open.", { text: "The app has a place for a chat beside the screen.", ways: ["a side panel"] }] }),
+    ];
+    const chat = buildSpec(files).nodes.get("chat");
+    if (chat === undefined) throw new Error("fixture");
+    const plan = planImport({ ...source, part: chat, files }, target(APP));
+    if (plan.kind !== "ready") throw new Error(JSON.stringify(plan));
+    expect(plan.body).toContain("It settles what to do, apart from how to make the groundwork true, which is the operator's choice; in short:");
+    expect(plan.body).toContain("1. **Groundwork first.** Before any of the part's code, check the 2 items of `groundwork` in `.spec/chat/index.json`");
+    expect(plan.body).toContain("never a reason to decline the part or to stop");
+    expect(plan.body).toContain("2. **Cite**");
+    expect(plan.body).toContain("9. **Report** the groundwork found and how each item was made true");
   });
 
   it("starts a spec for a repository that has none", () => {

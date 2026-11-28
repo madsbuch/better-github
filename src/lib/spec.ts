@@ -233,6 +233,25 @@ export const SpecShared = z
   .describe("Makes a folder's index.json a shared part: one that several products copy into their spec. The item's title is the part's name, and the folder is named after it; both can change, the id can't.");
 export type SpecShared = z.infer<typeof SpecShared>;
 
+const GroundworkText = Text.min(1).describe(
+  'What the product must already be like, in plain words about the product, never about another part: "The app has settings the user can open, and a part can add a section of its own to them." It can be checked by reading the product\'s spec and code.',
+);
+
+export const SpecGroundwork = z
+  .union([
+    GroundworkText,
+    z.strictObject({
+      text: GroundworkText,
+      ways: z
+        .array(z.string().min(1))
+        .min(1)
+        .optional()
+        .describe('Known ways to make it true, as the part\'s author suggests them: "a side panel the screens make room for". They are a start, not a closed list.'),
+    }),
+  ])
+  .describe("One thing a product must already be like before the part is implemented. It has no id, and nothing refers to it.");
+export type SpecGroundwork = z.infer<typeof SpecGroundwork>;
+
 export const SpecImport = z
   .strictObject({
     id: SharedId.describe("The shared part's permanent id, from its index.json. An update follows the part by it when it was renamed."),
@@ -286,6 +305,13 @@ export const SpecItem = z
       .describe('Ids of other items ("uploads/limits"), or requirements: "#LIM-2" wherever it is, or "uploads/limits#LIM-2". "#LIM-2@1" names one version.'),
     imports: z.array(SpecImport).optional().describe("Only on the root item: the parts of this spec copied from a shared spec in another repository."),
     shared: SpecShared.optional(),
+    groundwork: z
+      .array(SpecGroundwork)
+      .min(1)
+      .optional()
+      .describe(
+        "Only in a shared part's index.json: what a product must already be like before the part is implemented. What doesn't hold yet is the first work in adopting the part, never a reason to decline it.",
+      ),
   })
   .describe("One item of a repository's spec: a .json file in its .spec folder.");
 export type SpecItem = z.infer<typeof SpecItem>;
@@ -659,15 +685,19 @@ export function sharedPartsOf(nodes: Iterable<SpecNode>): { node: SpecNode; shar
 
 /**
  * What is wrong with the shared parts: one marked where it can't be, two with
- * the same id, an id outside its part's namespace, a logo that isn't there.
+ * the same id, an id outside its part's namespace, a logo that isn't there,
+ * groundwork on an item that isn't a shared part.
  */
-// Spec: S42, S43
+// Spec: S42, S43, S46
 function sharedProblems(nodes: Map<string, SpecNode>, assets: Map<string, string | null>): SpecProblem[] {
   const problems: SpecProblem[] = [];
   const parts = sharedPartsOf(nodes.values());
   for (const node of nodes.values()) {
     if (node.item?.shared !== undefined && node.file !== null && (node.id === "" || node.file !== `${SPEC_DIR}/${node.id}/index.json`)) {
       problems.push({ file: node.file, message: "Only a folder's index.json can make a shared part. This one is read without it." });
+    }
+    if (node.item?.groundwork !== undefined && node.item.shared === undefined && node.file !== null) {
+      problems.push({ file: node.file, message: "Only a shared part's index.json lists groundwork. This item isn't a shared part." });
     }
   }
   const byId = new Map<string, SpecNode>();

@@ -2133,6 +2133,29 @@ details.disclosure[open] > summary {
   margin: 14px 0;
 }
 
+/* A shared part's groundwork: each item like a requirement, its known ways quieter under it. */
+.spec-groundwork-ways {
+  margin-top: 6px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.spec-groundwork-ways-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spec-item .spec-groundwork-ways ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+.spec-item .spec-groundwork-ways li + li {
+  margin-top: 2px;
+}
+
 .spec-figure img {
   display: block;
   max-width: 100%;
