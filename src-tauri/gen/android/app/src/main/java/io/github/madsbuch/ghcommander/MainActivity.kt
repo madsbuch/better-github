@@ -40,6 +40,7 @@ class MainActivity : TauriActivity() {
     // Runs before the first page load, so the page always sees the interface.
     webView.addJavascriptInterface(BrowserTabs(this), "GhCommanderAndroid")
     webView.addJavascriptInterface(Downloads(this), "GhCommanderDownloads")
+    webView.addJavascriptInterface(Apps(this), "GhCommanderApps")
     webView.addJavascriptInterface(theme, "GhCommanderTheme")
     this.webView = webView
   }

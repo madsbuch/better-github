@@ -38,6 +38,8 @@ import {
   ViewerReposResult,
   ViewerOrgsResult,
   ViewerResult,
+  AppIdsResult,
+  AppReposResult,
   ViewerStarredResult,
 } from "./types";
 
@@ -1108,6 +1110,65 @@ export const ASSIGNABLE_USERS = gql(
 `,
 );
 
+/** The viewer's repositories, recently pushed first, with the files of their latest release (Apps). */
+export const APP_REPOS = gql(
+  AppReposResult,
+  /* GraphQL */ `
+  query AppRepos($after: String) {
+    viewer {
+      repositories(
+        first: 100
+        after: $after
+        orderBy: { field: PUSHED_AT, direction: DESC }
+        ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]
+      ) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          name
+          owner { login }
+          latestRelease { releaseAssets(first: 20) { nodes { name } } }
+        }
+      }
+    }
+  }
+`,
+);
+
+/**
+ * Where repositories name their Android app (its package name), read as `f0`… in
+ * AppIds: Tauri, plain Android, React Native or Flutter, Expo and Capacitor.
+ */
+export const APP_BUILD_FILES = [
+  "src-tauri/tauri.conf.json",
+  "src-tauri/gen/android/app/build.gradle.kts",
+  "app/build.gradle.kts",
+  "app/build.gradle",
+  "android/app/build.gradle.kts",
+  "android/app/build.gradle",
+  "app.json",
+  "capacitor.config.json",
+  "capacitor.config.ts",
+] as const;
+
+/** How many repositories one AppIds request reads. */
+export const APP_IDS_BATCH = 40;
+
+export const APP_IDS = gql(
+  AppIdsResult,
+  /* GraphQL */ `
+  query AppIds($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      __typename
+      ... on Repository {
+        id
+        ${APP_BUILD_FILES.map((path, i) => `f${i.toString()}: object(expression: "HEAD:${path}") { ... on Blob { text } }`).join("\n        ")}
+      }
+    }
+  }
+`,
+);
+
 export const ALL_DOCUMENTS: Record<string, GraphQLDocument<z.ZodType>> = {
   SEARCH_ISSUES,
   SEARCH_COUNTS,
@@ -1151,4 +1212,6 @@ export const ALL_DOCUMENTS: Record<string, GraphQLDocument<z.ZodType>> = {
   SPEC_BLOBS,
   NEW_PULL,
   ASSIGNABLE_USERS,
+  APP_REPOS,
+  APP_IDS,
 };

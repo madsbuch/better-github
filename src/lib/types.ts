@@ -842,3 +842,46 @@ export const CheckAnnotation = z.object({
   message: z.string().nullable(),
 });
 export type CheckAnnotation = z.infer<typeof CheckAnnotation>;
+
+// The Apps section (src/queries/apps.ts): the viewer's repositories whose
+// latest release has files, and the build files that name a repository's
+// Android app.
+export const AppReposResult = z.object({
+  viewer: z.object({
+    repositories: z.object({
+      pageInfo: PageInfo,
+      nodes: nodes(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          owner: z.object({ login: z.string() }),
+          latestRelease: z.object({ releaseAssets: z.object({ nodes: nodes(z.object({ name: z.string() })) }) }).nullable(),
+        }),
+      ),
+    }),
+  }),
+});
+export type AppReposResult = z.infer<typeof AppReposResult>;
+
+const BuildFile = z.object({ text: z.string().nullable().optional() }).nullable();
+
+export const AppIdsResult = z.object({
+  nodes: z.array(
+    byTypename([
+      z.object({
+        __typename: z.literal("Repository"),
+        id: z.string(),
+        f0: BuildFile,
+        f1: BuildFile,
+        f2: BuildFile,
+        f3: BuildFile,
+        f4: BuildFile,
+        f5: BuildFile,
+        f6: BuildFile,
+        f7: BuildFile,
+        f8: BuildFile,
+      }),
+    ]).nullable(),
+  ),
+});
+export type AppIdsResult = z.infer<typeof AppIdsResult>;

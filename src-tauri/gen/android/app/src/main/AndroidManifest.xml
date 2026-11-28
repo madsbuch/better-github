@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Opening a downloaded APK still requires the user's per-app install consent. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Apps installed through Better GitHub (Apps.kt) update without asking again, where Android allows it (12+). -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- The Apps section finds installed apps that come from the user's repositories. The app isn't on
+         Google Play, whose policy restricts this permission. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <!-- Lets BrowserTabs.kt see which browsers support Custom Tabs (package visibility, Android 11+) -->
     <queries>
@@ -33,6 +41,9 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- PackageInstaller's verdicts on installs started in Apps.kt. -->
+        <receiver android:name=".InstallResults" android:exported="false" />
 
         <provider
           android:name="androidx.core.content.FileProvider"

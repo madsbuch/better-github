@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as AppsRouteImport } from "./routes/apps";
 import { Route as NotificationsRouteImport } from "./routes/notifications";
 import { Route as OrgsRouteImport } from "./routes/orgs";
 import { Route as ProfileRouteImport } from "./routes/profile";
@@ -40,6 +41,11 @@ import { Route as OwnerRepoActionsRunsRunIdJobJobIdRouteImport } from "./routes/
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AppsRoute = AppsRouteImport.update({
+  id: "/apps",
+  path: "/apps",
   getParentRoute: () => rootRouteImport,
 } as any);
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -178,6 +184,7 @@ const OwnerRepoActionsRunsRunIdJobJobIdRoute =
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/apps": typeof AppsRoute;
   "/notifications": typeof NotificationsRoute;
   "/orgs": typeof OrgsRoute;
   "/profile": typeof ProfileRoute;
@@ -207,6 +214,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/apps": typeof AppsRoute;
   "/notifications": typeof NotificationsRoute;
   "/orgs": typeof OrgsRoute;
   "/profile": typeof ProfileRoute;
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/apps": typeof AppsRoute;
   "/notifications": typeof NotificationsRoute;
   "/orgs": typeof OrgsRoute;
   "/profile": typeof ProfileRoute;
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/apps"
     | "/notifications"
     | "/orgs"
     | "/profile"
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
+    | "/apps"
     | "/notifications"
     | "/orgs"
     | "/profile"
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/"
+    | "/apps"
     | "/notifications"
     | "/orgs"
     | "/profile"
@@ -356,6 +368,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  AppsRoute: typeof AppsRoute;
   NotificationsRoute: typeof NotificationsRoute;
   OrgsRoute: typeof OrgsRoute;
   ProfileRoute: typeof ProfileRoute;
@@ -391,6 +404,13 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/";
       preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/apps": {
+      id: "/apps";
+      path: "/apps";
+      fullPath: "/apps";
+      preLoaderRoute: typeof AppsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/notifications": {
@@ -580,6 +600,7 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppsRoute: AppsRoute,
   NotificationsRoute: NotificationsRoute,
   OrgsRoute: OrgsRoute,
   ProfileRoute: ProfileRoute,

@@ -1,18 +1,20 @@
-import { GearIcon, OrganizationIcon, PeopleIcon, RepoIcon } from "@primer/octicons-react";
+import { AppsIcon, GearIcon, OrganizationIcon, PeopleIcon, RepoIcon } from "@primer/octicons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useLocation, useRouterState, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { canManageApps } from "../lib/apps";
 import { useDesktopInput } from "../lib/desktop";
 import { to, useNav } from "../lib/nav";
 import { useSessionApi } from "../lib/session";
 import { warmStartup } from "../queries/warm";
 import { Avatar, ErrorView, SkeletonList } from "../components/ui";
 
-type TabId = "repos" | "orgs" | "profile" | "settings";
+type TabId = "repos" | "orgs" | "apps" | "profile" | "settings";
 
 const TABS: { id: TabId; label: string; path: string; target: ReturnType<(typeof to)[TabId]> }[] = [
   { id: "repos", label: "Repos", path: "/repos", target: to.repos() },
   { id: "orgs", label: "Orgs", path: "/orgs", target: to.orgs() },
+  { id: "apps", label: "Apps", path: "/apps", target: to.apps() },
   { id: "profile", label: "You", path: "/profile", target: to.profile() },
   { id: "settings", label: "Settings", path: "/settings", target: to.settings() },
 ];
@@ -82,10 +84,13 @@ function TabBar({ current, rail = false }: { current?: TabId | undefined; rail?:
       {TABS.map((tab) => {
         // Guests belong to no organization.
         if (tab.id === "orgs" && state.status !== "signed-in") return null;
+        // Only the Android app can see and install apps, and finding them takes an account.
+        if (tab.id === "apps" && (state.status !== "signed-in" || !canManageApps())) return null;
         const active = tab.id === current;
         let icon: ReactNode;
         if (tab.id === "repos") icon = <RepoIcon size={20} />;
         else if (tab.id === "orgs") icon = <OrganizationIcon size={20} />;
+        else if (tab.id === "apps") icon = <AppsIcon size={20} />;
         else if (tab.id === "settings") icon = <GearIcon size={20} />;
         else if (state.status === "signed-in") icon = <Avatar src={state.session.avatarUrl} size={22} />;
         else icon = <PeopleIcon size={20} />;

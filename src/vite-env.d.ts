@@ -10,6 +10,8 @@ interface Window {
   readonly GhCommanderAndroid?: { openBrowserTab(url: string): boolean };
   /** Android's download manager (Downloads.kt); absent elsewhere. */
   readonly GhCommanderDownloads?: import("./lib/downloads").AndroidDownloadManager;
+  /** The apps installed on the device, and installing APKs (Apps.kt); absent elsewhere and in older app versions. */
+  readonly GhCommanderApps?: import("./lib/apps").AndroidApps;
   /** The device's dark theme setting, and the colours of the system bars (Theme.kt); absent elsewhere. */
   readonly GhCommanderTheme?: { systemDark(): boolean; apply(dark: boolean): void };
 }

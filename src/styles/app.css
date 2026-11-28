@@ -3057,6 +3057,34 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+/* ------------------------------------------------------------------- apps */
+
+.app-row {
+  align-items: center;
+}
+
+.app-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding-top: 0;
+  color: var(--fg-muted);
+}
+
+.app-icon img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.apps-hint {
+  margin: 0;
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+
 /* --------------------------------------------------------------- settings */
 
 .settings-entry {

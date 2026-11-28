@@ -1104,7 +1104,60 @@ const RELEASES = [
 /** A REST body that makes the request fail with 404, as GitHub does. */
 const NOT_FOUND = Symbol("not found");
 
+// ------------------------------------------------------------------- apps
+//
+// The Apps section: acme/rocket names its app in android/app/build.gradle,
+// octocat/notes in tauri.conf.json and publishes it on a rolling "latest"
+// release; acme/website's latest release has no APK and octocat/dotfiles has
+// no release. e2e/apps.spec.ts fakes the phone (GhCommanderApps).
+
+const APP_REPOS = [
+  { id: "R_rocket", name: "rocket", owner: { login: "acme" }, latestRelease: { releaseAssets: { nodes: [{ name: "rocket-v2.0.0.apk" }, { name: "checksums.txt" }] } } },
+  { id: "R_notes", name: "notes", owner: { login: "octocat" }, latestRelease: { releaseAssets: { nodes: [{ name: "notes.apk" }] } } },
+  { id: "R_website", name: "website", owner: { login: "acme" }, latestRelease: { releaseAssets: { nodes: [{ name: "site.zip" }] } } },
+  { id: "R_dotfiles", name: "dotfiles", owner: { login: "octocat" }, latestRelease: null },
+];
+
+const APP_BUILD_FILE_TEXT: Record<string, Record<string, string>> = {
+  R_rocket: { f5: 'android {\n  defaultConfig {\n    applicationId "dev.acme.rocket"\n  }\n}\n' },
+  R_notes: { f0: '{ "productName": "Notes", "identifier": "dev.octocat.notes" }' },
+};
+
+function appIdsData(variables: Record<string, unknown>): unknown {
+  const ids = Array.isArray(variables.ids) ? variables.ids.map(str) : [];
+  return {
+    nodes: ids.map((id) => {
+      const files = APP_BUILD_FILE_TEXT[id] ?? {};
+      const fields = Object.fromEntries(Array.from({ length: 9 }, (_, i) => `f${i.toString()}`).map((field) => [field, field in files ? { text: files[field] } : null]));
+      return { __typename: "Repository", id, ...fields };
+    }),
+  };
+}
+
+/** octocat/notes: one APK, replaced by every build on the "latest" release. */
+const NOTES_RELEASE = {
+  ...release(9, "latest", "Latest build", 120),
+  html_url: "https://github.com/octocat/notes/releases/tag/latest",
+  body_html: "<p>Build 214 of <code>main</code>.</p>",
+  assets: [
+    {
+      id: 901,
+      name: "notes.apk",
+      label: null,
+      state: "uploaded",
+      content_type: "application/vnd.android.package-archive",
+      size: 9_437_184,
+      download_count: 3,
+      created_at: ago(60 * 24 * 30),
+      updated_at: ago(120),
+      browser_download_url: "https://github.com/octocat/notes/releases/download/latest/notes.apk",
+    },
+  ],
+};
+
 function releasesBody(path: string): unknown {
+  if (path.startsWith("/repos/octocat/notes/releases")) return path.endsWith("/releases") ? [NOTES_RELEASE] : NOTES_RELEASE;
+  if (path.startsWith("/repos/acme/website/releases") || path.startsWith("/repos/octocat/dotfiles/releases")) return NOT_FOUND;
   if (path.endsWith("/releases")) return RELEASES;
   if (path.endsWith("/releases/latest")) return at(RELEASES, 0);
   const byTag = /\/releases\/tags\/(.+)$/.exec(path);
@@ -1134,6 +1187,10 @@ function graphqlData(query: string, variables: Record<string, unknown>): unknown
       return { viewer: { repositories: { totalCount: REPOS.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: REPOS } } };
     case "ViewerStarred":
       return { viewer: { starredRepositories: { totalCount: 2, pageInfo: { hasNextPage: false, endCursor: null }, nodes: REPOS.slice(0, 2) } } };
+    case "AppRepos":
+      return { viewer: { repositories: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: APP_REPOS } } };
+    case "AppIds":
+      return appIdsData(variables);
     case "ViewerOrgs":
       return {
         viewer: {

@@ -5,7 +5,7 @@ A fast GitHub client for Android phones and tablets and for the desktop (macOS, 
 ## Features
 
 **Repository home**
-- The app opens on your repositories, with filtering and a Starred tab. Primary navigation is *Repos · Orgs · You · Settings*.
+- The app opens on your repositories, with filtering and a Starred tab. Primary navigation is *Repos · Orgs · Apps · You · Settings* (Apps only in the Android app).
 - **Settings** has its own section, as a menu of pages: Account (sign out, rate limit), Appearance, Code and diffs, GitHub sign-in, Keyboard shortcuts and About. On a phone each page is a screen; from tablet width the menu stays beside the open page. Switching between light and dark cross-fades, unless the device asks for reduced motion.
 - **Organizations** has its own section: the organizations you belong to, each with its description and how many repositories it has, opening the organization's page.
 - Each repository's Overview puts *Pull requests*, *Releases* and *Builds* up front: review changes, download a release, or inspect and retry a workflow run.
@@ -35,6 +35,13 @@ A fast GitHub client for Android phones and tablets and for the desktop (macOS, 
 - Every repository has a *Releases* tab, and its Overview shows the latest release. A release shows its notes, tag and assets.
 - Tap an asset, or the source code as zip or tar.gz, to download it. Android's download manager saves it with a progress notification; the release page also shows progress and an **Open** action once it finishes. Download references survive navigation and app restarts, so opening the release again doesn't download a second copy. This works for private repositories too.
 - Opening an APK launches Android's installer. If Android first asks to allow installs from Better GitHub, grant that permission, return to the release and tap **Open** again. Failed or deleted downloads can be retried, and a separate download button lets you fetch another copy.
+
+**Apps** (Android)
+- The *Apps* section lists the apps on your phone that come from your repositories: any repository you can see whose latest release has an APK. Apps are matched by the package name the repository's build files declare (Tauri's `identifier`, Gradle's `applicationId`, Expo's `package` or Capacitor's `appId`), or because you installed them from a release in Better GitHub. No other installed app is shown.
+- Apps with a newer build come first. A newer build is an APK uploaded after the app was last installed on the phone, so rolling `latest` releases that replace one APK work as well as versioned tags.
+- **Update** downloads the APK and installs it as soon as the download finishes; *Update all* does every one. Up-to-date apps have an *Open* button, and each app links to its latest release.
+- APKs install through Android's PackageInstaller, with Better GitHub as the app's installer (from Apps and from release pages alike). From Android 12, Android may then install later updates of those apps without asking. The first install, and apps first installed some other way, still show Android's confirmation. A build signed with a different key than the installed app can't update it.
+- Listing installed apps needs Android's `QUERY_ALL_PACKAGES` permission. It is granted at install time, and Better GitHub isn't on Google Play, whose policy restricts it.
 
 **Browse without signing in**
 - *Browse without signing in* on the sign-in screen opens a guest mode: add GitHub users and organizations to a list, and the app shows their public repositories, newest first, with a filter per profile.

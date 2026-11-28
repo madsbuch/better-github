@@ -1,0 +1,53 @@
+{
+  "$schema": "../schema/spec.schema.json",
+  "title": "Apps",
+  "summary": "The apps on your phone that come from your repositories, kept up to date from their releases.",
+  "order": 5.5,
+  "stories": [
+    {
+      "id": "US-APP-1",
+      "as": "someone who installs their own apps from GitHub releases",
+      "want": "to see which of them have a newer build and update them in one tap",
+      "soThat": "I don't hunt through releases and download pages to stay current"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "APP-1",
+      "text": "The main navigation has an Apps section after Orgs, in the Android app for signed-in users. Elsewhere, and for guests, it isn't offered; opened anyway, its page says it lives on the phone."
+    },
+    {
+      "id": "APP-2",
+      "text": "It lists the installed apps that come from a repository the user can see whose latest release has an APK. An app is matched by the package name its repository's build files declare (Tauri's identifier, Gradle's applicationId, Expo's package, Capacitor's appId), or because it was installed from one of the repository's releases in Better GitHub. No other installed app is ever shown."
+    },
+    {
+      "id": "APP-3",
+      "text": "Each app shows its icon, name, repository and installed version. Apps with a newer build come first, under Updates, and the rest under Installed, each by name."
+    },
+    {
+      "id": "APP-4",
+      "text": "A newer build is an APK on the latest release that was uploaded after the app was last installed or updated on the phone, so rolling releases that replace one APK work as well as versioned ones. The APK last installed through Better GitHub counts as up to date until the release has another one or the app changes some other way."
+    },
+    {
+      "id": "APP-5",
+      "text": "One tap on Update downloads the APK and installs it as soon as the download finishes, showing progress in the row. With more than one update, Update all starts every one."
+    },
+    {
+      "id": "APP-6",
+      "text": "APKs, from Apps or from a release, install through Android's PackageInstaller with Better GitHub as their installer, so that from Android 12 Android may install later updates without asking. The app is remembered with the repository it came from, and signing out forgets it. Where the installer can't start, Android's own installer opens the file as before."
+    },
+    {
+      "id": "APP-7",
+      "text": "An app opens its repository's latest release. An app that's up to date has an Open button that launches it."
+    },
+    {
+      "id": "APP-8",
+      "text": "Finding apps reads the repositories in a few batched requests and is kept for 30 minutes; pull to refresh looks again.",
+      "level": "should"
+    }
+  ],
+  "related": [
+    "organizations",
+    "repositories"
+  ]
+}

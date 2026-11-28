@@ -12,6 +12,8 @@ export const ReleaseAsset = z.object({
   size: z.number(),
   download_count: z.number(),
   browser_download_url: z.string(),
+  /** When the file was uploaded (or replaced: rolling releases swap their APK). */
+  updated_at: z.string(),
 });
 export type ReleaseAsset = z.infer<typeof ReleaseAsset>;
 

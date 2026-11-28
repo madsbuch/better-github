@@ -47,6 +47,8 @@ export const keys = {
     rateLimit: () => ["viewer", "rate-limit"] as const,
     /** Branches the viewer pushed lately, across their most recently pushed repositories. */
     recentBranches: () => ["viewer", "recent-branches"] as const,
+    /** The viewer's repositories that publish an Android app, with its package names (Apps). */
+    apps: () => ["viewer", "apps"] as const,
   },
   owner: (login: string) => ["owner", login.toLowerCase()] as const,
   guest: {

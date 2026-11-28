@@ -2,6 +2,8 @@
 // its content URI. Only download IDs are persisted, never the signed URLs.
 import { useEffect, useState } from "react";
 import { z } from "zod";
+import { isApk } from "./appMatch";
+import { useApkInstall } from "./apps";
 import { backend, type DownloadTarget } from "./backend";
 import { formatBytes } from "./format";
 import { parseJson } from "./schema";
@@ -110,6 +112,10 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
   const [hint, setHint] = useState<string | null>(null);
   const [statusError, setStatusError] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  // APKs install through PackageInstaller where the app can (Apps.kt), so the app is remembered and updates later.
+  const installer = useApkInstall(
+    target.kind === "asset" && isApk(file.name) ? { owner: target.owner, repo: target.repo, assetId: target.assetId, assetName: file.name } : null,
+  );
 
   useEffect(() => {
     const bridge = manager();
@@ -175,15 +181,24 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
   const open = () => {
     const bridge = manager();
     if (id === null || bridge === undefined) return;
-    // A throwing bridge, or an answer the app doesn't know, counts as a failure.
-    let answer: string;
-    try {
-      answer = bridge.open(id);
-    } catch {
-      answer = "failed";
+    let result: OpenResult | "started" = "failed";
+    if (installer.available) result = installer.install(id);
+    if (result === "started") {
+      setHint(null);
+      return;
     }
-    const parsed = OpenResult.safeParse(answer);
-    const result: OpenResult = parsed.success ? parsed.data : "failed";
+    // Without the installer bridge, or when it couldn't start, Android's own installer opens the file.
+    if (result === "failed") {
+      // A throwing bridge, or an answer the app doesn't know, counts as a failure.
+      let answer: string;
+      try {
+        answer = bridge.open(id);
+      } catch {
+        answer = "failed";
+      }
+      const parsed = OpenResult.safeParse(answer);
+      result = parsed.success ? parsed.data : "failed";
+    }
     const messages: Record<Exclude<OpenResult, "opened">, string> = {
       permission_required: "Allow Better GitHub to install apps in Android Settings, then return and tap Open again.",
       not_ready: "This download isn't finished yet.",
@@ -212,9 +227,11 @@ export function useDownload(target: DownloadTarget, file: DownloadFile) {
   return {
     start: () => start.mutate(),
     open,
-    busy: start.isPending || inProgress(status) || (id !== null && status === null && manager() !== undefined),
+    busy: start.isPending || inProgress(status) || (id !== null && status === null && manager() !== undefined) || installer.busy,
     complete: status?.status === "successful",
     retry: status?.status === "failed" || status?.status === "missing",
-    message: hint ?? progress,
+    /** Installed through Better GitHub just now (APKs only). */
+    installed: installer.installed,
+    message: installer.message ?? hint ?? progress,
   };
 }

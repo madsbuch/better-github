@@ -48,6 +48,8 @@ export const to = {
   notifications: (filter?: NotificationsFilter) => linkOptions({ to: "/notifications", search: { filter } }),
   repos: (tab?: "starred") => linkOptions({ to: "/repos", search: { tab } }),
   orgs: () => linkOptions({ to: "/orgs" }),
+  /** The apps on this phone that come from the user's repositories (Android only). */
+  apps: () => linkOptions({ to: "/apps" }),
   profile: () => linkOptions({ to: "/profile" }),
   /** Settings: its menu, or one of its pages. */
   settings: (section?: SettingsSection) =>
